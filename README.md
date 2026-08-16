@@ -56,7 +56,9 @@
 
 ## 在线游玩
 
-部署在 GitHub Pages 后可直接在线游玩。
+▶️ **在线地址**：https://doumiaojiang.github.io/FantasyForest/
+
+部署在 GitHub Pages，打开即玩。每次推送代码到 `main` 分支都会自动重新部署。
 
 ## 免责声明
 
