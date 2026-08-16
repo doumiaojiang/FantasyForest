@@ -354,7 +354,7 @@ window.BattleUI = (function () {
         const failed = await showTaskDialog({
           enemyName: `哥布林 ${i}/${gobCount}`,
           attackName: attack.name,
-          desc: `第 ${i} 只哥布林深插你的${State.get().gender !== 'male' ? '小穴' : '屁眼'}，120 BPM`,
+          desc: `第 ${i} 只哥布林深插你的${State.get().gender !== 'male' && roll >= 4 ? '小穴' : '菊穴'}，120 BPM`,
           bpm,
           seconds: secondsPerGob,
           dmg: attack.dmg,   // 显示总伤害，与最终结算一致
@@ -384,7 +384,7 @@ window.BattleUI = (function () {
         const failed = await showTaskDialog({
           enemyName: `哥布林轮换 ${i}/${roundCount}`,
           attackName: attack.name,
-          desc: `哥布林${g1} 浅插${State.get().gender !== 'male' ? '小穴' : '屁眼'}，哥布林${g2} 口交，120 BPM`,
+          desc: `哥布林${g1} 浅插${State.get().gender !== 'male' && roll >= 4 ? '小穴' : '菊穴'}，哥布林${g2} 口交，120 BPM`,
           bpm,
           seconds: secondsPerRound,
           dmg: attack.dmg,   // 显示总伤害，与最终结算一致
@@ -412,7 +412,7 @@ window.BattleUI = (function () {
         const failed = await showTaskDialog({
           enemyName: `${enemy.name} ${i}/${repeatCount}`,
           attackName: attack.name,
-          desc: `第 ${i} 只哥布林：${attack.desc}`,
+          desc: `第 ${i} 只哥布林：${State.get().gender !== 'male' && roll >= 4 ? attack.desc.replace(/菊穴/g, '小穴') : attack.desc}`,
           bpm: attack.taskBpm || 60,
           seconds: randSeconds,
           dmg: attack.dmg,   // 显示总伤害，与最终结算一致
@@ -1351,8 +1351,9 @@ window.BattleUI = (function () {
 
   function showWerewolfFinal () {
     const state = State.get()
-    const hole = state.gender !== 'male' ? '小穴' : '菊穴'
-    EventBus.emit('ui:log', { text: '🌕 太阳升起，狼人变回了人形……', type: 'dim' })
+    const z = Dice.rollZ()
+    const hole = (state.gender !== 'male' && z >= 4) ? '小穴' : '菊穴'
+    EventBus.emit('ui:log', { text: `🌕 太阳升起，狼人变回了人形……（掷 Z=${z}，他操你的${hole}）`, type: 'dim' })
     Dialog.show({
       title: '🌕 临终遗愿',
       body: `
@@ -1367,16 +1368,16 @@ window.BattleUI = (function () {
       actions: [
         { label: '▶️ 开始任务', cls: 'btn-primary', handler: () => {
           Dialog.close()
-          doWerewolfTask()
+          doWerewolfTask(z)
         }},
       ],
     })
   }
 
   /** 狼人临终 45 秒任务，完成后承受毒精液伤害 */
-  async function doWerewolfTask () {
+  async function doWerewolfTask (z) {
     const state = State.get()
-    const hole = state.gender !== 'male' ? '小穴' : '菊穴'
+    const hole = (state.gender !== 'male' && z >= 4) ? '小穴' : '菊穴'
     try {
       const failed = await showTaskDialog({
         enemyName: '🌕 人形狼人',
@@ -1411,8 +1412,9 @@ window.BattleUI = (function () {
 
   function showTentacleEmbedded () {
     const state = State.get()
-    const hole = state.gender !== 'male' ? '小穴' : '菊穴'
-    EventBus.emit('ui:log', { text: `🐙 你在被干时砍断了触手，断掉的那截弹进了你的${hole}里！`, type: 'danger' })
+    const z = Dice.rollZ()
+    const hole = (state.gender !== 'male' && z >= 4) ? '小穴' : '菊穴'
+    EventBus.emit('ui:log', { text: `🐙 你在被干时砍断了触手，断掉的那截弹进了你的${hole}里！（掷 Z=${z}）`, type: 'danger' })
     Dialog.show({
       title: '🐙 断触手',
       body: `
