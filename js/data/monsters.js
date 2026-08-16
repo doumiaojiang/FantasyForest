@@ -65,7 +65,7 @@ window.MONSTERS = [
       { roll: 3, name: '锁喉深插', desc: '用大号假阴茎深插菊穴 45 秒（90 BPM），同时掐住自己的脖子模拟锁喉', dmg: 3, status: 'sleepy', turns: 3, special: 'choke' },
       { roll: 4, name: '深插',   desc: '用大号假阴茎整根没入菊穴，150 BPM 用力抽插直到喊停', dmg: 4 },
       { roll: 5, name: '中深插', desc: '用大号假阴茎插入菊穴一半，120 BPM 稳定抽插 45 秒',     dmg: 2 },
-      { roll: 6, name: '慢深插', desc: '用大号假阴茎缓缓插入直到一插到底，30 BPM 极慢但每一下都顶到底，持续 30 秒',       dmg: 1 },
+      { roll: 6, name: '慢深插', desc: '用大号假阴茎缓缓插入菊穴直到一插到底，30 BPM 极慢但每一下都顶到底，持续 30 秒',       dmg: 1 },
     ],
     loot: {
       gold: 90,
