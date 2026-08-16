@@ -178,7 +178,7 @@
         <div style="display:flex;flex-direction:column;gap:10px">
           <div style="background:var(--panel-2);border:1px solid var(--border);border-radius:10px;padding:12px">
             <div style="font-size:.8rem;color:var(--text-dim)">玩家</div>
-            <b>${escapeHtml(state.playerName || '妖林勇者')}</b> <span style="color:var(--accent-bright);font-size:.8rem">(${escapeHtml(diffName(state.difficulty))})</span>
+            <b>${escapeHtml(state.playerName || '妖林勇者')}</b> <span style="color:var(--accent-bright);font-size:.8rem">(${escapeHtml(state.genderLabel || (state.gender === 'male' ? '男性' : '女性'))} · ${escapeHtml(diffName(state.difficulty))})</span>
           </div>
           ${villageMode ? '<p class="settings-village-note">🏘️ 村庄中可安全保存或删除存档；关闭设置后会返回刚才的页面。</p>' : ''}
           <div class="settings-grid">
