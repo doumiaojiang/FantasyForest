@@ -329,11 +329,11 @@ window.BattleUI = (function () {
 
     const enemy = DATA.monster(_enemy.id)
     const attack = enemy.attacks.find(a => a.roll === roll) || { name: '普通攻击', desc: '攻击了你', dmg: 0 }
-    // 女性角色：把操菊穴的攻击改为操小穴（深拷贝不污染数据）
+    // 女性角色：Z4-6 操菊穴的攻击改为操小穴（Z1-3 保持菊穴，与妓女打工一致）
     const gender = State.get().gender
     let effAttack = attack
     let attackPart = /菊穴/.test(attack.desc) ? 'anal' : /小穴/.test(attack.desc) ? 'vagina' : null
-    if (gender !== 'male' && attackPart === 'anal') {
+    if (gender !== 'male' && attackPart === 'anal' && roll >= 4) {
       effAttack = { ...attack, desc: attack.desc.replace(/菊穴/g, '小穴'), name: attack.name }
       attackPart = 'vagina'
     }
@@ -773,11 +773,11 @@ window.BattleUI = (function () {
     // 掷 Z 决定被召唤敌人的攻击
     const z = Dice.rollEnemy()
     const attack = summoned.attacks.find(a => a.roll === z) || summoned.attacks[0] || { name: '攻击', desc: '攻击了你', dmg: 0 }
-    // 女性角色：把操菊穴的攻击改为操小穴（深拷贝不污染数据）
+    // 女性角色：Z4-6 操菊穴的攻击改为操小穴（Z1-3 保持菊穴，与妓女打工一致）
     const gender = State.get().gender
     let effAttack = attack
     let attackPart = /菊穴/.test(attack.desc) ? 'anal' : /小穴/.test(attack.desc) ? 'vagina' : null
-    if (gender !== 'male' && attackPart === 'anal') {
+    if (gender !== 'male' && attackPart === 'anal' && z >= 4) {
       effAttack = { ...attack, desc: attack.desc.replace(/菊穴/g, '小穴'), name: attack.name }
       attackPart = 'vagina'
     }
