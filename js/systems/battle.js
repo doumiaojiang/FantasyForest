@@ -28,8 +28,10 @@ window.BattleSystem = (function () {
       reflectTurns: 0,
       orbBoost: false,
       blocked: 0,           // 总格挡数（小肛塞 + 巨肛塞）
-      smallPlugBlocked: 0,  // 小肛塞剩余抵挡
-      plugBlocked: 0,       // 巨肛塞剩余抵挡
+      smallPlugBlocked: 0,  // 一次性塞入物剩余抵挡（小肛塞/跳蛋）
+      smallPlugType: null,  // 一次性塞入物部位：'anal' 肛塞 / 'vagina' 跳蛋
+      plugBlocked: 0,       // 可取下塞入物剩余抵挡（巨肛塞/震动假阳具）
+      plugType: null,       // 可取下塞入物部位：'anal' / 'vagina'
       defending: false,
       goblinInitialCount: null,
     }

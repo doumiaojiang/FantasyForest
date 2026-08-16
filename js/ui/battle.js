@@ -329,9 +329,17 @@ window.BattleUI = (function () {
 
     const enemy = DATA.monster(_enemy.id)
     const attack = enemy.attacks.find(a => a.roll === roll) || { name: '普通攻击', desc: '攻击了你', dmg: 0 }
-    _lastEnemyAttack = { attack, roll }
+    // 女性角色：把操菊穴的攻击改为操小穴（深拷贝不污染数据）
+    const gender = State.get().gender
+    let effAttack = attack
+    let attackPart = /菊穴/.test(attack.desc) ? 'anal' : /小穴/.test(attack.desc) ? 'vagina' : null
+    if (gender !== 'male' && attackPart === 'anal') {
+      effAttack = { ...attack, desc: attack.desc.replace(/菊穴/g, '小穴'), name: attack.name }
+      attackPart = 'vagina'
+    }
+    _lastEnemyAttack = { attack: effAttack, roll, part: attackPart }
 
-    EventBus.emit('ui:log', { text: `[${_enemy.name}] ${attack.desc}`, type: 'danger' })
+    EventBus.emit('ui:log', { text: `[${_enemy.name}] ${effAttack.desc}`, type: 'danger' })
 
     // 哥布林深插：每只哥布林各干 15 秒（120 BPM）
     if (attack.special === 'goblin_deep') {
@@ -765,16 +773,24 @@ window.BattleUI = (function () {
     // 掷 Z 决定被召唤敌人的攻击
     const z = Dice.rollEnemy()
     const attack = summoned.attacks.find(a => a.roll === z) || summoned.attacks[0] || { name: '攻击', desc: '攻击了你', dmg: 0 }
-    _lastEnemyAttack = { attack, roll: z, summonedId }
+    // 女性角色：把操菊穴的攻击改为操小穴（深拷贝不污染数据）
+    const gender = State.get().gender
+    let effAttack = attack
+    let attackPart = /菊穴/.test(attack.desc) ? 'anal' : /小穴/.test(attack.desc) ? 'vagina' : null
+    if (gender !== 'male' && attackPart === 'anal') {
+      effAttack = { ...attack, desc: attack.desc.replace(/菊穴/g, '小穴'), name: attack.name }
+      attackPart = 'vagina'
+    }
+    _lastEnemyAttack = { attack: effAttack, roll: z, summonedId, part: attackPart }
     // 持久化当前召唤攻击（任务中刷新后不丢失，读档时自动结算）
     const _bsState = State.get()
     if (_bsState && _bsState._battle) {
-      _bsState._pendingBossAttack = { attack, roll: z, summonedId }
+      _bsState._pendingBossAttack = { attack: effAttack, roll: z, summonedId, part: attackPart }
       EventBus.emit('state:changed', _bsState)
     }
 
     await Dialog.showDice(z, 'Z')
-    EventBus.emit('ui:log', { text: `${summoned.name} 使用「${attack.name}」：${attack.desc}`, type: 'danger' })
+    EventBus.emit('ui:log', { text: `${summoned.name} 使用「${effAttack.name}」：${effAttack.desc}`, type: 'danger' })
 
     // 只有依赖整支族群的效果会失效；魔女/哥布林召唤会转化为 BOSS 小兵。
     if (attack.special && ['infight', 'steal'].includes(attack.special)) {
@@ -851,9 +867,11 @@ window.BattleUI = (function () {
 
     // 肛塞抵挡整次敌方结算（包含已有小兵伤害、治疗反转），必须先判定再结算
     if (battle.blocked > 0) {
-      ShopSystem.consumeBlockCharge()
-      blocked = true
-      dmg = 0
+      const attackPart = _lastEnemyAttack ? _lastEnemyAttack.part : null
+      if (ShopSystem.consumeBlockForPart(attackPart)) {
+        blocked = true
+        dmg = 0
+      }
     }
 
     // 治疗反转：治疗转精灵且翻倍（被肛塞挡住则完全无效）
@@ -993,11 +1011,13 @@ window.BattleUI = (function () {
     }
 
 
-    // 肛塞抵挡（消耗独立计数：巨肛塞优先，否则小肛塞）
+    // 肛塞抵挡（按攻击部位消耗：肛塞挡菊穴、跳蛋/震动假阳具挡小穴）
     if (battle && battle.blocked > 0) {
-      ShopSystem.consumeBlockCharge()
-      blocked = true
-      dmg = 0
+      const attackPart = _lastEnemyAttack ? _lastEnemyAttack.part : null
+      if (ShopSystem.consumeBlockForPart(attackPart)) {
+        blocked = true
+        dmg = 0
+      }
     }
 
     if (failed && !blocked) dmg *= 2  // 没完成：伤害翻倍

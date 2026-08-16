@@ -248,6 +248,7 @@ window.ShopSystem = (function () {
       state._plugActive = itemId
       if (combat) {
         combat.plugBlocked = item.effect.block || 3
+        combat.plugType = (itemId === 'big_butt_plug') ? 'anal' : 'vagina'
         combat.blocked = (combat.smallPlugBlocked || 0) + (combat.plugBlocked || 0)
       }
       EventBus.emit('ui:log', { text: `🍑 塞入${item.name}，可抵挡 ${item.effect.block || 3} 次攻击！`, type: 'good' })
@@ -255,14 +256,19 @@ window.ShopSystem = (function () {
       return { ok: true, item }
     }
 
-    // 其他一次性肛塞类（小肛塞 / 跳蛋）：菊穴只能塞一个肛塞
+    // 其他一次性肛塞类（小肛塞 / 跳蛋）：只能塞一个
     if (item.effect.block) {
       if (state._plugActive) return { ok: false, msg: '已塞入塞入物，请先取下' }
-      if (combat && (combat.smallPlugBlocked || 0) > 0) return { ok: false, msg: '菊穴里已经塞了别的肛塞！' }
+      if (combat && (combat.smallPlugBlocked || 0) > 0) return { ok: false, msg: '穴里已经塞了别的东西！' }
     }
 
     state.inventory.consumables[itemId]--
     applyEffect(item.effect)
+    // 一次性塞入物记录部位（肛塞=菊穴，跳蛋=小穴）
+    const combatAfter = state._battle || state._ambush
+    if (combatAfter && item.effect.block) {
+      combatAfter.smallPlugType = (itemId === 'vibrator_egg') ? 'vagina' : 'anal'
+    }
     EventBus.emit('ui:log', { text: `使用了 ${item.name}。`, type: 'good' })
     EventBus.emit('state:changed', state)
     return { ok: true, item }
@@ -302,17 +308,49 @@ window.ShopSystem = (function () {
     }
   }
 
-  /** 消耗一次肛塞格挡（巨肛塞优先，否则小肛塞），同步总计数 */
-  function consumeBlockCharge () {
+  /** 消耗一次格挡（按攻击部位：肛塞挡菊穴、跳蛋/震动假阳具挡小穴） */
+  function consumeBlockForPart (part) {
     const state = State.get()
     const combat = state._battle || state._ambush
-    if (!combat) return
-    if (state._plugActive) {
-      consumePlugCharge()
-    } else if ((combat.smallPlugBlocked || 0) > 0) {
+    if (!combat) return false
+    // 判定可消耗的格挡来源
+    if (part === 'anal') {
+      if (state._plugActive && combat.plugType === 'anal' && (combat.plugBlocked || 0) > 0) {
+        consumePlugCharge()
+        return true
+      }
+      if ((combat.smallPlugBlocked || 0) > 0 && combat.smallPlugType === 'anal') {
+        combat.smallPlugBlocked--
+        combat.blocked = combat.smallPlugBlocked + (combat.plugBlocked || 0)
+        return true
+      }
+      return false
+    }
+    if (part === 'vagina') {
+      if (state._plugActive && combat.plugType === 'vagina' && (combat.plugBlocked || 0) > 0) {
+        consumePlugCharge()
+        return true
+      }
+      if ((combat.smallPlugBlocked || 0) > 0 && combat.smallPlugType === 'vagina') {
+        combat.smallPlugBlocked--
+        combat.blocked = combat.smallPlugBlocked + (combat.plugBlocked || 0)
+        return true
+      }
+      return false
+    }
+    // 无部位（通用）：可取下物优先，否则一次性塞入物
+    if (state._plugActive) { consumePlugCharge(); return true }
+    if ((combat.smallPlugBlocked || 0) > 0) {
       combat.smallPlugBlocked--
       combat.blocked = combat.smallPlugBlocked + (combat.plugBlocked || 0)
+      return true
     }
+    return false
+  }
+
+  /** 兼容旧调用：消耗一次肛塞格挡（巨肛塞优先，否则小肛塞），同步总计数 */
+  function consumeBlockCharge () {
+    return consumeBlockForPart(null)
   }
 
   function applyEffect (effect) {
@@ -379,5 +417,5 @@ window.ShopSystem = (function () {
     return { ok: true }
   }
 
-  return { open, buy, equip, unequip, close, useConsumable, removePlug, consumePlugCharge, consumeBlockCharge, getStock, buyClothes, reviveMercenary }
+  return { open, buy, equip, unequip, close, useConsumable, removePlug, consumePlugCharge, consumeBlockCharge, consumeBlockForPart, getStock, buyClothes, reviveMercenary }
 })()
