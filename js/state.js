@@ -105,7 +105,7 @@ window.State = (function () {
       rounds: 0,
       logs: [],   // 冒险日志（持久化，读档恢复）
       clothesDeposited: false,   // 托管衣服给小鹿（尖石交换的代价）
-      _plugActive: false,   // 巨肛塞已塞入（可随时取放）
+      _plugActive: false,   // 已塞入的可取下塞入物 id（'big_butt_plug'/'vibrating_dildo'），false=无
       _moveState: null,     // 移动回合状态 { steps, turning }（岔路存档恢复用）
     }
   }
@@ -347,6 +347,9 @@ window.State = (function () {
     }))
     if (state.clothesDeposited === undefined) state.clothesDeposited = false
     if (state._plugActive === undefined) state._plugActive = false
+    // 兼容旧档：巨肛塞以 true 标记 → 归一为物品 id
+    if (state._plugActive === true) state._plugActive = 'big_butt_plug'
+    if (state._plugActive !== false && !['big_butt_plug', 'vibrating_dildo'].includes(state._plugActive)) state._plugActive = false
     if (state._moveState === undefined) state._moveState = null
     if (state._pendingGuardianTreasure === undefined) state._pendingGuardianTreasure = null
     if (state._pendingGuardianGold === undefined) state._pendingGuardianGold = null

@@ -832,9 +832,10 @@
       </button>`
     }).join('')
 
-    // 已塞入巨肛塞时，提供取下入口
+    // 已塞入可取下塞入物时，提供取下入口
     if (state._plugActive) {
-      html = `<button class="btn btn-danger move-plug-remove" style="display:block;width:100%;text-align:left;margin:6px 0">🍑 取下巨肛塞（放回背包，清除剩余格挡）</button>` + html
+      const plugItem = ItemLib.get(state._plugActive)
+      html = `<button class="btn btn-danger move-plug-remove" style="display:block;width:100%;text-align:left;margin:6px 0">🍑 取下${plugItem ? plugItem.name : '塞入物'}（放回背包，清除剩余格挡）</button>` + html
     }
 
     Dialog.show({

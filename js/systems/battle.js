@@ -233,17 +233,19 @@ window.BattleSystem = (function () {
     EventBus.emit('state:changed', state)
   }
 
-  /** 归还巨肛塞：清活动标记、还回背包、清除格挡计数（防止幽灵格挡） */
+  /** 归还塞入物（巨肛塞/震动假阳具）：清活动标记、还回背包、清除格挡计数（防止幽灵格挡） */
   function returnPlug () {
     const state = State.get()
     if (!state._plugActive) return
+    const plugId = state._plugActive
     state._plugActive = false
-    state.inventory.consumables['big_butt_plug'] = (state.inventory.consumables['big_butt_plug'] || 0) + 1
+    state.inventory.consumables[plugId] = (state.inventory.consumables[plugId] || 0) + 1
     if (state._battle) {
       state._battle.plugBlocked = 0
       state._battle.blocked = state._battle.smallPlugBlocked || 0
     }
-    EventBus.emit('ui:log', { text: '🍑 巨肛塞自动取下放回背包。', type: 'good' })
+    const plugItem = typeof ItemLib !== 'undefined' ? ItemLib.get(plugId) : null
+    EventBus.emit('ui:log', { text: `🍑 ${plugItem ? plugItem.name : '塞入物'}自动取下放回背包。`, type: 'good' })
   }
 
   /** 战斗结束 */
