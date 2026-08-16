@@ -107,7 +107,7 @@ window.CampSystem = (function () {
       Dialog.show({
         title: '🛡️ 城门口 · 卫兵', className: 'glory-modal',
         body: `<div class="glory-section"><h3><span>“哟，厕所的味儿都还没散呢。”</span><small>卫兵捂着鼻子，露出嫌弃又好笑的表情</small></h3>
-          <p class="camp-muted">“看你小子是刚从洞里爬出来还清了债——行，滚吧。下次想溜号，记得先掂量掂量自己的屁股值几个钱。”</p></div>`,
+          <p class="camp-muted">“看你${state.gender === 'male' ? '男雌婊' : '丫头'}是刚从洞里爬出来还清了债——行，滚吧。下次想溜号，记得先掂量掂量自己的屁股值几个钱。”</p></div>`,
         actions: [{ label: '出城', cls: 'btn-primary', handler: () => { Dialog.close(); doLeaveCamp() } }],
       })
       return
@@ -170,7 +170,7 @@ window.CampSystem = (function () {
         [{ label: '出城', cls: 'btn-primary', handler: () => { Dialog.close(); doLeaveCamp() } }])
     } else if (r < 65) {
       // 没收衣服 → 全裸
-      guardMsg('🛡️ 卫兵拦住你', `<div class="glory-section"><h3><span>“${state.gender === 'male' ? '臭小子也敢穿这么少出城？' : '妓女也敢穿这么少出城？'}衣服留下！”</span><small>卫兵一把扯下你的衣服</small></h3>
+      guardMsg('🛡️ 卫兵拦住你', `<div class="glory-section"><h3><span>“${state.gender === 'male' ? '男雌婊也敢穿这么少出城？' : '妓女也敢穿这么少出城？'}衣服留下！”</span><small>卫兵一把扯下你的衣服</small></h3>
         <p class="camp-muted">你被扒光了，进入全裸状态。</p></div>`,
         [{ label: '👙 被扒光', cls: 'btn-danger', handler: () => {
           if (!StatusSystem.has('naked')) StatusSystem.apply('naked', 99999)
@@ -185,7 +185,7 @@ window.CampSystem = (function () {
       guardAnal()
     } else {
       // 给血药
-      guardMsg('🛡️ 卫兵拦住你', `<div class="glory-section"><h3><span>“小心点，${state.gender === 'male' ? '小子' : '婊子'}。”</span><small>卫兵塞给你一瓶血药</small></h3>
+      guardMsg('🛡️ 卫兵拦住你', `<div class="glory-section"><h3><span>“小心点，${state.gender === 'male' ? '男雌婊' : '婊子'}。”</span><small>卫兵塞给你一瓶血药</small></h3>
         <p class="camp-muted">获得一瓶麦酒（+10 HP）。</p></div>`,
         [{ label: '收下', cls: 'btn-primary', handler: () => {
           state.inventory.consumables.ale = (state.inventory.consumables.ale || 0) + 1
