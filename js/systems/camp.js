@@ -17,6 +17,13 @@ window.CampSystem = (function () {
     { id: 'fast', icon: '🍑', name: '快速抽插', pay: 15, desc: '狂风暴雨般猛操你的后穴' },
     { id: 'hard', icon: '🍑', name: '全力操干', pay: 20, desc: '屁股贴墙被狠狠操干，最后浇进滚烫的润滑液' },
   ]
+  const VAGINA_SERVICES = [
+    { id: 'vhead', icon: '🌸', name: '只入龟头', pay: 6, desc: '只让龟头挤进小穴，一寸一寸试探' },
+    { id: 'vslow', icon: '🌸', name: '慢速抽插', pay: 10, desc: '假阳具缓缓进出小穴，磨得你难耐' },
+    { id: 'vmedium', icon: '🌸', name: '中速抽插', pay: 12, desc: '节奏加快，假阳具顶弄小穴深处' },
+    { id: 'vfast', icon: '🌸', name: '快速抽插', pay: 15, desc: '狂风暴雨般猛操你的小穴' },
+    { id: 'vhard', icon: '🌸', name: '全力操干', pay: 20, desc: '双腿大开被狠狠操干，最后浇进滚烫的精液' },
+  ]
   function setCampPhase () {
     const state = State.get()
     if (state.phase !== 'camp') {
@@ -390,12 +397,17 @@ window.CampSystem = (function () {
         : debt > 0
           ? `<div class="glory-notice"><b>💸 还欠营地 ${debt}G</b><span>你卖身挣的钱会先被扣去填债，填满前别想溜。</span></div>`
           : '<div class="glory-notice glory-notice-safe"><b>✓ 自由接客</b><span>现在想走就走，想干几单都行。</span></div>'
+      // 女性角色额外提供小穴洞（男性只有嘴和屁股）
+      const vaginaBtn = state.gender !== 'male'
+        ? `<button class="glory-hole-btn" data-hole="vagina"><i>🌸</i><span><b>把小穴凑过去</b><small>张开双腿任客人使用</small></span></button>`
+        : ''
       Dialog.show({
         title: '🍑 荣耀洞 · 接客', className: 'glory-modal',
         body: `${notice}<div class="glory-section"><h3><span>洞后已经有人了</span><small>把身体凑过去，剩下的交给客人</small></h3>
           <div class="glory-hole-choice">
             <button class="glory-hole-btn" data-hole="oral"><i>👄</i><span><b>把嘴凑过去</b><small>任由客人操弄你的嘴</small></span></button>
             <button class="glory-hole-btn" data-hole="anal"><i>🍑</i><span><b>把屁股凑过去</b><small>撅起屁股任客人使用</small></span></button>
+            ${vaginaBtn}
           </div>
           <p class="camp-footnote">你只负责把洞贴上去，客人会用多少钱、怎么干你，全凭他的心情——完事后掷 Z 看是否有额外惊喜。</p></div>`,
         actions: forced ? [] : [{ label: '返回营地', handler: () => { Dialog.close(); open() } }],
@@ -465,9 +477,9 @@ window.CampSystem = (function () {
     const state = State.get()
     const wasFree = !!state._gloryFreeService
     // 客人随机决定怎么用你（玩家只选了用哪个洞）
-    const pool = hole === 'oral' ? ORAL_SERVICES : ANAL_SERVICES
+    const pool = hole === 'oral' ? ORAL_SERVICES : hole === 'vagina' ? VAGINA_SERVICES : ANAL_SERVICES
     const service = pool[Math.floor(Math.random() * pool.length)]
-    const holeName = hole === 'oral' ? '嘴' : '屁股'
+    const holeName = hole === 'oral' ? '嘴' : hole === 'vagina' ? '小穴' : '屁股'
     EventBus.emit('ui:log', { text: `🍑 你把${holeName}凑了过去，客人开始「${service.name}」。`, type: 'danger' })
     const event = rollSpecialEvent()
     const completed = await runServiceTimer(service, SERVICE_SECONDS + (event.extraSeconds || 0))
