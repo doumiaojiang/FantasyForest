@@ -31,6 +31,13 @@
     .trim()
     .slice(0, 10) || '妖林勇者'
 
+  /** 根据性别返回被救者称谓（男救女友 / 女救男友） */
+  const loverTerm = gender => {
+    const g = gender === 'male' ? 'male' : 'female'
+    if (g === 'male') return { term: '女友', pronoun: '她', target: '她的踪迹' }
+    return { term: '男友', pronoun: '他', target: '他的踪迹' }
+  }
+
   /* ============ 初始化 ============ */
   UI.init()
   Log.add('妖林绮梦 v' + CONFIG.version, 'dim')
@@ -685,7 +692,8 @@
     showGameScreen()
     Log.clear()
     Log.add(`🆕 新的冒险 — ${diffName(difficulty)}`, 'good')
-    Log.add('你的女友被森林拖走了。你必须穿越妖林救回她。', '')
+    const lover = loverTerm(state.gender)
+    Log.add(`你的${lover.term}被森林拖走了。你必须穿越妖林救回${lover.pronoun}。`, '')
     MapLib.parse()
     MapUI.render()
     HUD.render()
@@ -1368,9 +1376,16 @@
   })
 
   function showBossVictory () {
+    const state = State.get()
+    const lover = loverTerm(state.gender)
     hint.textContent = '🎉 你击败了森林之灵！'
     EventBus.emit('ui:log', { text: '🎉 你杀死了森林之灵，疯长的村庄开始恢复原样。', type: 'good' })
-    EventBus.emit('ui:log', { text: '所有村民从森林中走出，你看到了你的女友！', type: 'good' })
+    EventBus.emit('ui:log', { text: `所有村民从森林中走出，你看到了你的${lover.term}！`, type: 'good' })
+    const naughty = state.gender === 'male'
+      ? `<p>你看到女友，立刻把她带回家狠狠干了一场。</p>
+         <p class="boss-ending-note">如果你想要，她会用绑带假阳具干你，最后你射进她里面。</p>`
+      : `<p>你看到男友，立刻把他带回家狠狠干了一场。</p>
+         <p class="boss-ending-note">如果你想要，他会用他的粗大鸡巴干你，最后他射进你里面。</p>`
     Dialog.show({
       title: '森林重见晨光',
       className: 'boss-ending-modal boss-victory-modal',
@@ -1379,13 +1394,12 @@
         <small class="boss-ending-kicker">VICTORY · 妖林终章</small>
         <p>你杀死了森林之灵，疯长的村庄开始恢复原样。所有村民从森林中走出，浑然不知刚才发生了什么。</p>
         <div class="boss-ending-divider"><i></i><span>✦</span><i></i></div>
-        <p>你看到女友，立刻把她带回家狠狠干了一场。</p>
-        <p class="boss-ending-note">如果你想要，她会用绑带假阳具干你，最后你射进她里面。</p>
+        ${naughty}
       `,
       actions: [
-        { label: '🏡 带她回家', cls: 'btn-primary', handler: () => {
+        { label: `🏡 带${lover.pronoun}回家`, cls: 'btn-primary', handler: () => {
           Dialog.close()
-          EventBus.emit('ui:log', { text: '🏡 大结局：你救回了女友，从此过上了幸福的生活。', type: 'good' })
+          EventBus.emit('ui:log', { text: `🏡 大结局：你救回了${lover.term}，从此过上了幸福的生活。`, type: 'good' })
           btns.innerHTML = ''
           hint.textContent = '🏡 大结局！'
         }},
