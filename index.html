@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <meta name="description" content="《妖林绮梦》是一款以掷骰探索、路线选择与回合战斗为核心的成人向奇幻浏览器游戏。" />
+  <meta name="theme-color" content="#171220" />
+  <meta name="color-scheme" content="dark" />
+  <meta name="referrer" content="strict-origin-when-cross-origin" />
+  <meta property="og:type" content="website" />
+  <meta property="og:locale" content="zh_CN" />
+  <meta property="og:title" content="妖林绮梦：异世界淫林战斗" />
+  <meta property="og:description" content="掷骰探索妖林，在路线选择与回合战斗中完成你的旅程。仅限成年人。" />
+  <link rel="canonical" href="https://sissy.game/FantasyForest/" />
+  <link rel="icon" href="favicon.svg" type="image/svg+xml" />
+  <link rel="manifest" href="manifest.webmanifest" />
+  <title>妖林绮梦：异世界淫林战斗</title>
+  <link rel="stylesheet" href="style.css?v=0.3.16" />
+</head>
+<body>
+  <section id="age-gate" class="age-gate" role="dialog" aria-modal="true" aria-labelledby="age-gate-title">
+    <div class="age-gate-card">
+      <span class="age-gate-mark" aria-hidden="true">☾</span>
+      <p class="age-gate-kicker">ADULT FANTASY · 成人幻想</p>
+      <h1 id="age-gate-title">踏入妖林之前</h1>
+      <p>本游戏包含露骨的成人性内容、性幻想、暴力与身体状态描写，仅面向达到所在地法定成年年龄的玩家。</p>
+      <div class="age-gate-notes">
+        <span>🔞 仅限成年人</span>
+        <span>💾 进度保存在本机浏览器</span>
+      </div>
+      <div class="age-gate-actions">
+        <button id="btn-age-enter" class="btn btn-primary">我已成年，自愿进入</button>
+        <button id="btn-age-leave" class="btn">离开页面</button>
+      </div>
+      <button class="age-gate-privacy" data-open-privacy>查看隐私与存档说明</button>
+    </div>
+  </section>
+
+  <!-- 游戏根容器 -->
+  <div id="app">
+    <!-- 标题/难度选择界面 -->
+    <section id="screen-title" class="screen">
+      <div class="title-ambient" aria-hidden="true">
+        <span class="title-wisp title-wisp-one"></span>
+        <span class="title-wisp title-wisp-two"></span>
+        <span class="title-leaf title-leaf-one">◆</span>
+        <span class="title-leaf title-leaf-two">◆</span>
+      </div>
+
+      <main class="title-stage">
+        <section class="title-hero" aria-labelledby="game-title">
+          <div class="title-eyebrow"><i></i><span>一场由骰子书写的妖林冒险</span><i></i></div>
+          <div class="title-emblem" aria-hidden="true"><span>☾</span></div>
+          <h1 id="game-title" class="game-title">妖林绮梦</h1>
+          <p class="game-subtitle">异世界淫林战斗</p>
+          <p class="title-tagline">踏进被欲望吞噬的森林，夺回你失去的一切。</p>
+
+          <article class="title-prologue">
+            <span class="title-prologue-label">PROLOGUE · 序章</span>
+            <h2>她被妖林带走了</h2>
+            <p>藤蔓在顷刻间吞没村庄，也带走了你的女友。现在，你必须独自穿过妖林，在每一次掷骰与战斗中寻找她的踪迹。</p>
+            <div class="title-objective"><span>当前目标</span><b>穿越森林，救回她</b></div>
+          </article>
+        </section>
+
+        <section class="title-menu" aria-label="主菜单">
+          <div class="title-menu-heading">
+            <span>THE JOURNEY BEGINS</span>
+            <h2>准备踏入妖林？</h2>
+            <p>选择难度、写下名字，然后让骰子决定你的命运。</p>
+          </div>
+          <div class="title-actions">
+            <button id="btn-new-game" class="btn btn-primary title-btn-main"><span>✦</span><b>开始新游戏</b><i>选择你的试炼 →</i></button>
+            <button id="btn-continue" class="btn btn-success btn-hidden title-btn-main"><span>↟</span><b>加载存档</b><i>继续上次旅程 →</i></button>
+            <div class="title-utility-actions">
+              <button id="btn-rules" class="btn title-btn-rules"><span>📖</span><b>翻开规则书</b></button>
+              <button id="btn-changelog" class="btn title-btn-rules title-btn-changelog"><span>✨</span><b>查看更新日志</b></button>
+            </div>
+          </div>
+          <div class="title-features" aria-label="游戏特点">
+            <span><b>🎲</b> 掷骰探索</span>
+            <span><b>⚔️</b> 回合战斗</span>
+            <span><b>💾</b> 自动存档</span>
+          </div>
+          <p class="title-menu-hint">每一条岔路，都可能通向宝藏、怪物或更深的森林。</p>
+        </section>
+      </main>
+
+      <footer class="title-footer">
+        <details class="title-creator-note">
+          <summary>✦ 给旅人的话</summary>
+          <div>
+            <p>欢迎来到《妖林绮梦》。这是我设计的第一个轮盘游戏，希望你喜欢，也欢迎反馈。</p>
+            <p>这个轮盘给了你很高的自由度，你可以调整很多东西来贴合自己的玩法；场景如何还原，也完全由你决定。</p>
+          </div>
+        </details>
+        <span>妖林旅人手册 · 第二版</span>
+        <button class="title-legal-link" data-open-privacy>隐私与存档</button>
+      </footer>
+    </section>
+
+    <!-- 主游戏界面 -->
+    <section id="screen-game" class="screen screen-hidden">
+      <header id="hud" class="game-card">
+        <div class="hud-top">
+          <div class="hud-player">
+            <div class="hud-player-sigil" aria-hidden="true">✦</div>
+            <div class="hud-name">
+              <small>FOREST TRAVELER</small>
+              <b id="hud-player-name">妖林勇者</b>
+              <span class="hud-difficulty" id="hud-diff">普通</span>
+            </div>
+            <div class="hud-stats">
+              <span>💎 <b id="hud-gold">0</b></span>
+              <span>📍 <b id="hud-pos">—</b></span>
+            </div>
+          </div>
+          <div class="hud-hp">
+            <span class="hud-label">生命</span>
+            <div class="hp-bar"><div id="hp-fill"></div></div>
+            <span id="hp-text">--/--</span>
+          </div>
+        </div>
+        <div class="hud-strip">
+          <div class="hud-strip-item" title="武器">
+            <span>⚔️</span>
+            <b id="hud-weapon">赤手空拳</b>
+          </div>
+          <div class="hud-strip-item" title="饰品">
+            <span>📿</span>
+            <b id="hud-accessory">无</b>
+          </div>
+          <div class="hud-strip-item hud-strip-items" title="物品">
+            <span>🎒</span>
+            <span id="hud-items-list" class="hud-items-list"></span>
+          </div>
+        </div>
+        <div id="hud-status" class="hud-status"></div>
+        <div id="hud-mercenary" class="hud-mercenary hud-hidden"></div>
+      </header>
+
+      <main class="game-body">
+        <!-- 左侧：地图可视化 -->
+        <aside id="map-panel" class="game-card">
+          <div class="map-heading">
+            <div>
+              <h2 class="panel-title">妖林地图</h2>
+              <small>ENCHANTED FOREST</small>
+            </div>
+            <span id="map-current-label" class="map-current-label">定位中…</span>
+          </div>
+          <div class="map-frame">
+            <div class="map-compass" aria-hidden="true">N</div>
+            <div id="map-canvas" aria-label="妖林地图"></div>
+          </div>
+          <div class="map-legend-title"><span>地图图例</span><small>亮起的格子代表已经探索</small></div>
+          <div id="map-legend" class="map-legend" aria-label="地图图例"></div>
+        </aside>
+
+        <!-- 右侧：战斗区（敌人框 + 日志） -->
+        <div class="battle-area">
+          <div id="hud-enemy" class="hud-hidden game-card">
+            <div class="hud-enemy-header"><span>⚔️ 敌对目标</span><small>ENCOUNTER</small></div>
+            <div id="hud-enemy-targets"></div>
+          </div>
+
+          <!-- 日志与操作 -->
+          <section id="log-panel" class="game-card">
+            <div class="battle-log-title">
+              <div>
+                <h2 class="panel-title">旅途记录</h2>
+                <small>ADVENTURE CHRONICLE</small>
+              </div>
+              <span class="log-live"><i></i><b id="log-count">0</b> 条事件</span>
+            </div>
+            <div class="log-guide"><span>只记录重要遭遇与选择</span><small>最新在上</small></div>
+            <div id="log-box"></div>
+          </section>
+        </div>
+      </main>
+
+      <footer id="action-bar" class="game-card">
+        <div id="action-hint"></div>
+        <div id="action-buttons"></div>
+      </footer>
+    </section>
+  </div>
+
+  <!-- 全屏顶栏（横贯整个屏幕宽度，固定置顶，仅游戏界面显示） -->
+  <header id="topbar" class="hidden">
+    <div class="topbar-inner">
+      <span class="topbar-title">🌲 妖林绮梦</span>
+      <div class="topbar-right">
+        <span id="topbar-save-hint" class="topbar-save-hint"></span>
+        <button id="btn-topbar-save" class="btn btn-sm">💾<span class="btn-text">存档</span></button>
+        <button id="btn-topbar-settings" class="btn btn-sm">⚙️<span class="btn-text">设置</span></button>
+      </div>
+    </div>
+  </header>
+
+  <!-- 手机端浮动方向键（可拖动） -->
+  <div id="dpad-float" class="dpad-float hidden"></div>
+
+  <!-- 通用弹窗层 -->
+  <div id="modal-layer" class="modal-layer modal-hidden"></div>
+
+  <!-- 骰子动画层 -->
+  <div id="dice-layer" class="dice-layer dice-hidden">
+    <div id="dice-display"></div>
+  </div>
+
+  <script src="js/config.js?v=0.3.16"></script>
+  <script src="js/eventbus.js?v=0.3.16"></script>
+  <script src="js/state.js?v=0.3.16"></script>
+  <script src="js/data/monsters.js?v=0.3.16"></script>
+  <script src="js/data/items.js?v=0.3.16"></script>
+  <script src="js/data/status.js?v=0.3.16"></script>
+  <script src="js/data/map.js?v=0.3.16"></script>
+  <script src="js/data/index.js?v=0.3.16"></script>
+  <script src="js/systems/battle.js?v=0.3.16"></script>
+  <script src="js/systems/movement.js?v=0.3.16"></script>
+  <script src="js/systems/shop.js?v=0.3.16"></script>
+  <script src="js/systems/status.js?v=0.3.16"></script>
+  <script src="js/systems/loot.js?v=0.3.16"></script>
+  <script src="js/systems/dildo.js?v=0.3.16"></script>
+  <script src="js/systems/camp.js?v=0.3.16"></script>
+  <script src="js/systems/index.js?v=0.3.16"></script>
+  <script src="js/ui/dialog.js?v=0.3.16"></script>
+  <script src="js/ui/hud.js?v=0.3.16"></script>
+  <script src="js/ui/map.js?v=0.3.16"></script>
+  <script src="js/ui/battle.js?v=0.3.16"></script>
+  <script src="js/ui/log.js?v=0.3.16"></script>
+  <script src="js/ui/changelog.js?v=0.3.16"></script>
+  <script src="js/ui/index.js?v=0.3.16"></script>
+  <script src="js/main.js?v=0.3.16"></script>
+</body>
+</html>

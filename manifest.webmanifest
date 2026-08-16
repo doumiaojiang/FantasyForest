@@ -1,0 +1,20 @@
+{
+  "name": "妖林绮梦：异世界淫林战斗",
+  "short_name": "妖林绮梦",
+  "description": "掷骰探索、路线选择与回合战斗组成的成人向奇幻浏览器游戏。",
+  "id": "/FantasyForest/",
+  "start_url": "/FantasyForest/",
+  "scope": "/FantasyForest/",
+  "display": "standalone",
+  "background_color": "#171220",
+  "theme_color": "#171220",
+  "lang": "zh-CN",
+  "icons": [
+    {
+      "src": "favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
+  ]
+}

@@ -1,0 +1,276 @@
+/**
+ * ui/changelog.js — 更新日志
+ *
+ * 模仿 ChatGPT 发布说明风格：每次版本更新后显示一次。
+ * - 版本号与 config.js 的 CONFIG.version 一致
+ * - localStorage 记录上次已显示的版本，只有版本变化时才弹窗
+ */
+
+window.Changelog = (function () {
+  // v2：旧接线曾误写“已读”，换 key 让修复后的弹窗可靠展示一次。
+  const STORAGE_KEY = 'yaolin-changelog-seen-v2'
+
+  /** 各版本的更新日志（新版本放最前） */
+  const LOGS = [
+    {
+      version: '0.3.13',
+      title: '佣兵系统 & 芙蕾雅',
+      date: '2026-08-17',
+      sections: [
+        {
+          icon: '⚔️',
+          title: '新增：佣兵芙蕾雅',
+          items: [
+            '酒馆角落坐着一位扶她女战士芙蕾雅，可以闲聊、花 1000G 招募。',
+            '你攻击命中后她补上 2 点伤害；你 miss 她也收招。',
+            '她没有血条，但战败时她会陪你倒下——可到商店花 50G 复活。',
+            '招募后她会从酒馆消失，常驻帮你打架。',
+          ],
+        },
+        {
+          icon: '💬',
+          title: '调整：对话随机循环',
+          items: [
+            '老板娘与守卫队队长的闲聊改为随机循环，每次都不一样，像 RPG 一样。',
+          ],
+        },
+        {
+          icon: '👑',
+          title: '调整：妓女排行更名',
+          items: [
+            '排行改为：雏妓 → 新手妓女 → 顺从的妓女 → 职业妓女 → 头牌妓畜。',
+            '队长处可取消许可证，按等级收费或拒绝并"操一顿"：职业妓女被拒、头牌妓畜被扔荣耀洞。',
+          ],
+        },
+      ],
+    },
+    {
+      version: '0.3.6',
+      title: '守卫队队长 & 卫兵顾客',
+      date: '2026-08-17',
+      sections: [
+        {
+          icon: '🛡️',
+          title: '新增：酒馆守卫队队长',
+          items: [
+            '军官坐在酒馆一角，可以聊天听门道，也能直接在他那儿办 200G 的妓女许可证。',
+            '先找队长办证的话，老板娘会酸一句"攀上军官的高枝了"。',
+          ],
+        },
+        {
+          icon: '🗂️',
+          title: '新增：卫兵顾客',
+          items: [
+            '下值的卫兵来"放松"，用中号假阳具操你，按军规办事。',
+            'Z=1-2 免费伺候但送你「出城免检查卷」；出城时出示直接放行。',
+          ],
+        },
+        {
+          icon: '⚠️',
+          title: '调整：出城盘问 & 荣耀洞',
+          items: [
+            '持妓女证出城会遭卫兵盘问（罚款 / 没收衣服 / 口交肛交等），出城按钮会红色提示。',
+            '罚款付不起会被丢进荣耀洞卖身还债，另收 30G 入场管理费；还清欠款出城，卫兵放行并嘲笑。',
+          ],
+        },
+      ],
+    },
+    {
+      version: '0.3.4',
+      title: '妓女打工系统 & 库帕王国',
+      date: '2026-08-16',
+      sections: [
+        {
+          icon: '🍻',
+          title: '新增：酒馆妓女打工',
+          items: [
+            '和老板娘聊 3 次解锁打工，花 200G 办许可证、换上妓女服就能接客。',
+            '客人：哥布林 / 狼人 / 兽人 / 牛头人 / 库帕，掷 Z 定任务，含 BPM 和分段计时。',
+            '接客升级获得称号：新手妓女 / 顺从的妓女 / 职业妓女 / 头牌妓畜。',
+            '任务失败会欠老板娘钱，还清前不能换衣服离开；也可以花金币换客人。',
+          ],
+        },
+        {
+          icon: '💄',
+          title: '新增：妓女用品供应商',
+          items: [
+            '口红 / 妆容（口交加成）、情趣内衣 / 乳胶衣 / 项圈 / 口塞（翻倍效果）、高跟鞋 / 肛塞 / 贞操笼等 9 种用品。',
+            '用品效果最高 ×2，可在接客界面查看已装备。',
+          ],
+        },
+        {
+          icon: '🦔',
+          title: '新增：库帕顾客',
+          items: [
+            '长满尖刺的"库帕王国"国王，用你最大的假阳具，任务给足分段和 BPM。',
+          ],
+        },
+      ],
+    },
+    {
+      version: '0.3.3',
+      title: '更多顾客 & 妓女称号',
+      date: '2026-08-16',
+      sections: [
+        {
+          icon: '🐮',
+          title: '新增：牛头人顾客',
+          items: [
+            '传奇牛头人加入接客名单，性欲极强，任务给足 BPM 和节拍。',
+          ],
+        },
+        {
+          icon: '👑',
+          title: '新增：妓女等级称号',
+          items: [
+            '新手妓女（10级）、顺从的妓女（30级，服务时呻吟）、职业妓女（70级，服务时呻吟）、头牌妓畜（100级，佩戴贞操笼+呻吟）。',
+          ],
+        },
+      ],
+    },
+    {
+      version: '0.3.2',
+      title: '酒馆老板娘 & 打工系统',
+      date: '2026-08-16',
+      sections: [
+        {
+          icon: '💃',
+          title: '新增：老板娘聊天',
+          items: [
+            '可以和老板娘聊几句，多聊几次她会告诉你酒馆里能打工。',
+          ],
+        },
+        {
+          icon: '💋',
+          title: '新增：妓女打工',
+          items: [
+            '聊过打工话题后，老板娘处解锁打工入口。',
+            '花 200G 买许可证，换上妓女服就能接客。',
+            '遇到哥布林 / 狼人 / 兽人顾客，掷 Z 定任务，含 BPM 节拍和完成任务。',
+            '接客赚金币还能提升妓女等级；有的顾客会抢你的钱。',
+          ],
+        },
+      ],
+    },
+    {
+      version: '0.3.1',
+      title: '雾灯酒馆开张',
+      date: '2026-08-16',
+      sections: [
+        {
+          icon: '🍺',
+          title: '新增：雾灯酒馆',
+          items: [
+            '摇骰子赌博：下注 5 / 10G，也可以选择梭哈；60% 会亏，40% 能赢。',
+            '赌客兜里有 50G，赢光他的钱他就会离开；打赢一个敌人后他会带着 50G 重新回来。',
+          ],
+        },
+        {
+          icon: '🍷',
+          title: '新增：吧台酒单',
+          items: [
+            '麦酒 / 烈酒 / 药酒：回 HP 但会醉酒（攻击减半、走路摇晃）。',
+          ],
+        },
+        {
+          icon: '🚻',
+          title: '改进：厕所',
+          items: [
+            '上厕所可以免费使用，还能调查那间不对劲的隔间发现荣耀洞。',
+          ],
+        },
+      ],
+    },
+    {
+      version: '0.3.0',
+      title: '营地开放 & 全新体验',
+      date: '2026-08-16',
+      sections: [
+        {
+          icon: '⛺',
+          title: '新增：林缘营地',
+          items: [
+            '出生点东侧新增营地，进去可以自由休息、补给了。',
+            '营地里的旅行商店、公共厕所、雾灯酒馆和篝火旁的鹿都已就位。',
+          ],
+        },
+        {
+          icon: '🚻',
+          title: '新增：公共厕所与隐藏荣耀洞',
+          items: [
+            '厕所可以免费使用，还能调查那间不对劲的隔间。',
+            '发现荣耀洞后，可以用嘴或屁股接客赚钱——进洞需先交 30G 服务费，钱不够可赊账。',
+            '每次进营地只能上一次厕所。',
+          ],
+        },
+        {
+          icon: '🦌',
+          title: '调整：小鹿搬家了',
+          items: [
+            '开局不再直接遇到小鹿，它搬到了营地里，记得去领见面礼（树枝 + 补给）。',
+          ],
+        },
+      ],
+    },
+  ]
+
+  /** 是否应显示更新日志（版本比上次已显示的新） */
+  function shouldShow () {
+    try {
+      return localStorage.getItem(STORAGE_KEY) !== CONFIG.version
+    } catch (_) {
+      return true
+    }
+  }
+
+  /** 标记当前版本已显示 */
+  function markSeen () {
+    try { localStorage.setItem(STORAGE_KEY, CONFIG.version) } catch (_) {}
+  }
+
+  /** 显示更新日志弹窗（累积显示所有历史版本） */
+  function show () {
+    if (!LOGS.length) { markSeen(); return }
+
+    const renderVersion = (log, isNewest) => `
+      <div class="changelog-version ${isNewest ? 'is-newest' : ''}">
+        <header class="changelog-hero">
+          ${isNewest ? '<span>NEW</span>' : '<span>PAST</span>'}
+          <small>v${log.version} · ${log.date}</small>
+          <h3>${log.title}</h3>
+          ${isNewest ? '<p>妖林又发生了一些变化。</p>' : ''}
+        </header>
+        <div class="changelog-list">
+          ${log.sections.map(s => `
+            <section class="changelog-section">
+              <div class="changelog-section-title"><i>${s.icon}</i><b>${s.title}</b></div>
+              <ul>${s.items.map(i => `<li>${i}</li>`).join('')}</ul>
+            </section>`).join('')}
+        </div>
+      </div>`
+
+    const newest = LOGS[0]
+    const history = LOGS.slice(1).map(l => renderVersion(l, false)).join('')
+
+    Dialog.show({
+      title: `✨ 更新日志`,
+      className: 'changelog-modal',
+      body: `
+        ${renderVersion(newest, true)}
+        ${history ? `<details class="changelog-history"><summary>📜 查看历史更新</summary>${history}</details>` : ''}
+        <div class="changelog-thanks">✦ 感谢游玩《妖林绮梦》</div>
+        <div class="changelog-thanks">🍻 妓女打工玩法参考：<a href="https://sissy.game/1197.html" target="_blank" rel="noopener" style="color:var(--accent-bright)">sissy.game/1197.html</a></div>
+      `,
+      actions: [
+        { label: '知道了', cls: 'btn-primary', handler: () => { Dialog.close(); markSeen() } },
+      ],
+    })
+  }
+
+  /** 启动时检查并显示（应在进入游戏界面后调用） */
+  function check () {
+    if (shouldShow()) show()
+  }
+
+  return { check, show, shouldShow, markSeen }
+})()
