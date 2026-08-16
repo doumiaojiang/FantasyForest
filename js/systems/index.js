@@ -210,10 +210,15 @@ window.TreasureSystem = {
         BattleSystem.start(treasure.enemy)
         return 'battle'
       case 'items':
-        treasure.items.forEach(id => {
+        // 补给包：女性把巨肛塞换成震动假阳具（对应小穴）
+        let itemList = treasure.items
+        if (State.get().gender !== 'male' && itemList.includes('big_butt_plug')) {
+          itemList = itemList.map(id => id === 'big_butt_plug' ? 'vibrating_dildo' : id)
+        }
+        itemList.forEach(id => {
           state.inventory.consumables[id] = (state.inventory.consumables[id] || 0) + 1
         })
-        resultText = `获得：${treasure.items.map(id => ItemLib.get(id)?.name || id).join('、')}。`
+        resultText = `获得：${itemList.map(id => ItemLib.get(id)?.name || id).join('、')}。`
         break
       case 'maxhp':
         state.maxHp += treasure.value
@@ -320,10 +325,15 @@ window.TreasureSystem = {
         BattleSystem.start(treasure.enemy)
         return 'battle'
       case 'items':
-        treasure.items.forEach(id => {
+        // 补给包：女性把巨肛塞换成震动假阳具（对应小穴）
+        let itemListFinal = treasure.items
+        if (State.get().gender !== 'male' && itemListFinal.includes('big_butt_plug')) {
+          itemListFinal = itemListFinal.map(id => id === 'big_butt_plug' ? 'vibrating_dildo' : id)
+        }
+        itemListFinal.forEach(id => {
           state.inventory.consumables[id] = (state.inventory.consumables[id] || 0) + 1
         })
-        resultText = `再次获得：${treasure.items.map(id => ItemLib.get(id)?.name || id).join('、')}。`
+        resultText = `再次获得：${itemListFinal.map(id => ItemLib.get(id)?.name || id).join('、')}。`
         break
       case 'maxhp':
         state.maxHp += treasure.value
