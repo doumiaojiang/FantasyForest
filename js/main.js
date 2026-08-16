@@ -630,7 +630,7 @@
     }, 50)
   }
 
-  /** 询问玩家名字后开始游戏 */
+  /** 询问玩家名字 + 性别后开始游戏 */
   function askPlayerName (difficulty) {
     Dialog.show({
       title: '🧑 给自己起个名字',
@@ -639,22 +639,53 @@
         <input id="input-player-name" type="text" maxlength="10" placeholder="输入勇者名（默认：妖林勇者）"
           style="width:100%;padding:10px 14px;font-size:1rem;background:var(--panel-2);border:1px solid var(--border);border-radius:8px;color:var(--text);outline:none;"
         />
+        <div style="margin-top:14px;color:var(--text-dim);font-size:.82rem;margin-bottom:6px">选择性别</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px">
+          <button type="button" class="gender-opt" data-gender="female" style="grid-template-columns:1fr">
+            <span style="font-size:1.5rem">👩</span>
+            <b>女</b>
+          </button>
+          <button type="button" class="gender-opt" data-gender="male" style="grid-template-columns:1fr">
+            <span style="font-size:1.5rem">👨</span>
+            <b>男</b>
+          </button>
+          <button type="button" class="gender-opt" data-gender="futa" style="grid-template-columns:1fr">
+            <span style="font-size:1.5rem">⚧️</span>
+            <b>扶她</b>
+          </button>
+        </div>
       `,
       actions: [
         { label: '⚔️ 开始冒险', cls: 'btn-primary', handler: () => {
           const input = document.getElementById('input-player-name')
           const name = cleanPlayerName(input && input.value)
+          const genderEl = document.querySelector('.gender-opt.is-selected')
+          const gender = genderEl ? genderEl.dataset.gender : 'female'
           Dialog.close()
-          startNewGame(difficulty, name)
+          startNewGame(difficulty, name, gender)
         }},
       ],
     })
+    setTimeout(() => {
+      const genderOpts = document.querySelectorAll('.gender-opt')
+      if (!genderOpts.length) return
+      let selected = null
+      const select = (btn) => {
+        genderOpts.forEach(b => b.classList.remove('is-selected'))
+        btn.classList.add('is-selected')
+        selected = btn
+      }
+      // 默认选中"女"
+      const femaleBtn = document.querySelector('.gender-opt[data-gender="female"]')
+      if (femaleBtn) select(femaleBtn)
+      genderOpts.forEach(btn => { btn.onclick = () => select(btn) })
+    }, 50)
   }
 
-  function startNewGame (difficulty, playerName) {
+  function startNewGame (difficulty, playerName, gender) {
     State.clearSave()
     State.init(difficulty)
-    State.update(s => { s.inventory.consumables['bandaid'] = 1; s.playerName = playerName || '妖林勇者' })
+    State.update(s => { s.inventory.consumables['bandaid'] = 1; s.playerName = playerName || '妖林勇者'; s.gender = gender || 'female' })
     showGameScreen()
     Log.clear()
     Log.add(`🆕 新的冒险 — ${diffName(difficulty)}`, 'good')

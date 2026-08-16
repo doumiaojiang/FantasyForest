@@ -50,6 +50,7 @@ window.State = (function () {
       saveVersion: SAVE_VERSION,
       difficulty,
       playerName: '妖林勇者',
+      gender: 'female',              // 玩家性别：female 女 / male 男 / futa 扶她
       hp: cfg.maxHp,
       maxHp: cfg.maxHp,
       gold: 0,
@@ -300,6 +301,7 @@ window.State = (function () {
     state.saveVersion = SAVE_VERSION
     if (state.playerName === undefined) state.playerName = def.playerName
     state.playerName = String(state.playerName || def.playerName).replace(/[<>\u0000-\u001f]/g, '').slice(0, 10) || def.playerName
+    state.gender = ['female', 'male', 'futa'].includes(state.gender) ? state.gender : 'female'
     state.maxHp = Math.max(1, finite(state.maxHp, def.maxHp))
     state.hp = Math.min(state.maxHp, Math.max(0, finite(state.hp, def.hp)))
     state.gold = Math.max(0, Math.floor(finite(state.gold, def.gold)))
