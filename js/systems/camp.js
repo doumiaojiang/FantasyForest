@@ -1502,8 +1502,17 @@ window.CampSystem = (function () {
     const customer = CUSTOMER_TASKS[customerKey]
     if (!customer) { state._prostitutePendingTask = null; EventBus.emit('state:changed', state); prostitute(); return }
     const z = forcedZ || Dice.rollZ()
-    const task = customer.tasks[z]
+    let task = customer.tasks[z]
     if (!task) { state._prostitutePendingTask = null; EventBus.emit('state:changed', state); prostitute(); return }
+    // 女性角色：Z=1-3 操菊穴，Z=4-6 改操小穴（阴道）；男性角色一律操菊穴
+    if (state.gender !== 'male' && z >= 4 && /菊穴/.test(task.desc)) {
+      const fix = s => String(s || '').replace(/菊穴/g, '小穴')
+      task = {
+        ...task,
+        desc: fix(task.desc),
+        steps: (task.steps || []).map(st => ({ ...st, desc: fix(st.desc) })),
+      }
+    }
     state._prostitutePendingTask = { customerKey, z, stepIndex: Math.max(0, startStep) }
     EventBus.emit('state:changed', state)
     await Dialog.showDice(z, 'Z')
