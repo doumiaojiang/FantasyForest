@@ -207,8 +207,11 @@ window.Dialog = (function () {
         </div>`
     }
 
-    // 消耗品（排除商店不出售的特殊物品：升级材料、小鹿树枝、卫兵免检查卷）
-    ITEMS.consumables.filter(it => it.id !== 'weapon_upgrade_material' && it.id !== 'twig' && it.id !== 'guard_pass').forEach(item => { html += renderItem(item) })
+    // 消耗品（排除商店不出售的特殊物品：升级材料、小鹿树枝、卫兵免检查卷；女性专用塞入物男性不可见）
+    ITEMS.consumables.filter(it =>
+      it.id !== 'weapon_upgrade_material' && it.id !== 'twig' && it.id !== 'guard_pass' &&
+      !((it.id === 'vibrator_egg' || it.id === 'vibrating_dildo') && state.gender === 'male')
+    ).forEach(item => { html += renderItem(item) })
     html += '</div><hr style="border-color:var(--border);margin:10px 0"><h4>装备</h4><div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">'
     ITEMS.weapons.forEach(item => { html += renderItem(item) })
     ITEMS.accessories.forEach(item => { html += renderItem(item) })

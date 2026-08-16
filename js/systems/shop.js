@@ -67,6 +67,10 @@ window.ShopSystem = (function () {
     // 消耗品
     if (item.type === 'consumable') {
       if (itemId === 'twig') return { ok: false, msg: '树枝只能由小鹿剧情获得' }
+      // 女性专用塞入物：男性无法购买/使用
+      if ((itemId === 'vibrator_egg' || itemId === 'vibrating_dildo') && state.gender === 'male') {
+        return { ok: false, msg: '这是女性专用的塞入物' }
+      }
       if (!_stock[itemId] || _stock[itemId] <= 0) return { ok: false, msg: '已售罄' }
       const price = getPrice(item)
       if (state.gold < price) return { ok: false, msg: '金币不足' }
@@ -221,6 +225,11 @@ window.ShopSystem = (function () {
     const combat = state._battle || state._ambush
     const count = state.inventory.consumables[itemId] || 0
     if (count <= 0) return { ok: false, msg: '没有该物品' }
+
+    // 女性专用塞入物：男性无法使用
+    if ((itemId === 'vibrator_egg' || itemId === 'vibrating_dildo') && state.gender === 'male') {
+      return { ok: false, msg: '这是女性专用的塞入物' }
+    }
 
     const item = ItemLib.get(itemId)
     if (!item) return { ok: false, msg: '物品不存在' }
