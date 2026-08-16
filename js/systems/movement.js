@@ -188,7 +188,7 @@ window.AmbushSystem = {
   async trigger () {
     const state = State.get()
     state.phase = 'ambush'
-    state._ambush = { smallPlugBlocked: 0, plugBlocked: 0, blocked: 0, reflectTurns: 0 }
+    state._ambush = { smallPlugBlocked: 0, plugBlocked: 0, blocked: 0, reflectTurns: 0, smallPlugType: null, plugType: null }
     EventBus.emit('ui:log', { text: '🌫️ 你被伏击了！反复掷骰直到掷出双数才能脱身。', type: 'danger' })
     EventBus.emit('state:changed', state)
 
@@ -212,18 +212,26 @@ window.AmbushSystem = {
       const enemyId = pool[idx]
       const enemy = DATA.monster(enemyId)
       const attack = enemy.attacks.find(a => a.roll === z) || enemy.attacks[0]
-      EventBus.emit('ui:log', { text: `🌫️ ${enemy.name} 突袭并使用「${attack.name}」！`, type: 'danger' })
+      // 女性角色：Z4-6 操菊穴的攻击改为操小穴（Z1-3 保持菊穴，与战斗一致）
+      let effAttack = attack
+      let attackPart = /菊穴/.test(attack.desc) ? 'anal' : /小穴/.test(attack.desc) ? 'vagina' : null
+      if (State.get().gender !== 'male' && attackPart === 'anal' && z >= 4) {
+        effAttack = { ...attack, desc: attack.desc.replace(/菊穴/g, '小穴'), name: attack.name }
+        attackPart = 'vagina'
+      }
+      EventBus.emit('ui:log', { text: `🌫️ ${enemy.name} 突袭并使用「${effAttack.name}」！`, type: 'danger' })
 
       // 显示攻击任务
-      await AmbushSystem.showTask(enemy, attack)
+      await AmbushSystem.showTask(enemy, effAttack)
 
       // 伏击怪物只执行本轮一次攻击，不进入普通战斗，也不保留 HP。
-      let damage = attack.dmg || 0
+      let damage = effAttack.dmg || 0
       let blocked = false
       if (state._ambush && state._ambush.blocked > 0) {
-        ShopSystem.consumeBlockCharge()
-        damage = 0
-        blocked = true
+        if (ShopSystem.consumeBlockForPart(attackPart)) {
+          damage = 0
+          blocked = true
+        }
       }
 
       // 屏障咒反射：未格挡时反射一半伤害（伏击的袭击者承受，无持久目标则仅提示）
@@ -236,7 +244,7 @@ window.AmbushSystem = {
       }
 
       if (!State.get()._godMode) state.hp -= damage
-      if (!blocked && attack.status) StatusSystem.apply(attack.status, attack.turns, { level: attack.level, source: 'enemy' })
+      if (!blocked && effAttack.status) StatusSystem.apply(effAttack.status, effAttack.turns, { level: effAttack.level, source: 'enemy' })
       EventBus.emit('ui:log', {
         text: blocked ? `🛡️ 挡住了 ${enemy.name} 的伏击攻击！` : `💥 ${enemy.name} 的攻击造成 ${damage} 点伤害。`,
         type: blocked ? 'good' : 'danger',
