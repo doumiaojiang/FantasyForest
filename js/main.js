@@ -640,7 +640,7 @@
           style="width:100%;padding:10px 14px;font-size:1rem;background:var(--panel-2);border:1px solid var(--border);border-radius:8px;color:var(--text);outline:none;"
         />
         <div style="margin-top:14px;color:var(--text-dim);font-size:.82rem;margin-bottom:6px">选择性别</div>
-        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px">
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
           <button type="button" class="gender-opt" data-gender="female" style="grid-template-columns:1fr">
             <span style="font-size:1.5rem">👩</span>
             <b>女</b>
@@ -648,10 +648,6 @@
           <button type="button" class="gender-opt" data-gender="male" style="grid-template-columns:1fr">
             <span style="font-size:1.5rem">👨</span>
             <b>男</b>
-          </button>
-          <button type="button" class="gender-opt" data-gender="futa" style="grid-template-columns:1fr">
-            <span style="font-size:1.5rem">⚧️</span>
-            <b>扶她</b>
           </button>
         </div>
       `,
