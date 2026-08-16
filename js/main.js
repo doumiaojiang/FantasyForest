@@ -648,13 +648,13 @@
         />
         <div style="margin-top:14px;color:var(--text-dim);font-size:.82rem;margin-bottom:6px">选择性别</div>
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
-          <button type="button" class="gender-opt" data-gender="female" style="grid-template-columns:1fr">
-            <span style="font-size:1.5rem">👩</span>
-            <b>女</b>
-          </button>
           <button type="button" class="gender-opt" data-gender="male" style="grid-template-columns:1fr">
             <span style="font-size:1.5rem">👨</span>
             <b>男</b>
+          </button>
+          <button type="button" class="gender-opt" data-gender="female" style="grid-template-columns:1fr">
+            <span style="font-size:1.5rem">👩</span>
+            <b>女</b>
           </button>
         </div>
       `,
@@ -678,9 +678,9 @@
         btn.classList.add('is-selected')
         selected = btn
       }
-      // 默认选中"女"
-      const femaleBtn = document.querySelector('.gender-opt[data-gender="female"]')
-      if (femaleBtn) select(femaleBtn)
+      // 默认选中"男"
+      const maleBtn = document.querySelector('.gender-opt[data-gender="male"]')
+      if (maleBtn) select(maleBtn)
       genderOpts.forEach(btn => { btn.onclick = () => select(btn) })
     }, 50)
   }
