@@ -36,10 +36,10 @@ function render (state) {
     if (!state) state = State.get()
     if (!state) return
 
-    // 玩家名 + 难度（名字前显示性别，有妓院许可证时再加妓女称号）
+    // 玩家名 + 难度（名字前显示性别标签，有妓院许可证时再加妓女称号）
     if (playerNameEl) {
       let name = state.playerName || '妖林勇者'
-      const genderLabel = state.gender === 'male' ? '男性' : '女性'
+      const genderLabel = state.genderLabel || (state.gender === 'male' ? '男性' : '女性')
       name = `${genderLabel} ${name}`
       if (state._prostituteLicensed) {
         const lv = state._prostituteLevel || 1

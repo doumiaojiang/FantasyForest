@@ -637,58 +637,105 @@
     }, 50)
   }
 
-  /** 询问玩家名字 + 性别后开始游戏 */
+  /** 性别标签配置：阵营 → 可选标签 */
+  const GENDER_FACTIONS = [
+    {
+      id: 'male_faction', icon: '👨', name: '男', gender: 'male', defaultLabel: '男性',
+      labels: [
+        { id: 'boy', label: '男生' }, { id: 'male', label: '男性' },
+        { id: 'male1', label: '男奴' }, { id: 'male2', label: '公狗' },
+        { id: 'male3', label: '带锁公狗' }, { id: 'male4', label: '男妓' },
+        { id: 'male5', label: '帅哥' }, { id: 'male6', label: '校草' },
+      ],
+    },
+    {
+      id: 'female_faction', icon: '👩', name: '女', gender: 'female', defaultLabel: '女性',
+      labels: [
+        { id: 'girl', label: '女生' }, { id: 'female', label: '女性' },
+        { id: 'female1', label: '女奴' }, { id: 'female2', label: '母狗' },
+        { id: 'female3', label: '御姐' }, { id: 'female4', label: '萝莉' },
+        { id: 'female5', label: '妓女' }, { id: 'female6', label: '校花' },
+        { id: 'female7', label: '美女' },
+      ],
+    },
+    {
+      id: 'femboy_faction', icon: '⚧️', name: '男娘', gender: 'male', defaultLabel: '男娘',
+      labels: [
+        { id: 'femboy', label: '男娘' }, { id: 'transgirl', label: '药娘' },
+        { id: 'femboy1', label: '扶她' }, { id: 'femboy2', label: 'CD(变装)' },
+        { id: 'femboy3', label: 'TS' }, { id: 'femboy4', label: '锁娘' },
+        { id: 'femboy5', label: '男娼' }, { id: 'femboy6', label: '男雌婊' },
+        { id: 'femboy7', label: '雌奴' }, { id: 'femboy8', label: '娼年' },
+        { id: 'femboy9', label: '顶级男娘' },
+      ],
+    },
+  ]
+
+  /** 询问玩家名字 + 性别阵营 + 标签后开始游戏 */
   function askPlayerName (difficulty) {
-    Dialog.show({
-      title: '🧑 给自己起个名字',
-      body: `
+    let factionId = 'male_faction'
+    let labelId = 'male'
+    const factionOf = fid => GENDER_FACTIONS.find(f => f.id === fid)
+    const labelOf = (fid, lid) => (factionOf(fid).labels.find(l => l.id === lid) || factionOf(fid).labels[1])
+
+    const buildBody = () => {
+      const factionsHtml = GENDER_FACTIONS.map(f => `
+        <button type="button" class="gender-opt faction-opt ${f.id === factionId ? 'is-selected' : ''}" data-faction="${f.id}" style="grid-template-columns:1fr">
+          <span style="font-size:1.5rem">${f.icon}</span>
+          <b>${f.name}</b>
+        </button>`).join('')
+      const labelsHtml = factionOf(factionId).labels.map(l => `
+        <button type="button" class="gender-label ${l.id === labelId ? 'is-selected' : ''}" data-label="${l.id}">${l.label}</button>`).join('')
+      return `
         <p style="color:var(--text-dim);font-size:.9rem;margin-bottom:10px">即将进入妖林冒险，勇者如何称呼？</p>
         <input id="input-player-name" type="text" maxlength="10" placeholder="输入勇者名（默认：妖林勇者）"
           style="width:100%;padding:10px 14px;font-size:1rem;background:var(--panel-2);border:1px solid var(--border);border-radius:8px;color:var(--text);outline:none;"
         />
-        <div style="margin-top:14px;color:var(--text-dim);font-size:.82rem;margin-bottom:6px">选择性别</div>
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
-          <button type="button" class="gender-opt" data-gender="male" style="grid-template-columns:1fr">
-            <span style="font-size:1.5rem">👨</span>
-            <b>男</b>
-          </button>
-          <button type="button" class="gender-opt" data-gender="female" style="grid-template-columns:1fr">
-            <span style="font-size:1.5rem">👩</span>
-            <b>女</b>
-          </button>
-        </div>
-      `,
-      actions: [
-        { label: '⚔️ 开始冒险', cls: 'btn-primary', handler: () => {
-          const input = document.getElementById('input-player-name')
-          const name = cleanPlayerName(input && input.value)
-          const genderEl = document.querySelector('.gender-opt.is-selected')
-          const gender = genderEl ? genderEl.dataset.gender : 'female'
-          Dialog.close()
-          startNewGame(difficulty, name, gender)
-        }},
-      ],
-    })
-    setTimeout(() => {
-      const genderOpts = document.querySelectorAll('.gender-opt')
-      if (!genderOpts.length) return
-      let selected = null
-      const select = (btn) => {
-        genderOpts.forEach(b => b.classList.remove('is-selected'))
-        btn.classList.add('is-selected')
-        selected = btn
-      }
-      // 默认选中"男"
-      const maleBtn = document.querySelector('.gender-opt[data-gender="male"]')
-      if (maleBtn) select(maleBtn)
-      genderOpts.forEach(btn => { btn.onclick = () => select(btn) })
-    }, 50)
+        <div style="margin-top:14px;color:var(--text-dim);font-size:.82rem;margin-bottom:6px">选择性别阵营</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px">${factionsHtml}</div>
+        <div style="margin-top:12px;color:var(--text-dim);font-size:.82rem;margin-bottom:6px">选择标签</div>
+        <div class="gender-label-grid">${labelsHtml}</div>
+      `
+    }
+
+    const render = () => {
+      Dialog.show({
+        title: '🧑 给自己起个名字',
+        body: buildBody(),
+        actions: [
+          { label: '⚔️ 开始冒险', cls: 'btn-primary', handler: () => {
+            const input = document.getElementById('input-player-name')
+            const name = cleanPlayerName(input && input.value)
+            const f = factionOf(factionId)
+            Dialog.close()
+            startNewGame(difficulty, name, f.gender, labelOf(factionId, labelId).label)
+          }},
+        ],
+      })
+      setTimeout(() => {
+        document.querySelectorAll('.faction-opt').forEach(btn => {
+          btn.onclick = () => {
+            factionId = btn.dataset.faction
+            labelId = factionOf(factionId).labels[1].id   // 切换阵营默认选第 2 个标签
+            render()
+          }
+        })
+        document.querySelectorAll('.gender-label').forEach(btn => {
+          btn.onclick = () => {
+            labelId = btn.dataset.label
+            document.querySelectorAll('.gender-label').forEach(b => b.classList.remove('is-selected'))
+            btn.classList.add('is-selected')
+          }
+        })
+      }, 50)
+    }
+    render()
   }
 
-  function startNewGame (difficulty, playerName, gender) {
+  function startNewGame (difficulty, playerName, gender, genderLabel) {
     State.clearSave()
     State.init(difficulty)
-    State.update(s => { s.inventory.consumables['bandaid'] = 1; s.playerName = playerName || '妖林勇者'; s.gender = gender || 'female' })
+    State.update(s => { s.inventory.consumables['bandaid'] = 1; s.playerName = playerName || '妖林勇者'; s.gender = gender || 'female'; s.genderLabel = genderLabel || (gender === 'male' ? '男性' : '女性') })
     showGameScreen()
     Log.clear()
     Log.add(`🆕 新的冒险 — ${diffName(difficulty)}`, 'good')

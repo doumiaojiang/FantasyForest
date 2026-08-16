@@ -50,7 +50,8 @@ window.State = (function () {
       saveVersion: SAVE_VERSION,
       difficulty,
       playerName: '妖林勇者',
-      gender: 'female',              // 玩家性别：female 女 / male 男
+      gender: 'female',              // 玩家性别阵营：female 女 / male 男（逻辑用）
+      genderLabel: '女性',           // 性别标签（如 公狗/母狗/男娘），HUD 显示
       hp: cfg.maxHp,
       maxHp: cfg.maxHp,
       gold: 0,
@@ -302,6 +303,11 @@ window.State = (function () {
     if (state.playerName === undefined) state.playerName = def.playerName
     state.playerName = String(state.playerName || def.playerName).replace(/[<>\u0000-\u001f]/g, '').slice(0, 10) || def.playerName
     state.gender = ['female', 'male'].includes(state.gender) ? state.gender : 'female'
+    if (typeof state.genderLabel !== 'string' || !state.genderLabel) {
+      state.genderLabel = state.gender === 'male' ? '男性' : '女性'
+    } else {
+      state.genderLabel = String(state.genderLabel).slice(0, 8)
+    }
     state.maxHp = Math.max(1, finite(state.maxHp, def.maxHp))
     state.hp = Math.min(state.maxHp, Math.max(0, finite(state.hp, def.hp)))
     state.gold = Math.max(0, Math.floor(finite(state.gold, def.gold)))

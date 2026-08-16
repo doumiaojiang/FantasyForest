@@ -406,6 +406,22 @@ body {
 .gender-opt:hover, .gender-opt:focus-visible { transform: translateY(-1px); border-color: var(--accent-bright); background: rgba(91, 48, 30, .2); outline: none; }
 .gender-opt.is-selected { border-color: var(--accent-bright); background: rgba(222, 162, 74, .12); box-shadow: inset 0 0 0 1px var(--accent-bright); }
 .gender-opt.is-selected b { color: var(--accent-bright); }
+
+/* 性别标签网格 */
+.gender-label-grid { display: flex; flex-wrap: wrap; gap: 7px; }
+.gender-label {
+  padding: 7px 13px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--panel-2);
+  color: var(--text-dim);
+  font: inherit;
+  font-size: .78rem;
+  cursor: pointer;
+  transition: transform .12s ease, border-color .12s ease, color .12s ease, background .12s ease;
+}
+.gender-label:hover, .gender-label:focus-visible { transform: translateY(-1px); border-color: var(--accent-bright); color: var(--text); outline: none; }
+.gender-label.is-selected { border-color: var(--accent-bright); background: rgba(222, 162, 74, .14); color: var(--accent-bright); font-weight: 700; }
 .diff-card-head { display: flex; flex-direction: column; align-items: center; gap: 5px; }
 .diff-title-wrap { display: flex; min-width: 0; flex-direction: column; align-items: center; gap: 1px; }
 .diff-title-wrap b { color: var(--diff-color); font-size: 1.15rem; letter-spacing: .1em; }
