@@ -306,7 +306,7 @@ window.CampSystem = (function () {
       body: `
         <div class="toilet-reveal"><span aria-hidden="true">🍑</span><small>SECRET FOUND · 隐藏区域</small><h3>墙后原来是一处荣耀洞</h3><p>你推开最里面的隔间，一股湿热气息迎面而来。墙上的圆洞后，有人已经等候多时。</p></div>
         <div class="toilet-reveal-info"><span><b>${GLORY_FEE}G</b><small>首次进入费用</small></span><span><b>${SERVICE_SECONDS}s</b><small>基础服务时间</small></span><span><b>💰</b><small>完成服务赚钱</small></span></div>
-        <p class="camp-muted">可以用嘴或屁股完成服务。金币不足时能够赊账，但还清之前无法离开。</p>`,
+        <p class="camp-muted">可以用嘴或屁股完成服务${State.get().gender !== 'male' ? '（也可以用小穴）' : ''}。金币不足时能够赊账，但还清之前无法离开。</p>`,
       actions: [
         { label: '🍑 进入荣耀洞', cls: 'btn-primary', handler: () => { Dialog.close(); enterGlory() } },
         { label: '返回厕所', handler: () => { Dialog.close(); renderToilet() } },

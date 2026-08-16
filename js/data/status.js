@@ -233,7 +233,7 @@ window.STATUS_EFFECTS = {
     id: 'tentacle_embedded',
     name: '断触手',
     icon: '🐙',
-    desc: '假阴茎塞在菊穴里，保持到下一个敌人插入',
+    desc: '假阴茎塞在穴里，保持到下一个敌人插入',
     onApply (state, effect) {},
     onTick (state, effect) {},
     onRemove (state, effect) {},

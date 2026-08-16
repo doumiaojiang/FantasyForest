@@ -354,7 +354,7 @@ window.BattleUI = (function () {
         const failed = await showTaskDialog({
           enemyName: `哥布林 ${i}/${gobCount}`,
           attackName: attack.name,
-          desc: `第 ${i} 只哥布林深插你的屁眼，120 BPM`,
+          desc: `第 ${i} 只哥布林深插你的${State.get().gender !== 'male' ? '小穴' : '屁眼'}，120 BPM`,
           bpm,
           seconds: secondsPerGob,
           dmg: attack.dmg,   // 显示总伤害，与最终结算一致
@@ -384,7 +384,7 @@ window.BattleUI = (function () {
         const failed = await showTaskDialog({
           enemyName: `哥布林轮换 ${i}/${roundCount}`,
           attackName: attack.name,
-          desc: `哥布林${g1} 浅插屁眼，哥布林${g2} 口交，120 BPM`,
+          desc: `哥布林${g1} 浅插${State.get().gender !== 'male' ? '小穴' : '屁眼'}，哥布林${g2} 口交，120 BPM`,
           bpm,
           seconds: secondsPerRound,
           dmg: attack.dmg,   // 显示总伤害，与最终结算一致
@@ -1351,16 +1351,17 @@ window.BattleUI = (function () {
 
   function showWerewolfFinal () {
     const state = State.get()
+    const hole = state.gender !== 'male' ? '小穴' : '菊穴'
     EventBus.emit('ui:log', { text: '🌕 太阳升起，狼人变回了人形……', type: 'dim' })
     Dialog.show({
       title: '🌕 临终遗愿',
       body: `
         <p>太阳升起，他变回了人形。</p>
         <p>临终遗愿是让你给他个痛快。</p>
-        <p>你让他最后一次以中等深度操你的菊穴 45 秒（现在用普通假阴茎）。</p>
+        <p>你让他最后一次以中等深度操你的${hole} 45 秒（现在用普通假阴茎）。</p>
         <div style="margin-top:10px;padding:10px;background:var(--panel-2);border:1px solid var(--gold);border-radius:8px">
           <div style="color:var(--gold);font-weight:700;margin-bottom:4px">🎯 现实任务</div>
-          <p style="font-size:.9rem;line-height:1.6">用<b>普通假阴茎</b>以中等深度操弄你的菊穴，持续 <b>45 秒</b>。</p>
+          <p style="font-size:.9rem;line-height:1.6">用<b>普通假阴茎</b>以中等深度操弄你的${hole}，持续 <b>45 秒</b>。</p>
         </div>
       `,
       actions: [
@@ -1375,11 +1376,12 @@ window.BattleUI = (function () {
   /** 狼人临终 45 秒任务，完成后承受毒精液伤害 */
   async function doWerewolfTask () {
     const state = State.get()
+    const hole = state.gender !== 'male' ? '小穴' : '菊穴'
     try {
       const failed = await showTaskDialog({
         enemyName: '🌕 人形狼人',
         attackName: '临终操弄',
-        desc: '用普通假阴茎以中等深度操弄菊穴',
+        desc: `用普通假阴茎以中等深度操弄${hole}`,
         bpm: 0,
         seconds: 45,
         dmg: 8,
@@ -1387,7 +1389,7 @@ window.BattleUI = (function () {
       })
       // 无论完成与否，毒精液伤害都会施加
       state.hp -= 8
-      EventBus.emit('ui:log', { text: failed ? '☠️ 任务没完成，但毒精液依然灼烧你的屁眼！-8 HP' : '☠️ 狼人的毒精液灼烧你的屁眼！-8 HP', type: 'danger' })
+      EventBus.emit('ui:log', { text: failed ? `☠️ 任务没完成，但毒精液依然灼烧你的${hole}！-8 HP` : `☠️ 狼人的毒精液灼烧你的${hole}！-8 HP`, type: 'danger' })
       EventBus.emit('state:changed', state)
       // 死亡检查（战斗已结束，直接触发死亡流程）
       if (state.hp <= 0) {
@@ -1408,15 +1410,17 @@ window.BattleUI = (function () {
   /* ============ 触手断体 ============ */
 
   function showTentacleEmbedded () {
-    EventBus.emit('ui:log', { text: '🐙 你在被干时砍断了触手，断掉的那截弹进了你的屁眼里！', type: 'danger' })
+    const state = State.get()
+    const hole = state.gender !== 'male' ? '小穴' : '菊穴'
+    EventBus.emit('ui:log', { text: `🐙 你在被干时砍断了触手，断掉的那截弹进了你的${hole}里！`, type: 'danger' })
     Dialog.show({
       title: '🐙 断触手',
       body: `
-        <p>你在被干时砍断了触手，断掉的那截弹进了你的屁眼里！</p>
-        <p style="color:var(--text-dim);margin-top:6px">将假阴茎留在里面，直到有别的东西插入你的菊穴。</p>
+        <p>你在被干时砍断了触手，断掉的那截弹进了你的${hole}里！</p>
+        <p style="color:var(--text-dim);margin-top:6px">将假阴茎留在里面，直到有别的东西插入你的${hole}。</p>
         <div style="margin-top:10px;padding:10px;background:var(--panel-2);border:1px solid var(--gold);border-radius:8px">
           <div style="color:var(--gold);font-weight:700;margin-bottom:4px">🎯 现实任务</div>
-          <p style="font-size:.9rem;line-height:1.6">插入一根<b>普通假阴茎</b>（对应断掉的触手），并让它一直待在菊穴里，<b>直到下一个敌人用别的东西插入你</b>才能替换。中途不得取出。</p>
+          <p style="font-size:.9rem;line-height:1.6">插入一根<b>普通假阴茎</b>（对应断掉的触手），并让它一直待在${hole}里，<b>直到下一个敌人用别的东西插入你</b>才能替换。中途不得取出。</p>
         </div>
       `,
       actions: [
@@ -1426,7 +1430,7 @@ window.BattleUI = (function () {
           const state = State.get()
           state.statuses = state.statuses.filter(s => s.id !== 'tentacle_embedded')
           state.statuses.push({ id: 'tentacle_embedded', turnsLeft: 999, source: 'enemy' })
-          EventBus.emit('ui:log', { text: '🍑 假阴茎留在你菊穴里，等下一个敌人插入。', type: 'good' })
+          EventBus.emit('ui:log', { text: `🍑 假阴茎留在你的${hole}里，等下一个敌人插入。`, type: 'good' })
           EventBus.emit('state:changed', state)
           GameFlow.afterEvent()
         }},
