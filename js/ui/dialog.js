@@ -95,6 +95,12 @@ window.Dialog = (function () {
   /** 分阶段展开的战斗弹窗 */
   function battleIntro (enemy, opts = {}) {
     if (enemy.props && enemy.props.isBoss) {
+      // BOSS 台词按性别：男性救女友（小骚货），女性救男友（小男人）
+      const gender = (typeof State !== 'undefined' && State.get()) ? State.get().gender : 'female'
+      const intro = enemy.intro.map(line => {
+        if (gender !== 'male') return line.replace('你的小骚货', '你的小男人')
+        return line
+      })
       const rules = (enemy.bossRules || []).map(rule => `
         <article class="boss-rule-card">
           <span>${rule.icon}</span>
@@ -108,7 +114,7 @@ window.Dialog = (function () {
             <div><small>FINAL ENCOUNTER</small><h4>${enemy.name}</h4><p>${enemy.tagline}</p></div>
             <b class="boss-hp-badge">HP ${enemy.maxHp}</b>
           </div>
-          <div class="boss-story">${enemy.intro.map((line, i) => `<p class="${i > 0 ? 'boss-quote' : ''}">${line}</p>`).join('')}</div>
+          <div class="boss-story">${intro.map((line, i) => `<p class="${i > 0 ? 'boss-quote' : ''}">${line}</p>`).join('')}</div>
           <div class="boss-flow" aria-label="BOSS 回合流程">
             <span><i>Y</i><b>召唤敌人</b></span><em>→</em><span><i>Z</i><b>决定攻击</b></span><em>→</em><span><i>×2</i><b>强化结算</b></span>
           </div>
