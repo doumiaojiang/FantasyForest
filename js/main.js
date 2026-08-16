@@ -700,7 +700,7 @@
 
     const render = () => {
       Dialog.show({
-        title: '🧑 给自己起个名字',
+        title: '给自己起个名字',
         body: buildBody(),
         actions: [
           { label: '⚔️ 开始冒险', cls: 'btn-primary', handler: () => {
