@@ -170,7 +170,7 @@ window.CampSystem = (function () {
         [{ label: '出城', cls: 'btn-primary', handler: () => { Dialog.close(); doLeaveCamp() } }])
     } else if (r < 65) {
       // 没收衣服 → 全裸
-      guardMsg('🛡️ 卫兵拦住你', `<div class="glory-section"><h3><span>“妓女也敢穿这么少出城？衣服留下！”</span><small>卫兵一把扯下你的衣服</small></h3>
+      guardMsg('🛡️ 卫兵拦住你', `<div class="glory-section"><h3><span>“${state.gender === 'male' ? '臭小子也敢穿这么少出城？' : '妓女也敢穿这么少出城？'}衣服留下！”</span><small>卫兵一把扯下你的衣服</small></h3>
         <p class="camp-muted">你被扒光了，进入全裸状态。</p></div>`,
         [{ label: '👙 被扒光', cls: 'btn-danger', handler: () => {
           if (!StatusSystem.has('naked')) StatusSystem.apply('naked', 99999)
@@ -185,7 +185,7 @@ window.CampSystem = (function () {
       guardAnal()
     } else {
       // 给血药
-      guardMsg('🛡️ 卫兵拦住你', `<div class="glory-section"><h3><span>“小心点，婊子。”</span><small>卫兵塞给你一瓶血药</small></h3>
+      guardMsg('🛡️ 卫兵拦住你', `<div class="glory-section"><h3><span>“小心点，${state.gender === 'male' ? '小子' : '婊子'}。”</span><small>卫兵塞给你一瓶血药</small></h3>
         <p class="camp-muted">获得一瓶麦酒（+10 HP）。</p></div>`,
         [{ label: '收下', cls: 'btn-primary', handler: () => {
           state.inventory.consumables.ale = (state.inventory.consumables.ale || 0) + 1
@@ -221,11 +221,12 @@ window.CampSystem = (function () {
   /** 卫兵肛交任务 */
   async function guardAnal () {
     const state = State.get()
+    const holeText = state.gender !== 'male' ? '小穴' : '菊穴'
     if (typeof BattleUI !== 'undefined' && BattleUI.showTaskDialog) {
       const failed = await BattleUI.showTaskDialog({
         enemyName: '🛡️ 卫兵',
         attackName: '',
-        desc: '卫兵让你趴下，从背后操进你的菊穴 1 分钟',
+        desc: `卫兵让你趴下，从背后操进你的${holeText} 1 分钟`,
         bpm: 120,
         seconds: 60,
         dmg: 0,
@@ -1479,11 +1480,15 @@ window.CampSystem = (function () {
     const pool = ['goblin', 'werewolf', 'orc', 'minotaur', 'koopa', 'guard']
     const key = pool[Math.floor(Math.random() * pool.length)]
     const customer = CUSTOMER_TASKS[key]
+    // 女性显示小穴/菊穴两个洞，男性只说菊穴
+    const intro = state.gender === 'male'
+      ? customer.intro.replace('小穴/菊穴', '菊穴').replace('插入小穴/菊穴', '插入菊穴')
+      : customer.intro
     Dialog.show({
       title: `🍻 你遇见了${customer.name}`,
       className: 'tavern-work-modal',
       body: `<div class="glory-section"><h3><span>${customer.name}看上了你</span><small>${customer.name === '哥布林' ? '小号假阳具（最多 3 个）' : customer.name === '狼人' ? '中号或大号假阳具' : customer.name === '兽人' ? '大号假阳具（最多 2 个）' : customer.name === '牛头人' ? '大号马/牛形假阳具' : customer.name === '卫兵' ? '中号假阳具' : '用你最大的假阳具'}</small></h3>
-        <p class="camp-muted">${customer.intro}</p></div>`,
+        <p class="camp-muted">${intro}</p></div>`,
       actions: [
         { label: '🍑 为他服务', cls: 'btn-primary', handler: () => { Dialog.close(); runCustomerTask(key) } },
         { label: `💸 换客人（${state._prostituteSwapCost || 20}G）`, handler: () => { Dialog.close(); swapCustomer() } },
@@ -1516,9 +1521,20 @@ window.CampSystem = (function () {
     const z = forcedZ || Dice.rollZ()
     let task = customer.tasks[z]
     if (!task) { state._prostitutePendingTask = null; EventBus.emit('state:changed', state); prostitute(); return }
-    // 女性角色：Z=1-3 操菊穴，Z=4-6 改操小穴（阴道）；男性角色一律操菊穴
+    // 性别适配任务文本：
+    //  - 女性：Z=1-3 操菊穴，Z=4-6 改操小穴（阴道）
+    //  - 男性：一律操菊穴（任务里写死的小穴改回菊穴）
     const taskFullText = task.desc + (task.steps || []).map(s => s.desc).join('')
-    if (state.gender !== 'male' && z >= 4 && /菊穴/.test(taskFullText)) {
+    if (state.gender === 'male') {
+      if (/小穴/.test(taskFullText)) {
+        const fix = s => String(s || '').replace(/小穴/g, '菊穴')
+        task = {
+          ...task,
+          desc: fix(task.desc),
+          steps: (task.steps || []).map(st => ({ ...st, desc: fix(st.desc) })),
+        }
+      }
+    } else if (z >= 4 && /菊穴/.test(taskFullText)) {
       const fix = s => String(s || '').replace(/菊穴/g, '小穴')
       task = {
         ...task,
