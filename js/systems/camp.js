@@ -32,6 +32,39 @@ window.CampSystem = (function () {
     }
   }
 
+  /** 营地页面渲染：写入页面容器而非弹窗层 */
+  function campShow (options) {
+    const { title, body, actions = [], className = '' } = options
+    const panel = document.getElementById('camp-panel')
+    if (!panel) { Dialog.show(options); return }
+    const mapPanel = document.getElementById('map-panel')
+    if (mapPanel) mapPanel.classList.add('panel-hidden')
+    panel.classList.remove('panel-hidden')
+    panel.innerHTML = `
+      <div class="camp-panel-inner ${className}">
+        ${title ? `<h3 class="modal-title">${title}</h3>` : ''}
+        <div class="modal-body">${body}</div>
+        ${actions.length ? `<div class="modal-actions">${actions.map((a, i) =>
+          `<button class="btn ${a.cls || ''}" data-action="${i}">${a.label}</button>`
+        ).join('')}</div>` : ''}
+      </div>`
+    panel.querySelectorAll('[data-action]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const idx = parseInt(btn.dataset.action)
+        const a = actions[idx]
+        if (a && a.handler) a.handler()
+      })
+    })
+  }
+
+  /** 营地页面关闭：恢复地图 */
+  function campClose () {
+    const panel = document.getElementById('camp-panel')
+    if (panel) { panel.classList.add('panel-hidden'); panel.innerHTML = '' }
+    const mapPanel = document.getElementById('map-panel')
+    if (mapPanel) mapPanel.classList.remove('panel-hidden')
+  }
+
   function open () {
     const state = State.get()
     setCampPhase()
@@ -58,7 +91,7 @@ window.CampSystem = (function () {
     const deerStatus = state._campDeerTaken ? '已领取' : '有礼物'
     const toiletStatus = state._gloryDiscovered ? '已解锁' : '可探索'
     const toiletHint = state._gloryDiscovered ? '普通厕所 · 隐藏隔间已发现' : '普通厕所 · 隔间有些不一样'
-    Dialog.show({
+    campShow({
       title: '⛺ 林缘营地',
       className: 'camp-modal',
       body: `
@@ -79,7 +112,6 @@ window.CampSystem = (function () {
     document.querySelectorAll('.camp-opt').forEach(btn => {
       btn.onclick = () => {
         const opt = btn.dataset.opt
-        Dialog.close()
         if (opt === 'shop') {
           state._shopReturnToCamp = true
           EventBus.emit('state:changed', state)
@@ -246,6 +278,7 @@ window.CampSystem = (function () {
     // 重置厕所 CD，下次进营地可再上一次
     state._toiletUsed = false
     state.phase = 'idle'
+    campClose()
     EventBus.emit('state:changed', state)
     GameFlow.afterEvent()
   }
@@ -262,7 +295,7 @@ window.CampSystem = (function () {
   function renderToilet () {
     const state = State.get()
     const discovered = !!state._gloryDiscovered
-    Dialog.show({
+    campShow({
       title: '🚻 营地公共厕所', className: 'toilet-modal',
       body: `
         <section class="toilet-scene">
@@ -277,14 +310,13 @@ window.CampSystem = (function () {
       actions: [
         { label: state._toiletUsed ? '🚽 已经上过了' : '🚽 上厕所', cls: state._toiletUsed ? '' : 'btn', handler: () => {
           if (state._toiletUsed) { EventBus.emit('ui:log', { text: '🚽 你已经上过一次厕所了，再挤也挤不出来。', type: 'dim' }); return }
-          Dialog.close(); useToilet()
+          useToilet()
         } },
         { label: discovered ? '🍑 荣耀洞（服务顾客赚钱）' : '🔍 调查那间隔间', cls: discovered ? 'btn-primary' : 'btn', handler: () => {
-          Dialog.close()
           if (discovered) enterGlory()
           else investigateStall()
         } },
-        { label: '返回营地', handler: () => { Dialog.close(); open() } },
+        { label: '返回营地', handler: () => { open() } },
       ],
     })
   }
@@ -294,15 +326,15 @@ window.CampSystem = (function () {
     const state = State.get()
     state._gloryDiscovered = true
     EventBus.emit('state:changed', state)
-    Dialog.show({
+    campShow({
       title: '🔍 隐藏隔间已发现', className: 'toilet-discovery-modal',
       body: `
         <div class="toilet-reveal"><span aria-hidden="true">🍑</span><small>SECRET FOUND · 隐藏区域</small><h3>墙后原来是一处荣耀洞</h3><p>你推开最里面的隔间，一股湿热气息迎面而来。墙上的圆洞后，有人已经等候多时。</p></div>
         <div class="toilet-reveal-info"><span><b>${GLORY_FEE}G</b><small>首次进入费用</small></span><span><b>${SERVICE_SECONDS}s</b><small>基础服务时间</small></span><span><b>💰</b><small>完成服务赚钱</small></span></div>
         <p class="camp-muted">可以用嘴或屁股完成服务${State.get().gender !== 'male' ? '（也可以用小穴）' : ''}。金币不足时能够赊账，但还清之前无法离开。</p>`,
       actions: [
-        { label: '🍑 进入荣耀洞', cls: 'btn-primary', handler: () => { Dialog.close(); enterGlory() } },
-        { label: '返回厕所', handler: () => { Dialog.close(); renderToilet() } },
+        { label: '🍑 进入荣耀洞', cls: 'btn-primary', handler: () => { enterGlory() } },
+        { label: '返回厕所', handler: () => { renderToilet() } },
       ],
     })
   }
@@ -313,14 +345,13 @@ window.CampSystem = (function () {
     setCampPhase()
     if ((state._gloryDebt || 0) > 0 || state._gloryFreeService) { showGloryWork(); return }
     const hasGold = state.gold >= GLORY_FEE
-    Dialog.show({
+    campShow({
       title: '🍑 荣耀洞 · 入场处', className: 'glory-entry-modal',
       body: `<div class="glory-entry-mark">🍑</div><p class="glory-entry-lead">洞里已经有人了。你能听到压抑的喘息和皮带碰撞的声响。</p>
         <div class="glory-rules"><span><b>${GLORY_FEE}G</b><small>给营地的服务费</small></span><span><b>${SERVICE_SECONDS}s</b><small>一次服务时长</small></span><span><b>Z</b><small>完事后的特殊惊喜</small></span></div>
         <p class="camp-muted">兜里有钱就直接付；穷得叮当响就向营地借，服务收入先填债，填满前别想溜。</p>`,
       actions: [
         { label: hasGold ? `付 ${GLORY_FEE}G 进洞` : `先欠 ${GLORY_FEE}G 进洞`, cls: hasGold ? 'btn-primary' : 'btn-danger', handler: () => {
-          Dialog.close()
           if (hasGold) state.gold -= GLORY_FEE
           else {
             state._gloryDebt = GLORY_FEE
@@ -328,7 +359,7 @@ window.CampSystem = (function () {
           }
           EventBus.emit('state:changed', state); showGloryWork()
         } },
-        { label: '返回厕所', handler: () => { Dialog.close(); renderToilet() } },
+        { label: '返回厕所', handler: () => { renderToilet() } },
       ],
     })
   }
@@ -370,11 +401,11 @@ window.CampSystem = (function () {
     }
     EventBus.emit('ui:log', { text: `🚻 上厕所：${msg}`, type: 'good' })
     EventBus.emit('state:changed', state)
-    Dialog.show({
+    campShow({
       title: '🚽 上厕所完成', className: 'toilet-result-modal',
       body: `<div class="toilet-result"><i>✨</i><b>整个人轻松多了</b><p>${msg}</p></div>`,
       actions: [
-        { label: '继续', cls: 'btn-primary', handler: () => { Dialog.close(); open() } },
+        { label: '继续', cls: 'btn-primary', handler: () => { open() } },
       ],
     })
   }
@@ -395,7 +426,7 @@ window.CampSystem = (function () {
       const vaginaBtn = state.gender !== 'male'
         ? `<button class="glory-hole-btn" data-hole="vagina"><i>🌸</i><span><b>把小穴凑过去</b><small>张开双腿任客人使用</small></span></button>`
         : ''
-      Dialog.show({
+      campShow({
         title: '🍑 荣耀洞 · 接客', className: 'glory-modal',
         body: `${notice}<div class="glory-section"><h3><span>洞后已经有人了</span><small>把身体凑过去，剩下的交给客人</small></h3>
           <div class="glory-hole-choice">
@@ -404,12 +435,12 @@ window.CampSystem = (function () {
             ${vaginaBtn}
           </div>
           <p class="camp-footnote">你只负责把洞贴上去，客人会用多少钱、怎么干你，全凭他的心情——完事后掷 Z 看是否有额外惊喜。</p></div>`,
-        actions: forced ? [] : [{ label: '返回营地', handler: () => { Dialog.close(); open() } }],
+        actions: forced ? [] : [{ label: '返回营地', handler: () => { open() } }],
       })
       document.querySelectorAll('.glory-hole-btn').forEach(btn => {
         btn.onclick = () => {
           const hole = btn.dataset.hole
-          Dialog.close(); performService(hole, render)
+          performService(hole, render)
         }
       })
     }
@@ -573,7 +604,7 @@ window.CampSystem = (function () {
     const state = State.get()
     const guestGone = (state._tavernGuest || 0) <= 0
 
-    Dialog.show({
+    campShow({
       title: '🍺 雾灯酒馆', className: 'camp-tavern-modal',
       body: `<section class="tavern-hero"><div class="tavern-lamp" aria-hidden="true">🕯️</div><div><small>MISTLAMP TAVERN · 营业中</small><h3>杯盏轻响，炉火把木墙染成酒红色。</h3><p>老板娘守着吧台，角落的赌桌仍等着下一局。</p></div></section>
         <div class="tavern-stats"><span>💎 你有 <b>${state.gold}G</b></span><span>🎲 赌客资金 <b>${Math.max(0, state._tavernGuest || 0)}G</b></span><span>💼 打工 <b>${state._tavernWorkUnlocked ? '已解锁' : '未解锁'}</b></span></div>
@@ -583,12 +614,11 @@ window.CampSystem = (function () {
           ${state._mercenary ? '' : `<button class="tavern-card tavern-card-futa" data-tavern="futa"><i>⚔️</i><span><b>角落的女战士</b><small>沉默寡言，独自喝着不动的酒</small></span><em>搭话</em></button>`}
           <button class="tavern-card tavern-card-guest ${guestGone ? 'is-empty' : ''}" data-tavern="guest"><i>${guestGone ? '🪑' : '🎲'}</i><span><b>${guestGone ? '空着的赌桌' : '爱赌的老顾客'}</b><small>${guestGone ? '打赢敌人后他会带着 50G 回来' : `还剩 ${state._tavernGuest}G 可赢`}</small></span><em>${guestGone ? '查看' : '开一局'}</em></button>
         </div>`,
-      actions: [{ label: '返回营地', handler: () => { Dialog.close(); open() } }],
+      actions: [{ label: '返回营地', handler: () => { open() } }],
     })
     document.querySelectorAll('[data-tavern]').forEach(btn => {
       btn.onclick = () => {
         const opt = btn.dataset.tavern
-        Dialog.close()
         if (opt === 'guest') tavernGuest()
         else if (opt === 'barkeep') tavernBarkeep()
         else if (opt === 'captain') tavernCaptain()
