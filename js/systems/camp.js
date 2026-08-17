@@ -645,9 +645,10 @@ window.CampSystem = (function () {
 
   /* ============ 监狱系统 ============ */
 
-  /** 出狱所需积分（按难度：普通 300 / 困难 400 / 残酷 500） */
+  /** 出狱所需积分（按难度：普通 300 / 困难 400 / 残酷 500，越狱失败会加惩罚） */
   function prisonTarget () {
-    return { normal: 300, hard: 400, brutal: 500 }[State.get().difficulty] || 300
+    const base = { normal: 300, hard: 400, brutal: 500 }[State.get().difficulty] || 300
+    return base + (State.get()._prisonEscapePenalty || 0)
   }
 
   /** 监狱大门（平时查看） */
@@ -694,6 +695,20 @@ window.CampSystem = (function () {
     const points = state._prisonPoints || 0
     const target = prisonTarget()
     const done = points >= target
+    // 永久监禁：无法出狱，只能永远服刑
+    if (state._prisonLife) {
+      campShow({
+        title: '⛓️ 营地监狱 · 永久监禁', className: 'prison-modal',
+        body: `<div class="prison-intro"><div class="prison-mark" aria-hidden="true">⛓️</div>
+          <p>你越狱失败三次，被判处<b>永久监禁</b>。</p>
+          <p>守卫当众给你戴上特制的贞操笼，焊死了锁眼："这辈子，你就老老实实当牢房的肉便器吧。"</p>
+          <p class="prison-guard">狱友投来同情的目光，没人再和你说话。</p></div>`,
+        actions: [
+          { label: '继续服刑', cls: 'btn-danger', handler: () => { prisonWork() } },
+        ],
+      })
+      return
+    }
     campShow({
       title: '⛓️ 营地监狱 · 集体牢房', className: 'prison-modal',
       body: `<div class="prison-stats"><span>⛓️ 出狱积分 <b>${points}/${target}</b></span><span>⚖️ 罪名 <b>非法卖淫罪</b></span><span>🔒 贞操笼已锁</span></div>
@@ -702,14 +717,70 @@ window.CampSystem = (function () {
           <p class="prison-guard">“不要再说话了！是时候开始工作了！”</p>
         </div>
         <p class="camp-footnote">${points < 80 ? '积分不到 80，只能接基础任务。攒到 80 分后可解锁中级任务。' : '你已解锁中级任务，可以接更挣积分的活了。'}${done ? ' 你已经攒够了出狱积分，随时可以离开——也可以留下继续接活。' : ''}</p>`,
-      actions: done
-        ? [
-            { label: '🔓 选择出狱', cls: 'btn-primary', handler: () => { Dialog.close(); prisonRelease() } },
-            { label: '⛓️ 留下继续工作', handler: () => { Dialog.close(); prisonTierChoice() } },
-          ]
-        : [
-            { label: '🎲 选择任务并掷 Z', cls: 'btn-danger', handler: () => { Dialog.close(); prisonTierChoice() } },
-          ],
+      actions: [
+        { label: done ? '🔓 选择出狱' : '🎲 选择任务并掷 Z', cls: done ? 'btn-primary' : 'btn-danger', handler: () => { Dialog.close(); done ? prisonRelease() : prisonTierChoice() } },
+        ...(done ? [{ label: '⛓️ 留下继续工作', handler: () => { Dialog.close(); prisonTierChoice() } }] : []),
+        { label: '🪓 越狱（25%）', cls: 'btn-danger', handler: () => { Dialog.close(); prisonEscape() } },
+      ],
+    })
+  }
+
+  /** 越狱：25% 成功率；失败累积惩罚，第 3 次永久监禁 */
+  function prisonEscape () {
+    const state = State.get()
+    const roll = Math.floor(Math.random() * 100)
+    if (roll < 25) {
+      // 成功越狱：出狱但贞操锁不解开
+      state._inPrison = false
+      state._prisonPoints = 0
+      state._prisonEscapeFails = 0
+      state._prisonEscapePenalty = 0
+      EventBus.emit('state:changed', state)
+      Dialog.show({
+        title: '🪓 越狱成功', className: 'prison-modal',
+        body: `<div class="prison-intro"><div class="prison-mark" aria-hidden="true">🪓</div>
+          <p>你趁着守卫换班的空隙，撬开牢门溜了出去！（掷骰 ${roll}% < 25%）</p>
+          <p>但——那把<b>贞操锁</b>还牢牢锁在你身上，钥匙只有守卫有。<br>你带着锁逃出了监狱。</p></div>`,
+        actions: [
+          { label: '逃回营地', cls: 'btn-primary', handler: () => { Dialog.close(); open() } },
+        ],
+      })
+      return
+    }
+    // 失败
+    state._prisonEscapeFails = (state._prisonEscapeFails || 0) + 1
+    const fail = state._prisonEscapeFails
+    if (fail >= 3) {
+      // 第 3 次：永久监禁
+      state._prisonLife = true
+      state._prisonPoints = 0
+      EventBus.emit('state:changed', state)
+      Dialog.show({
+        title: '⛓️ 越狱失败 · 永久监禁', className: 'prison-modal',
+        body: `<div class="prison-intro"><div class="prison-mark" aria-hidden="true">⛓️</div>
+          <p>第 <b>3</b> 次越狱失败！（掷骰 ${roll}% ≥ 25%）</p>
+          <p>守卫把你按在地上，当众宣布：<b>永久监禁</b>。</p>
+          <p>"你以为这里是你想来就来想走就走的？"守卫冷笑道："这辈子，你就烂在牢房里吧。"</p></div>`,
+        actions: [
+          { label: '……', cls: 'btn-danger', handler: () => { Dialog.close(); prisonWork() } },
+        ],
+      })
+      return
+    }
+    // 第 1/2 次失败：积分清零 + 惩罚
+    const penalty = fail === 1 ? 200 : 350
+    state._prisonPoints = 0
+    state._prisonEscapePenalty = (state._prisonEscapePenalty || 0) + penalty
+    EventBus.emit('state:changed', state)
+    Dialog.show({
+      title: '⛓️ 越狱失败', className: 'prison-modal',
+      body: `<div class="prison-intro"><div class="prison-mark" aria-hidden="true">⛓️</div>
+        <p>第 <b>${fail}</b> 次越狱失败！（掷骰 ${roll}% ≥ 25%）</p>
+        <p>守卫逮住你，把你狠狠拖回牢房。已攒的积分全部清零，出狱所需积分 <b>+${penalty}</b>（现需 ${prisonTarget()}）。</p>
+        <p>还剩 ${2 - (fail - 1)} 次机会。第 3 次失败将被永久监禁。</p></div>`,
+      actions: [
+        { label: '……', cls: 'btn-danger', handler: () => { Dialog.close(); prisonWork() } },
+      ],
     })
   }
 
@@ -984,6 +1055,8 @@ window.CampSystem = (function () {
     state._inPrison = false
     state._prisonPoints = 0
     state._prisonRehab = 0
+    state._prisonEscapeFails = 0
+    state._prisonEscapePenalty = 0
     if (StatusSystem.has('chastity')) StatusSystem.remove('chastity')
     EventBus.emit('state:changed', state)
     campShow({
