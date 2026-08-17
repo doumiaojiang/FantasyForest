@@ -525,7 +525,10 @@ window.CampSystem = (function () {
     const service = pool[Math.floor(Math.random() * pool.length)]
     const holeName = hole === 'oral' ? '嘴' : hole === 'vagina' ? '小穴' : '屁股'
     EventBus.emit('ui:log', { text: `🍑 你把${holeName}凑了过去，客人开始「${service.name}」。`, type: 'danger' })
-    const event = rollSpecialEvent()
+    // 白嫖服务：不掷 Z 特殊事件（不会有钱、不会有免费追加、不会加时）
+    const event = wasFree
+      ? { z: 0, basePay: false, tip: 0, msg: '客人要求免费的服务，白嫖完后直接走人。' }
+      : rollSpecialEvent()
     const completed = await runServiceTimer(service, SERVICE_SECONDS + (event.extraSeconds || 0))
     if (completed === 'refuse') {
       // 拒绝服务：一开始就不做，债务 +10
