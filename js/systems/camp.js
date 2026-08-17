@@ -30,6 +30,11 @@ window.CampSystem = (function () {
       state.phase = 'camp'
       EventBus.emit('state:changed', state)
     }
+    // 进入营地：隐藏操作栏与浮动方向键
+    const actionBar = document.getElementById('action-bar')
+    if (actionBar) actionBar.classList.add('hidden')
+    const float = document.getElementById('dpad-float')
+    if (float) float.classList.add('hidden')
   }
 
   /** 营地页面渲染：写入页面容器而非弹窗层 */
@@ -279,6 +284,11 @@ window.CampSystem = (function () {
     state._toiletUsed = false
     state.phase = 'idle'
     campClose()
+    // 离开营地：恢复操作栏与浮动方向键
+    const actionBar = document.getElementById('action-bar')
+    if (actionBar) actionBar.classList.remove('hidden')
+    const float = document.getElementById('dpad-float')
+    if (float) float.classList.remove('hidden')
     EventBus.emit('state:changed', state)
     GameFlow.afterEvent()
   }
