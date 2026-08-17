@@ -1317,21 +1317,27 @@ window.CampSystem = (function () {
     })
   }
 
-  /* ============ 铁匠铺：每次先服务才能买东西 ============ */
+  /* ============ 铁匠铺：普通NPC + 佩戴监狱贞操装备时有特殊求情 ============ */
 
-  /** 铁匠铺入口：每次进入先弹服务对话框（可服务或转身就走） */
+  /** 铁匠铺入口：正常进主界面；佩戴监狱贞操装备时先弹服务求情对话框 */
   function blacksmith () {
     const state = State.get()
     setCampPhase()
-    Dialog.show({
-      title: '🔨 铁匠', className: 'camp-tavern-modal',
-      body: `<div class="camp-character"><i>🔨</i><div><b>“又来了？我这铺子可不是白进的。”</b><p>壮硕的铁匠放下锤子，叉腰打量你：“想买我的东西？先把我的家伙伺候舒坦了再说。”</p></div></div>
-        <p class="camp-footnote">铁匠的要求（永久）：先给他<b>口交</b>，再给他<b>肛交/性交</b>，才能进铺子买东西。</p>`,
-      actions: [
-        { label: '💦 服务铁匠（进店）', cls: 'btn-primary', handler: () => { Dialog.close(); blacksmithService() } },
-        { label: '🚶 转身就走', handler: () => { Dialog.close(); open() } },
-      ],
-    })
+    // 佩戴监狱贞操带/贞操锁：铁匠认出你，要求先服务才能谈解锁
+    if (state._prisonChastity) {
+      Dialog.show({
+        title: '🔨 铁匠', className: 'camp-tavern-modal',
+        body: `<div class="camp-character"><i>🔨</i><div><b>“等等，你身上这把锁……监狱的货。”</b><p>壮硕的铁匠放下锤子，眯起眼打量你腿间的贞操锁："想让我撬开它？先把我的家伙伺候舒坦了再说。"</p></div></div>
+          <p class="camp-footnote">铁匠的要求：先给他<b>口交</b>，再给他<b>肛交/性交</b>，才肯谈解锁你身上的监狱贞操装备。</p>`,
+        actions: [
+          { label: '💦 服务铁匠（进店）', cls: 'btn-primary', handler: () => { Dialog.close(); blacksmithService() } },
+          { label: '🚶 转身就走', handler: () => { Dialog.close(); open() } },
+        ],
+      })
+      return
+    }
+    // 正常进铁匠铺
+    blacksmithShop()
   }
 
   /** 铁匠服务任务：口交 + 肛交/性交 */
