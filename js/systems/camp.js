@@ -866,6 +866,7 @@ window.CampSystem = (function () {
     return new Promise(resolve => {
       Dialog.show({
         title: '⛓️ ' + enemyName,
+        className: 'camp-task-modal',
         body: `<div class="camp-task"><div class="camp-task-icon">🗣️</div><p>${desc}</p><small>完成这段后点击继续。</small></div>`,
         actions: [
           { label: '继续', cls: 'btn-primary', handler: () => { Dialog.close(); resolve(false) } },
@@ -1249,7 +1250,7 @@ window.CampSystem = (function () {
           steps = task.steps
         } else if (task.holdSeconds && task.repeat) {
           for (let i = 0; i < task.repeat; i++) {
-            steps.push({ desc: task.phaseDesc || task.desc, bpm: 120, seconds: task.holdSeconds, restAfter: task.restSeconds > 0 && i < task.repeat - 1 })
+            steps.push({ desc: task.phaseDesc || task.desc, bpm: 0, seconds: task.holdSeconds, restAfter: task.restSeconds > 0 && i < task.repeat - 1 })
           }
         } else {
           steps = [{ desc: task.desc, bpm: 120, seconds: task.seconds || 0, countTarget: task.countTarget || 0, countDesc: task.countDesc, textOnly: !!task.textOnly }]
