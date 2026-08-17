@@ -741,6 +741,7 @@
     State.clearSave()
     State.init(difficulty)
     State.update(s => { s.inventory.consumables['bandaid'] = 1; s.playerName = playerName || '妖林勇者'; s.gender = gender || 'female'; s.genderLabel = genderLabel || (gender === 'male' ? '男性' : '女性') })
+    const state = State.get()
     showGameScreen()
     Log.clear()
     Log.add(`🆕 新的冒险 — ${diffName(difficulty)}`, 'good')
