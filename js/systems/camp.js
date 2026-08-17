@@ -1036,15 +1036,15 @@ window.CampSystem = (function () {
     }
     const isFemale = state.gender !== 'male'
     const sexBtn = isFemale
-      ? `<button class="camp-opt" data-serve="sex"><i>🌸</i><span><b>性交服务</b><small>主动骑上去，用小穴好好伺候她</small></span><em>欲 -60</em></button>`
+      ? `<button class="camp-opt" data-serve="sex"><i>🌸</i><span><b>性交服务</b><small>主动骑上去，用小穴好好伺候她</small></span><em>欲 -30</em></button>`
       : ''
     Dialog.show({
       title: `💋 服务佣兵 · ${merc.icon} ${merc.name}`,
       className: 'camp-tavern-modal',
       body: `<div class="camp-character"><i>${merc.icon}</i><div><b>“嗯……人家有点忍不住了。”</b><p>她脸颊泛红，腿间已经湿了。性欲 <b>${Math.min(100, merc.lust || 0)}%</b>。选一种方式喂饱她吧。</p></div></div>
         <div class="camp-grid">
-          <button class="camp-opt" data-serve="oral"><i>👄</i><span><b>口交服务</b><small>跪下来含住她的鸡巴卖力吞吐</small></span><em>欲 -40</em></button>
-          <button class="camp-opt" data-serve="anal"><i>🍑</i><span><b>肛交服务</b><small>撅起屁股让她从背后操进来</small></span><em>欲 -50</em></button>
+          <button class="camp-opt" data-serve="oral"><i>👄</i><span><b>口交服务</b><small>跪下来含住她的鸡巴卖力吞吐</small></span><em>欲 -20</em></button>
+          <button class="camp-opt" data-serve="anal"><i>🍑</i><span><b>肛交服务</b><small>撅起屁股让她从背后操进来</small></span><em>欲 -30</em></button>
           ${sexBtn}
         </div>`,
       actions: [{ label: '返回', handler: () => { Dialog.close() } }],
@@ -1064,15 +1064,15 @@ window.CampSystem = (function () {
     const merc = state._mercenary
     if (!merc || merc.dead) return
     const cfg = {
-      oral: { name: '口交服务', dmg: 40, steps: [
+      oral: { name: '口交服务', dmg: 20, steps: [
         { desc: '你跪在她腿间，含住她硬邦邦的鸡巴卖力吞吐，深喉吞到底', bpm: 0, seconds: 30 },
         { desc: '你一边深喉一边用手揉着她的蛋蛋，把她伺候得腿软', bpm: 0, seconds: 30 },
       ] },
-      anal: { name: '肛交服务', dmg: 50, steps: [
+      anal: { name: '肛交服务', dmg: 30, steps: [
         { desc: '你趴跪在床沿，撅起屁股，让她从背后狠狠操进你的菊穴', bpm: 90, seconds: 30 },
         { desc: '她掐着你的腰猛操，你咬着枕头承受，她越来越兴奋', bpm: 90, seconds: 30 },
       ] },
-      sex: { name: '性交服务', dmg: 60, steps: [
+      sex: { name: '性交服务', dmg: 30, steps: [
         { desc: '你躺下来张开腿，让她挺着粗壮的鸡巴狠狠操进你的小穴', bpm: 90, seconds: 30 },
         { desc: '你主动用双腿缠住她的腰，迎合着她的抽插，浪叫连连', bpm: 90, seconds: 30 },
       ] },

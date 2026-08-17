@@ -154,6 +154,9 @@ function render (state) {
     // 服务佣兵按钮
     const serveBtn = document.getElementById('btn-serve-merc')
     if (serveBtn) {
+      const inCombat = state.phase === 'battle' || (state._battle && state._battle.targets && state._battle.targets.length > 0) || !!state._ambush
+      serveBtn.disabled = inCombat
+      serveBtn.title = inCombat ? '战斗中无法服务佣兵' : '服务佣兵降低性欲'
       serveBtn.onclick = () => {
         if (typeof CampSystem !== 'undefined' && CampSystem.serveMercenary) {
           CampSystem.serveMercenary()

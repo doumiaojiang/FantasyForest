@@ -140,8 +140,9 @@ window.BattleSystem = (function () {
           handleTargetDeath(battle, mTarget)
         }
       }
-      // 战斗后性欲上升
-      mercenary.lust = Math.min(100, (mercenary.lust || 0) + 25)
+      // 战斗后性欲上升（按难度：普通+5 / 困难+10 / 残酷+15）
+      const lustGain = { normal: 5, hard: 10, brutal: 15 }[state.difficulty] || 5
+      mercenary.lust = Math.min(100, (mercenary.lust || 0) + lustGain)
       EventBus.emit('state:changed', state)
     }
 
