@@ -1110,6 +1110,10 @@
     if (_stepsRemaining <= 0) {
       StatusSystem.tickOutOfBattle()
       readyToRoll()
+      // 步数耗尽移动结束：佣兵可能发情袭击
+      if (State.get().phase !== 'battle' && State.get().phase !== 'gameover') {
+        await maybeMercenaryAssault()
+      }
       return
     }
 
@@ -1125,6 +1129,63 @@
     if (State.get().phase !== 'battle') {
       StatusSystem.tickOutOfBattle()
     }
+    // 移动轮次结束：佣兵可能因发情强制袭击
+    if (State.get().phase !== 'battle' && State.get().phase !== 'gameover') {
+      await maybeMercenaryAssault()
+    }
+  }
+
+  /* ============ 佣兵发情袭击（移动后） ============ */
+  /** 移动结束后：佣兵发情 ≥50 时按 lust% 概率强制袭击 */
+  async function maybeMercenaryAssault () {
+    const state = State.get()
+    const merc = state._mercenary
+    if (!merc || merc.dead) return
+    const lust = merc.lust || 0
+    if (lust < 50) return
+    // 掷骰：随机 0-99，小于 lust → 触发
+    const roll = Math.floor(Math.random() * 100)
+    if (roll >= lust) return
+    EventBus.emit('ui:log', { text: `🔥 ${merc.icon} ${merc.name} 欲火中烧，从背后一把抱住了你（发情 ${lust}%，触发了 ${roll}%）！`, type: 'danger' })
+    // 随机选服务类型：口交 / 肛交 / 性交（女性才能性交）
+    const isFemale = state.gender !== 'male'
+    const pool = isFemale ? ['oral', 'anal', 'sex'] : ['oral', 'anal']
+    const type = pool[Math.floor(Math.random() * pool.length)]
+    await forcedMercenaryService(type, merc)
+  }
+
+  /** 强制佣兵服务任务（移动中被袭击） */
+  async function forcedMercenaryService (type, merc) {
+    const state = State.get()
+    const cfg = {
+      oral: { name: '强迫口交', dmg: 20, desc: '她揪着你的头发，把鸡巴狠狠塞进你嘴里，逼你深喉', seconds: 30 },
+      anal: { name: '强迫肛交', dmg: 30, desc: '她把你按在树干上，从背后猛地操进你的菊穴', seconds: 30 },
+      sex: { name: '强迫性交', dmg: 30, desc: '她把你压在身下，挺着鸡巴狠狠操进你的小穴', seconds: 30 },
+    }[type]
+    if (!cfg) return
+    let failed = false
+    if (typeof BattleUI !== 'undefined' && BattleUI.showTaskDialog) {
+      const f = await BattleUI.showTaskDialog({
+        enemyName: `${merc.icon} ${merc.name}`,
+        attackName: cfg.name,
+        desc: cfg.desc,
+        bpm: 90,
+        seconds: cfg.seconds,
+        dmg: 0,
+        noDamage: true,
+        dildoName: '她那根粗壮的鸡巴',
+      })
+      failed = f
+    } else {
+      failed = !confirm(`${cfg.name}：完成代表挨完了。`)
+    }
+    // 强制：完成降全欲；中途承受不住降一半
+    const lustDrop = failed ? Math.floor(cfg.dmg / 2) : cfg.dmg
+    merc.lust = Math.max(0, (merc.lust || 0) - lustDrop)
+    EventBus.emit('ui:log', { text: failed
+      ? `🥵 你被${merc.icon} ${merc.name}操得腿软求饶，她才放过你（性欲 -${lustDrop}）。`
+      : `💦 ${merc.icon} ${merc.name} 满足地泄了身，放过你继续上路（性欲 -${lustDrop}）。`, type: 'danger' })
+    EventBus.emit('state:changed', state)
   }
 
   /* ============ 沿方向直线移动 ============ */
