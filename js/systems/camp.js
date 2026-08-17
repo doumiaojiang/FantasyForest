@@ -616,15 +616,20 @@ window.CampSystem = (function () {
         EventBus.emit('ui:log', { text: `🚨 无证卖淫，危险值 +2（现 ${state._gloryWanted}%）。越高越容易被抓！`, type: 'danger' })
       }
       EventBus.emit('state:changed', state)
-      // 按危险值概率被抓进监狱
+      // 按危险值概率被抓进监狱（有队长豁免则不会被抓）
       const wantRoll = Math.floor(Math.random() * 100)
-      if (wantRoll < state._gloryWanted) {
+      if (wantRoll < state._gloryWanted && !state._prisonPardon) {
         EventBus.emit('ui:log', { text: `⛓️ 危险值过高，守卫冲进来把你逮个正着！`, type: 'danger' })
         state._gloryWanted = 0
         EventBus.emit('state:changed', state)
         Dialog.close()
         enterPrison()
         return
+      }
+      if (state._prisonPardon && wantRoll < state._gloryWanted) {
+        EventBus.emit('ui:log', { text: `🕊️ 危险值 ${state._gloryWanted}% 触顶，但队长的豁免罩着你，守卫不敢抓你。`, type: 'good' })
+        state._gloryWanted = Math.max(0, state._gloryWanted - 10)
+        EventBus.emit('state:changed', state)
       }
     }
     const forced = state._gloryDebt > 0 || state._gloryFreeService
@@ -1307,6 +1312,7 @@ window.CampSystem = (function () {
           <button class="camp-opt" data-captain="chat"><i>💬</i><span><b>聊天</b><small>听他讲讲守卫队的门道</small></span><em>搭话</em></button>
           ${hasLicense ? '' : `<button class="camp-opt" data-captain="buy"><i>📜</i><span><b>购买妓女许可证</b><small>在队长这也能办证，200G</small></span><em>${state.gold >= 200 ? '可办' : '钱不够'}</em></button>`}
           ${hasLicense ? `<button class="camp-opt" data-captain="cancel"><i>🗑️</i><span><b>取消妓女许可证</b><small>退出这行，退出前先想清楚</small></span><em>${prostituteTitle(state._prostituteLevel).name}</em></button>` : ''}
+          <button class="camp-opt" data-captain="pardon"><i>🕊️</i><span><b>求情免进监狱</b><small>${state._prisonPardon ? '已豁免' : '求队长别把你送进深喉监狱'}</small></span><em>${state._prisonPardon ? '已生效' : '求情'}</em></button>
         </div>`,
       actions: [{ label: '返回酒馆', handler: () => { renderTavern() } }],
     })
@@ -1316,7 +1322,108 @@ window.CampSystem = (function () {
         if (opt === 'chat') captainChat()
         else if (opt === 'buy') captainBuyLicense()
         else if (opt === 'cancel') captainCancelLicense()
+        else if (opt === 'pardon') captainPardon()
       }
+    })
+  }
+
+  /** 队长求情免监狱：开关设置 + 求情流程 */
+  function captainPardon () {
+    const state = State.get()
+    campShow({
+      title: '🕊️ 求情免进监狱', className: 'camp-tavern-modal',
+      body: `<div class="camp-character"><i>🛡️</i><div><b>“哼，想求我别把你扔进深喉监狱？”</b><p>队长翘着二郎腿打量你：“可以——但得看你识不识相。”</p></div></div>
+        <div class="toilet-grid">
+          <button class="toilet-card ${state._prisonPardonSetting ? 'is-discovered' : ''}" data-pardon="on"><i>🔓</i><span><b>求情（开）</b><small>求他 → 羞辱对话 → 给他口交 → 豁免</small></span><em>${state._prisonPardonSetting ? '当前' : '关闭'}</em></button>
+          <button class="toilet-card ${!state._prisonPardonSetting ? 'is-discovered' : ''}" data-pardon="off"><i>🧎</i><span><b>求情（关）</b><small>不口交 · 磕头羞辱对话后豁免</small></span><em>${!state._prisonPardonSetting ? '当前' : '关闭'}</em></button>
+        </div>`,
+      actions: [
+        { label: '返回队长', handler: () => { tavernCaptain() } },
+      ],
+    })
+    document.querySelectorAll('[data-pardon]').forEach(btn => {
+      btn.onclick = () => {
+        state._prisonPardonSetting = btn.dataset.pardon === 'on'
+        EventBus.emit('state:changed', state)
+        Dialog.close()
+        runPardon()
+      }
+    })
+  }
+
+  /** 执行求情流程 */
+  function runPardon () {
+    const state = State.get()
+    if (state._prisonPardonSetting) {
+      // 开：羞辱请求对话 + 口交任务
+      Dialog.show({
+        title: '🕊️ 队长 · 羞辱请求', className: 'camp-tavern-modal',
+        body: `<div class="camp-character"><i>🛡️</i><div><b>“跪下求我。”</b><p>队长把靴子踩在你面前：“求求我，说你是条贱狗，请大人别把你扔进深喉监狱。说得好听，我再考虑要不要你的嘴。”</p></div></div>`,
+        actions: [
+          { label: '🧎 跪下求情', cls: 'btn-danger', handler: () => {
+            Dialog.close()
+            EventBus.emit('ui:log', { text: '🧎 你跪下来磕头："队长大人，我是条贱狗，求您别把我送进深喉监狱……"', type: 'danger' })
+            pardonBlowjob()
+          } },
+        ],
+      })
+    } else {
+      // 关：磕头羞辱对话（不口交）
+      Dialog.show({
+        title: '🕊️ 队长 · 羞辱', className: 'camp-tavern-modal',
+        body: `<div class="camp-character"><i>🛡️</i><div><b>“求我？磕三个响头。”</b><p>队长冷笑：“想让我不送你去深喉监狱，就拿出点诚意来。”</p></div></div>`,
+        actions: [
+          { label: '🧎 磕头求饶', cls: 'btn-danger', handler: () => {
+            Dialog.close()
+            EventBus.emit('ui:log', { text: '🧎 你跪下磕了三个响头，队长满意地哼了一声。', type: 'danger' })
+            grantPardon()
+          } },
+        ],
+      })
+    }
+  }
+
+  /** 口交求情任务 */
+  async function pardonBlowjob () {
+    const state = State.get()
+    let failed = false
+    if (typeof BattleUI !== 'undefined' && BattleUI.showTaskDialog) {
+      const f = await BattleUI.showTaskDialog({
+        enemyName: '🛡️ 守卫队队长',
+        attackName: '跪着口交求情',
+        desc: '你跪在队长胯下，卖力地为他口交 30 秒，含着鸡巴含到嗓子眼',
+        bpm: 0,
+        seconds: 30,
+        dmg: 0,
+        noDamage: true,
+        dildoName: '队长那根粗壮的鸡巴',
+      })
+      failed = f
+    } else {
+      failed = !confirm('给队长口交 30 秒求情。')
+    }
+    if (failed) {
+      EventBus.emit('ui:log', { text: '🛡️ 你口交到一半，队长嫌你不够卖力，还是把你扔进了监狱！', type: 'danger' })
+      Dialog.close()
+      enterPrison()
+      return
+    }
+    EventBus.emit('ui:log', { text: '🛡️ 队长被你伺候舒服了，挥挥手："行，放你一马。"', type: 'good' })
+    grantPardon()
+  }
+
+  /** 授予豁免 */
+  function grantPardon () {
+    const state = State.get()
+    state._prisonPardon = true
+    state._gloryWanted = 0
+    EventBus.emit('state:changed', state)
+    Dialog.show({
+      title: '🕊️ 队长 · 豁免生效', className: 'camp-tavern-modal',
+      body: `<div class="camp-character"><i>🛡️</i><div><b>“记住，这是老子给你的恩典。”</b><p>队长拍拍你的脸："往后就算你把危险值作到 100，我也不会让手下把你扔进深喉监狱。滚吧。"</p></div></div>`,
+      actions: [
+        { label: '谢过队长', cls: 'btn-primary', handler: () => { Dialog.close(); tavernCaptain() } },
+      ],
     })
   }
 
