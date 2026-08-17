@@ -2366,22 +2366,24 @@ body:has(.age-gate:not(.age-gate-hidden)) { overflow: hidden; }
 .toilet-scene small, .toilet-reveal > small { color: #78c8c3; font-size: .57rem; font-weight: 800; letter-spacing: .14em; }
 .toilet-scene h3 { margin: 4px 0; color: #e5f4f2; font-size: .9rem; }
 .toilet-scene p { color: #879d9c; font-size: .66rem; line-height: 1.5; }
-.toilet-options { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 10px; }
-.toilet-option { min-width: 0; min-height: 70px; display: grid; grid-template-columns: 35px 1fr; align-items: center; gap: 8px; padding: 10px; border: 1px solid rgba(255,255,255,.075); border-radius: 10px; background: rgba(5, 12, 14, .42); }
-.toilet-option > i { width: 35px; height: 35px; display: grid; place-items: center; border-radius: 8px; background: rgba(255,255,255,.04); font-size: 1.08rem; font-style: normal; }
-.toilet-option > div { min-width: 0; display: grid; gap: 3px; }
-.toilet-option b { color: #d9e8e6; font-size: .72rem; }
-.toilet-option small { overflow: hidden; color: #778b89; font-size: .57rem; text-overflow: ellipsis; white-space: nowrap; }
-.toilet-option em { grid-column: 1 / -1; justify-self: start; padding: 2px 6px; border-radius: 99px; background: rgba(87,181,128,.1); color: #78c99c; font-size: .52rem; font-style: normal; }
-.toilet-option-secret { border-color: rgba(189, 112, 237, .16); background: linear-gradient(135deg, rgba(90,43,112,.15), rgba(5,12,14,.42)); }
-.toilet-option-secret em { background: rgba(189,112,237,.12); color: #d5a4ef; }
-.toilet-option-secret.is-discovered { border-color: rgba(220, 145, 255, .3); box-shadow: inset 0 0 20px rgba(165,78,201,.06); }
+.toilet-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 10px; }
+.toilet-card { min-width: 0; min-height: 78px; display: grid; grid-template-columns: 34px 1fr; align-items: center; gap: 8px; padding: 10px; border: 1px solid rgba(255,255,255,.075); border-radius: 11px; background: rgba(5, 12, 14, .42); color: var(--text); cursor: pointer; font: inherit; text-align: left; transition: transform .15s ease, border-color .15s ease, background .15s ease; }
+.toilet-card > i { width: 34px; height: 34px; display: grid; place-items: center; border-radius: 8px; background: rgba(255,255,255,.04); font-size: 1.1rem; font-style: normal; }
+.toilet-card > span { min-width: 0; display: grid; gap: 3px; }
+.toilet-card b { color: #d9e8e6; font-size: .74rem; }
+.toilet-card small { overflow: hidden; color: #778b89; font-size: .57rem; text-overflow: ellipsis; white-space: nowrap; }
+.toilet-card em { grid-column: 1 / -1; justify-self: start; padding: 3px 7px; border-radius: 99px; background: rgba(87,181,128,.1); color: #78c99c; font-size: .53rem; font-style: normal; }
+.toilet-card:hover, .toilet-card:focus-visible { transform: translateY(-2px); border-color: rgba(87,181,128,.45); background: rgba(20,48,42,.3); outline: none; }
+.toilet-card.is-used { opacity: .6; filter: saturate(.6); }
+.toilet-card-secret { border-color: rgba(189, 112, 237, .16); background: linear-gradient(135deg, rgba(90,43,112,.15), rgba(5,12,14,.42)); }
+.toilet-card-secret em { background: rgba(189,112,237,.12); color: #d5a4ef; }
+.toilet-card-secret:hover, .toilet-card-secret:focus-visible { border-color: rgba(220, 145, 255, .4); background: rgba(55,25,68,.3); }
+.toilet-card-secret.is-discovered { border-color: rgba(220, 145, 255, .3); box-shadow: inset 0 0 20px rgba(165,78,201,.06); }
 .toilet-clue { display: flex; align-items: center; gap: 8px; margin-top: 8px; padding: 8px 10px; border-left: 2px solid #ae69d0; border-radius: 0 7px 7px 0; background: rgba(145, 72, 177, .08); color: #a99aaa; font-size: .62rem; line-height: 1.45; }
 .toilet-clue > i { width: 18px; height: 18px; flex: 0 0 18px; display: grid; place-items: center; border-radius: 50%; background: rgba(174,105,208,.17); color: #d7a5ef; font-size: .58rem; font-style: normal; font-weight: 900; }
 .toilet-clue.is-discovered { border-left-color: #54b88d; background: rgba(84,184,141,.07); }
 .toilet-clue.is-discovered > i { background: rgba(84,184,141,.15); color: #83d6af; }
-.toilet-modal .modal-actions { display: grid; grid-template-columns: 1fr 1fr; }
-.toilet-modal .modal-actions .btn:last-child { grid-column: 1 / -1; }
+.toilet-modal .modal-actions { display: flex; justify-content: flex-end; }
 
 .toilet-discovery-modal { max-width: 500px; }
 .toilet-reveal { position: relative; overflow: hidden; padding: 18px 15px 15px; border: 1px solid rgba(194,112,235,.24); border-radius: 12px; background: radial-gradient(circle at 50% 0, rgba(191,101,230,.18), transparent 48%), rgba(35,18,43,.22); text-align: center; }

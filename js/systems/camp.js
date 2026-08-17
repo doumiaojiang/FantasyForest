@@ -302,22 +302,26 @@ window.CampSystem = (function () {
           <div class="toilet-sign" aria-hidden="true"><span>🚻</span></div>
           <div><small>CAMP RESTROOM · 24H</small><h3>灯管滋滋作响，最里面似乎不太对劲。</h3><p>空气里混着消毒水和潮湿木头的味道。</p></div>
         </section>
-        <div class="toilet-options">
-          <article class="toilet-option toilet-option-safe"><i>🚽</i><div><b>普通隔间</b><small>门锁完好 · 免费使用</small></div><em>安全</em></article>
-          <article class="toilet-option toilet-option-secret ${discovered ? 'is-discovered' : ''}"><i>${discovered ? '🍑' : '🔍'}</i><div><b>${discovered ? '隐藏荣耀洞' : '最里面的隔间'}</b><small>${discovered ? '入口已经被你发现' : '门缝里传来压低的喘息'}</small></div><em>${discovered ? '已解锁' : '可调查'}</em></article>
+        <div class="toilet-grid">
+          <button class="toilet-card toilet-card-safe ${state._toiletUsed ? 'is-used' : ''}" data-toilet="use"><i>🚽</i><span><b>普通隔间</b><small>${state._toiletUsed ? '今天已经上过了' : '门锁完好 · 免费使用'}</small></span><em>${state._toiletUsed ? '已使用' : '使用'}</em></button>
+          <button class="toilet-card toilet-card-secret ${discovered ? 'is-discovered' : ''}" data-toilet="secret"><i>${discovered ? '🍑' : '🔍'}</i><span><b>${discovered ? '隐藏荣耀洞' : '最里面的隔间'}</b><small>${discovered ? '入口已经被你发现' : '门缝里传来压低的喘息'}</small></span><em>${discovered ? '已解锁' : '调查'}</em></button>
         </div>
         <div class="toilet-clue ${discovered ? 'is-discovered' : ''}"><i>${discovered ? '✓' : '!'}</i><span>${discovered ? '你已经知道墙后藏着什么，可以直接进去接单。' : '墙面有一道不自然的圆形轮廓，靠近后还有温热的气流。'}</span></div>`,
       actions: [
-        { label: state._toiletUsed ? '🚽 已经上过了' : '🚽 上厕所', cls: state._toiletUsed ? '' : 'btn', handler: () => {
-          if (state._toiletUsed) { EventBus.emit('ui:log', { text: '🚽 你已经上过一次厕所了，再挤也挤不出来。', type: 'dim' }); return }
-          useToilet()
-        } },
-        { label: discovered ? '🍑 荣耀洞（服务顾客赚钱）' : '🔍 调查那间隔间', cls: discovered ? 'btn-primary' : 'btn', handler: () => {
-          if (discovered) enterGlory()
-          else investigateStall()
-        } },
         { label: '返回营地', handler: () => { open() } },
       ],
+    })
+    document.querySelectorAll('[data-toilet]').forEach(btn => {
+      btn.onclick = () => {
+        const opt = btn.dataset.toilet
+        if (opt === 'use') {
+          if (state._toiletUsed) { EventBus.emit('ui:log', { text: '🚽 你已经上过一次厕所了，再挤也挤不出来。', type: 'dim' }); return }
+          useToilet()
+        } else {
+          if (discovered) enterGlory()
+          else investigateStall()
+        }
+      }
     })
   }
 
