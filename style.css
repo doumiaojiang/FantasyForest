@@ -2413,6 +2413,15 @@ body:has(.age-gate:not(.age-gate-hidden)) { overflow: hidden; }
 .glory-notice { display: grid; gap: 3px; margin-bottom: 12px; padding: 10px 12px; border: 1px solid rgba(255,107,107,.26); border-radius: 10px; background: rgba(255,107,107,.08); }
 .glory-notice b { color: #ff9a9a; font-size: .79rem; }
 .glory-notice span { color: #a99da3; font-size: .65rem; }
+
+/* 危险值 */
+.glory-wanted { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 12px; padding: 9px 12px; border: 1px solid rgba(255,140,60,.3); border-radius: 10px; background: rgba(255,120,40,.08); }
+.glory-wanted span { color: #ffc28a; font-size: .72rem; }
+.glory-wanted b { color: #ff9a5a; font-size: .9rem; }
+.glory-wanted em { color: #8a7a6a; font-size: .6rem; font-style: normal; }
+.glory-wanted.glory-wanted-safe { border-color: rgba(87,181,128,.3); background: rgba(87,181,128,.08); }
+.glory-wanted-safe span { color: #78c99c; }
+.glory-wanted-safe em { color: #5c8a72; }
 .glory-notice-free { border-color: rgba(193,117,255,.3); background: rgba(193,117,255,.09); }
 .glory-notice-free b { color: #dbadff; }
 .glory-notice-safe { border-color: rgba(89,181,128,.25); background: rgba(89,181,128,.08); }

@@ -467,9 +467,13 @@ window.CampSystem = (function () {
             <button class="glory-hole-btn" data-hole="${hole}"><i>${holeInfo.icon}</i><span><b>把${holeInfo.name === '嘴穴' ? '嘴' : holeInfo.name === '小穴' ? '小穴' : '屁股'}凑过去</b><small>${holeInfo.tip}</small></span></button>
           </div></div>`
       }
+      // 危险值显示（无证卖淫时）
+      const wantHtml = state._prostituteLicensed
+        ? `<div class="glory-wanted glory-wanted-safe"><span>🛡️ 持证营业</span><em>安全，不会被抓</em></div>`
+        : `<div class="glory-wanted"><span>🚨 危险值 <b>${state._gloryWanted || 0}%</b></span><em>越高越容易被抓</em></div>`
       campShow({
         title: '🍑 荣耀洞 · 接客', className: 'glory-modal',
-        body: `${notice}${isFree ? namedHole : `<div class="glory-section"><h3><span>洞后已经有人了</span><small>把身体凑过去，剩下的交给客人</small></h3>
+        body: `${notice}${wantHtml}${isFree ? namedHole : `<div class="glory-section"><h3><span>洞后已经有人了</span><small>把身体凑过去，剩下的交给客人</small></h3>
           <div class="glory-hole-choice">
             <button class="glory-hole-btn" data-hole="oral"><i>👄</i><span><b>把嘴凑过去</b><small>任由客人操弄你的嘴</small></span></button>
             <button class="glory-hole-btn" data-hole="anal"><i>🍑</i><span><b>把屁股凑过去</b><small>撅起屁股任客人使用</small></span></button>
