@@ -19,6 +19,7 @@
   let _prevPos = { x: -1, y: -1 }   // 上一个位置（防回头）
   let _moveLocked = false   // 移动掷骰运行锁（防重复触发）
   let _turning = false      // 岔路暂停：选方向后不掷骰，继续走剩余步数
+  let _readyToRollTimer = null  // 浮动方向键延迟重试计时器
   const DEBUG_ENABLED = !!(CONFIG.debug && CONFIG.debug.enabled) || ['localhost', '127.0.0.1'].includes(location.hostname)
   const AGE_CONFIRM_KEY = 'yaolin-qimeng-age-confirmed-v1'
 
@@ -48,6 +49,7 @@
     if (!st) return
     const gameActive = !gameScreen.classList.contains('screen-hidden')
     if (!gameActive || st.phase !== 'idle' || _isWalking || _moveLocked) return
+    clearTimeout(_readyToRollTimer)
     // 先清理浮动方向键避免残留
     const float = document.getElementById('dpad-float')
     if (float) float.classList.add('hidden')
@@ -842,12 +844,25 @@
     const float = document.getElementById('dpad-float')
     if (float) {
       float.innerHTML = buildDpad()
+      // 重置内联定位（防止拖动残留导致在视口外）
+      float.style.left = ''
+      float.style.top = ''
+      float.style.right = ''
+      float.style.bottom = ''
       float.classList.remove('hidden')
       bindDpad()
       makeDraggable(float)
       const itemBtn = document.getElementById('btn-move-item')
       if (itemBtn) itemBtn.onclick = showMoveItemMenu
     }
+    // 延迟重试：确保浮动键在 DOM 就绪后显示（新建游戏时可能因布局未稳定而隐藏）
+    clearTimeout(_readyToRollTimer)
+    _readyToRollTimer = setTimeout(() => {
+      const float2 = document.getElementById('dpad-float')
+      if (float2 && float2.classList.contains('hidden')) {
+        float2.classList.remove('hidden')
+      }
+    }, 200)
   }
 
   /** 移动阶段使用物品（非战斗，可随意使用治疗/解毒类） */
