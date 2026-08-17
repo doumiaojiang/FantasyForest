@@ -467,13 +467,21 @@ window.CampSystem = (function () {
   }
 
   function rollSpecialEvent () {
-    const z = Dice.rollZ()
+    // 加权概率：1=10% / 2=50% / 3=20% / 4=10% / 5=5% / 6=5%
+    const roll = Math.random() * 100
+    let z
+    if (roll < 10) z = 1
+    else if (roll < 60) z = 2
+    else if (roll < 80) z = 3
+    else if (roll < 90) z = 4
+    else if (roll < 95) z = 5
+    else z = 6
     return ({
       1: { z, basePay: false, tip: 0, msg: '👮 管理员走进来，白嫖了一发，一分钱没给。' },
       2: { z, basePay: true, tip: 0, msg: '🙂 客人舒服地哼哼着离开，一切如常。' },
       3: { z, basePay: true, tip: 5, msg: '💖 客人被你伺候得舒爽，往你嘴里塞了 5 金币小费。' },
       4: { z, basePay: true, tip: 10, msg: '💰 客人被你榨得腿软，大方地甩出 10 金币。' },
-      5: { z, basePay: true, tip: 0, extraSeconds: SERVICE_SECONDS, msg: '⏰ 客人意犹未尽，按着你又干了一轮，金币没变。' },
+      5: { z, basePay: false, tip: 0, complain: true, msg: '😤 客人嫌你服务不行，向营地投诉了你！' },
       6: { z, basePay: true, tip: 0, free: true, msg: '😠 客人嫌你不够卖力，要求免费再来一次！' },
     })[z]
   }
@@ -546,6 +554,11 @@ window.CampSystem = (function () {
     const baseEarn = (!wasFree && event.basePay) ? service.pay : 0
     const tip = wasFree ? 0 : (event.tip || 0)
     let totalEarn = baseEarn + tip
+    // 投诉：客人向营地投诉，加 30 欠款且这次不给钱
+    if (event.complain) {
+      state._gloryDebt = (state._gloryDebt || 0) + 30
+      EventBus.emit('ui:log', { text: `😤 客人投诉你服务不行，被营地记了 30 金币欠款（现欠 ${state._gloryDebt}G）！`, type: 'danger' })
+    }
     // 营地税率：按难度从收入中扣除（厕所也交税）
     const taxRate = (CONFIG.difficulty[state.difficulty] || {}).campTax || 0
     const tax = Math.floor(totalEarn * taxRate)
