@@ -766,56 +766,61 @@ window.CampSystem = (function () {
     await prisonTaskTimer(task)
   }
 
-  /** 执行监狱任务计时（支持分段循环任务：保持 X 秒 + 休息 Y 秒 × N 次） */
+  /** 监狱休息按钮：点击确认开始休息 */
+  function prisonRestButton (restSeconds) {
+    return new Promise(resolve => {
+      Dialog.show({
+        title: '💤 休息时间',
+        body: `<p style="color:var(--text-dim);font-size:.82rem;text-align:center">守卫允许你休息 <b>${restSeconds} 秒</b>再继续。</p>`,
+        actions: [
+          { label: '▶ 开始休息', cls: 'btn-primary', handler: () => {
+            Dialog.close()
+            EventBus.emit('ui:log', { text: `💤 你休息 ${restSeconds} 秒……`, type: 'dim' })
+            setTimeout(() => resolve(), restSeconds * 1000)
+          } },
+        ],
+      })
+    })
+  }
+
+  /** 执行监狱任务计时（支持分段 steps + restAfter 休息按钮） */
   async function prisonTaskTimer (task) {
     const state = State.get()
     let failed = false
     if (typeof BattleUI !== 'undefined' && BattleUI.showTaskDialog) {
-      // 分段循环任务：保持 holdSeconds 秒 → 休息 restSeconds 秒，重复 repeat 次
-      if (task.holdSeconds && task.repeat) {
-        const total = task.holdSeconds * task.repeat
-        const bar = { value: 0, target: total }
+      // 构造步骤列表：steps 数组，或 holdSeconds/repeat 循环，或单段
+      let steps = []
+      if (Array.isArray(task.steps)) {
+        steps = task.steps
+      } else if (task.holdSeconds && task.repeat) {
         for (let i = 0; i < task.repeat; i++) {
-          if (failed) break
-          const f = await BattleUI.showTaskDialog({
-            enemyName: `⛓️ 监狱守卫（第 ${i + 1}/${task.repeat} 轮）`,
-            attackName: task.name,
-            desc: task.phaseDesc || task.desc,
-            bpm: task.bpm || 0,
-            seconds: task.holdSeconds,
-            dmg: 0,
-            noDamage: true,
-            dildoName: '守卫的粗鸡巴',
-          })
-          if (f) { failed = true; break }
-          // 轮间休息（非最后一段）
-          if (task.restSeconds > 0 && i < task.repeat - 1) {
-            EventBus.emit('ui:log', { text: `💤 ${task.restDesc || `休息 ${task.restSeconds} 秒`}……`, type: 'dim' })
-            await new Promise(r => setTimeout(r, Math.min(task.restSeconds * 1000, 5000)))
-          }
-        }
-        if (failed) {
-          EventBus.emit('ui:log', { text: '⛓️ 你干呕着停下，守卫冷眼瞪着你，没加积分。', type: 'danger' })
-          EventBus.emit('state:changed', state)
-          prisonWork(); return
+          steps.push({ desc: task.phaseDesc || task.desc, bpm: task.bpm || 0, seconds: task.holdSeconds, restAfter: task.restSeconds > 0 && i < task.repeat - 1 })
         }
       } else {
+        steps = [{ desc: task.desc, bpm: task.bpm || 0, seconds: task.seconds || 0 }]
+      }
+      for (let i = 0; i < steps.length; i++) {
+        if (failed) break
+        const step = steps[i]
         const f = await BattleUI.showTaskDialog({
-          enemyName: '⛓️ 监狱守卫',
+          enemyName: steps.length > 1 ? `⛓️ 监狱守卫（第 ${i + 1}/${steps.length} 段）` : '⛓️ 监狱守卫',
           attackName: task.name,
-          desc: task.desc,
-          bpm: task.bpm || 0,
-          seconds: task.seconds || 0,
+          desc: step.desc,
+          bpm: step.bpm || 0,
+          seconds: step.seconds || 0,
           dmg: 0,
           noDamage: true,
           dildoName: '守卫的粗鸡巴',
         })
-        failed = f
-        if (failed) {
-          EventBus.emit('ui:log', { text: '⛓️ 你干呕着停下，守卫冷眼瞪着你，没加积分。', type: 'danger' })
-          EventBus.emit('state:changed', state)
-          prisonWork(); return
+        if (f) { failed = true; break }
+        if (step.restAfter) {
+          await prisonRestButton(5)
         }
+      }
+      if (failed) {
+        EventBus.emit('ui:log', { text: '⛓️ 你干呕着停下，守卫冷眼瞪着你，没加积分。', type: 'danger' })
+        EventBus.emit('state:changed', state)
+        prisonWork(); return
       }
     } else {
       failed = !confirm(`完成监狱任务：${task.desc}`)
@@ -873,9 +878,20 @@ window.CampSystem = (function () {
   const PRISON_ADV = {
     1: { name: '深喉三分钟', desc: '在 3 分钟内深喉 150 次，节奏紧凑不停歇', points: 25, seconds: 180 },
     2: { name: '深喉循环', desc: '深喉保持 15 秒，休息 5 秒，重复 3 次', points: 27, holdSeconds: 15, restSeconds: 5, repeat: 3, phaseDesc: '深喉保持 15 秒', restDesc: '休息 5 秒' },
-    3: { name: '深喉猛操', desc: '深喉 120 BPM 直到你干呕 5 次，然后以 120 BPM 操你的喉穴 90 秒（可休息呼吸，每次不超过 5 秒）', points: 30, bpm: 120, seconds: 90 },
-    4: { name: '喉咙旋转', desc: '按顺序：假阳具在喉咙中旋转 360 度 5 次；操喉穴直到干呕 5 次；深喉 3 次，每次保持 30 秒', points: 34, seconds: 120 },
-    5: { name: '极限深喉', desc: '操你喉咙 150 下尽可能快，然后喝很多水，操喉咙直到呕吐 2 次', points: 40, seconds: 120 },
+    3: { name: '深喉猛操', desc: '深喉 120 BPM 直到你干呕 5 次，然后以 120 BPM 操你的喉穴 90 秒（可休息呼吸，每次不超过 5 秒）', points: 30, bpm: 120, steps: [
+      { desc: '深喉 120 BPM 直到你干呕 5 次', bpm: 120, seconds: 60, restAfter: true },
+      { desc: '以 120 BPM 操你的喉穴 90 秒', bpm: 120, seconds: 90 },
+    ] },
+    4: { name: '喉咙旋转', desc: '按顺序：假阳具在喉咙中旋转 360 度 5 次；操喉穴直到干呕 5 次；深喉 3 次，每次保持 30 秒', points: 34, steps: [
+      { desc: '将假阳具在喉咙中旋转 360 度 5 次', bpm: 0, seconds: 30, restAfter: true },
+      { desc: '操你的喉穴直到干呕 5 次', bpm: 120, seconds: 60, restAfter: true },
+      { desc: '深喉 3 次，每次保持 30 秒', bpm: 0, seconds: 90 },
+    ] },
+    5: { name: '极限深喉', desc: '操你喉咙 150 下尽可能快，然后喝很多水，操喉咙直到呕吐 2 次', points: 40, steps: [
+      { desc: '操你喉咙 150 下，尽可能快', bpm: 150, seconds: 60, restAfter: true },
+      { desc: '喝很多水', bpm: 0, seconds: 10, restAfter: true },
+      { desc: '操你的喉咙直到呕吐 2 次', bpm: 120, seconds: 60 },
+    ] },
   }
 
   /** 惩罚牢房：狱警主管/矫正专家再教育（掷 Z 随机决定，只有 Z=1/4/6 才释放） */
@@ -989,38 +1005,33 @@ window.CampSystem = (function () {
     const doAdvPunishTask = async (task) => {
       let failed = false
       if (typeof BattleUI !== 'undefined' && BattleUI.showTaskDialog) {
-        // 分段循环任务
-        if (task.holdSeconds && task.repeat) {
+        let steps = []
+        if (Array.isArray(task.steps)) {
+          steps = task.steps
+        } else if (task.holdSeconds && task.repeat) {
           for (let i = 0; i < task.repeat; i++) {
-            if (failed) break
-            const f = await BattleUI.showTaskDialog({
-              enemyName: `👿 最可畏的守卫（第 ${i + 1}/${task.repeat} 轮）`,
-              attackName: task.name,
-              desc: task.phaseDesc || task.desc,
-              bpm: 120,
-              seconds: task.holdSeconds,
-              dmg: 0,
-              noDamage: true,
-              dildoName: '守卫那根粗壮的鸡巴',
-            })
-            if (f) { failed = true; break }
-            if (task.restSeconds > 0 && i < task.repeat - 1) {
-              EventBus.emit('ui:log', { text: `💤 ${task.restDesc || `休息 ${task.restSeconds} 秒`}……`, type: 'dim' })
-              await new Promise(r => setTimeout(r, Math.min(task.restSeconds * 1000, 5000)))
-            }
+            steps.push({ desc: task.phaseDesc || task.desc, bpm: 120, seconds: task.holdSeconds, restAfter: task.restSeconds > 0 && i < task.repeat - 1 })
           }
         } else {
+          steps = [{ desc: task.desc, bpm: 120, seconds: task.seconds || 0 }]
+        }
+        for (let i = 0; i < steps.length; i++) {
+          if (failed) break
+          const step = steps[i]
           const f = await BattleUI.showTaskDialog({
-            enemyName: '👿 最可畏的守卫',
+            enemyName: steps.length > 1 ? `👿 最可畏的守卫（第 ${i + 1}/${steps.length} 段）` : '👿 最可畏的守卫',
             attackName: task.name,
-            desc: task.desc,
-            bpm: 120,
-            seconds: task.seconds || 0,
+            desc: step.desc,
+            bpm: step.bpm || 120,
+            seconds: step.seconds || 0,
             dmg: 0,
             noDamage: true,
             dildoName: '守卫那根粗壮的鸡巴',
           })
-          failed = f
+          if (f) { failed = true; break }
+          if (step.restAfter) {
+            await prisonRestButton(5)
+          }
         }
       } else {
         failed = !confirm(`完成虐待任务：${task.desc}`)
