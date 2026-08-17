@@ -714,19 +714,21 @@ window.CampSystem = (function () {
     const points = state._prisonPoints || 0
     const target = prisonTarget()
     const midUnlocked = points >= 80
+    const advUnlocked = points >= 300
     const pct = Math.min(100, Math.round((points / target) * 100))
     campShow({
       title: '📋 选择任务类型', className: 'prison-modal',
       body: `<div class="prison-progress">
           <div class="prison-progress-head"><span>⛓️ 出狱积分</span><b>${points} / ${target}</b></div>
           <div class="prison-progress-bar"><i style="width:${pct}%"></i></div>
-          <em>${pct}% · 中级任务需 80 积分解锁</em>
+          <em>${pct}% · 中级任务需 80 积分，进阶任务需 300 积分</em>
         </div>
         <div class="prison-intro"><div class="prison-mark" aria-hidden="true">📋</div>
-        <p>牢房守卫把任务板推到你面前。选择要接哪种任务，然后掷 Z 决定具体内容。</p>
+        <p>牢房守卫把任务板推到你面前。选择要接哪种任务，然后掷骰决定具体内容。</p>
         <div class="toilet-grid">
           <button class="toilet-card toilet-card-safe" data-tier="basic"><i>🔰</i><span><b>基础任务</b><small>2-16 积分 · 深喉/喉穴抽插</small></span><em>随时可接</em></button>
           <button class="toilet-card toilet-card-secret ${midUnlocked ? '' : 'is-locked'}" data-tier="${midUnlocked ? 'mid' : ''}"><i>📈</i><span><b>中级任务</b><small>15-27 积分 · 深喉百次/操到呕吐</small></span><em>${midUnlocked ? '可接' : '需 80 积分'}</em></button>
+          <button class="toilet-card toilet-card-adv ${advUnlocked ? '' : 'is-locked'}" data-tier="${advUnlocked ? 'adv' : ''}"><i>💀</i><span><b>进阶任务</b><small>25-40 积分 · 极限深喉/喉咙旋转</small></span><em>${advUnlocked ? '可接' : '需 300 积分'}</em></button>
         </div></div>`,
       actions: [
         { label: '返回牢房', handler: () => { prisonWork() } },
@@ -735,25 +737,32 @@ window.CampSystem = (function () {
     document.querySelectorAll('[data-tier]').forEach(btn => {
       btn.onclick = () => {
         const tier = btn.dataset.tier
-        if (!tier) { EventBus.emit('ui:log', { text: '⛓️ 积分未到 80，中级任务还没解锁。', type: 'dim' }); return }
+        if (!tier) {
+          EventBus.emit('ui:log', { text: btn.dataset.tier === '' ? '⛓️ 积分未达标，该任务类型还没解锁。' : '⛓️ 积分未达标，该任务类型还没解锁。', type: 'dim' })
+          return
+        }
         Dialog.close()
         prisonRollTask(tier)
       }
     })
   }
 
-  /** 掷 Z 决定任务（按所选类型） */
+  /** 掷骰决定任务（按所选类型；进阶任务掷 X） */
   async function prisonRollTask (tier) {
-    const z = Dice.rollZ()
-    await Dialog.showDice(z, 'Z')
+    const isAdv = tier === 'adv'
+    const roll = isAdv ? Dice.rollZ() : Dice.rollZ()
+    await Dialog.showDice(roll, isAdv ? 'X' : 'Z')
     const state = State.get()
-    // Z=6 送惩罚牢房
-    if (z === 6) { prisonPunishment(); return }
-    // 使用所选任务类型（无证卖淫被抓的初级/中级自选）
-    const table = tier === 'mid' ? PRISON_MID : PRISON_BASIC
-    const task = table[z]
+    // 掷到 6 送惩罚牢房（基础/中级→矫正教育，进阶→最可畏守卫）
+    if (roll === 6) {
+      isAdv ? prisonAdvPunishment() : prisonPunishment()
+      return
+    }
+    // 使用所选任务类型
+    const table = tier === 'mid' ? PRISON_MID : tier === 'adv' ? PRISON_ADV : PRISON_BASIC
+    const task = table[roll]
     if (!task) { prisonWork(); return }
-    EventBus.emit('ui:log', { text: `⛓️ 守卫指定任务：${task.desc}（${task.points} 积分）`, type: 'danger' })
+    EventBus.emit('ui:log', { text: `⛓️ ${isAdv ? '守卫指定进阶任务' : '守卫指定任务'}：${task.desc}（${task.points} 积分）`, type: 'danger' })
     await prisonTaskTimer(task)
   }
 
@@ -825,6 +834,15 @@ window.CampSystem = (function () {
     5: { name: '操到呕吐', desc: '多喝水，操你的喉穴直到你呕吐', points: 27, seconds: 60 },
   }
 
+  /** 进阶任务表（积分 ≥300）：掷 X 决定 */
+  const PRISON_ADV = {
+    1: { name: '深喉三分钟', desc: '在 3 分钟内深喉 150 次，节奏紧凑不停歇', points: 25, seconds: 180 },
+    2: { name: '深喉循环', desc: '深喉保持 15 秒，休息 5 秒，重复 3 次', points: 27, seconds: 60 },
+    3: { name: '深喉猛操', desc: '深喉 120 BPM 直到你干呕 5 次，然后以 120 BPM 操你的喉穴 90 秒（可休息呼吸，每次不超过 5 秒）', points: 30, bpm: 120, seconds: 90 },
+    4: { name: '喉咙旋转', desc: '按顺序：假阳具在喉咙中旋转 360 度 5 次；操喉穴直到干呕 5 次；深喉 3 次，每次保持 30 秒', points: 34, seconds: 120 },
+    5: { name: '极限深喉', desc: '操你喉咙 150 下尽可能快，然后喝很多水，操喉咙直到呕吐 2 次', points: 40, seconds: 120 },
+  }
+
   /** 惩罚牢房：狱警主管/矫正专家再教育（掷 Z 随机决定，只有 Z=1/4/6 才释放） */
   function prisonPunishment () {
     const state = State.get()
@@ -894,6 +912,69 @@ window.CampSystem = (function () {
       EventBus.emit('ui:log', { text: `🎓 你完成再教育，获得 ${task.points} 积分（现 ${state._prisonPoints}/${prisonTarget()}）。专家仍不打算放你走，继续赎罪。`, type: 'good' })
       EventBus.emit('state:changed', state)
       prisonPunishment()
+    }
+    showPunish()
+  }
+
+  /** 进阶惩罚牢房：最令人畏惧的守卫，纯虐待（掷 Z，1/4/6 才释放） */
+  function prisonAdvPunishment () {
+    const state = State.get()
+    const showPunish = () => {
+      campShow({
+        title: '⛓️ 进阶惩罚牢房 · 纯虐待', className: 'prison-punish-modal',
+        body: `<div class="prison-intro"><div class="prison-mark" aria-hidden="true">👿</div>
+          <p>有一个守卫在囚犯中最令人畏惧。她施加的既不是矫正教育也不是惩罚，而是<b>纯粹的虐待</b>。</p>
+          <p class="prison-guard">"来了就别想轻易走。掷骰吧，废物。"</p></div>`,
+        actions: [
+          { label: '🎲 掷 Z 决定', cls: 'btn-danger', handler: () => { Dialog.close(); prisonAdvPunishRoll() } },
+        ],
+      })
+    }
+    const prisonAdvPunishRoll = async () => {
+      const z = Dice.rollZ()
+      await Dialog.showDice(z, 'Z')
+      if (z === 1 || z === 4 || z === 6) {
+        EventBus.emit('ui:log', { text: `🎲 Z=${z}：最可畏的守卫狞笑一声，放你回牢房。`, type: 'good' })
+        prisonWork()
+        return
+      }
+      const tasks = {
+        2: { name: '深喉 300 下', desc: '深喉 300 下，喉咙几乎报废', points: 20, seconds: 180 },
+        3: { name: '深喉循环', desc: '深喉保持 30 秒，休息 5 秒，重复 3 次', points: 22, seconds: 120 },
+        4: { name: '喉咙旋转', desc: '将假阳具在喉咙中旋转 360 度 10 次', points: 26, seconds: 90 },
+        5: { name: '深喉干呕三次', desc: '深喉直到你干呕 3 次', points: 30, seconds: 60 },
+      }
+      const task = tasks[z]
+      if (!task) { prisonWork(); return }
+      EventBus.emit('ui:log', { text: `🎲 Z=${z}：守卫指定虐待任务：${task.desc}`, type: 'danger' })
+      await doAdvPunishTask(task)
+    }
+    const doAdvPunishTask = async (task) => {
+      let failed = false
+      if (typeof BattleUI !== 'undefined' && BattleUI.showTaskDialog) {
+        const f = await BattleUI.showTaskDialog({
+          enemyName: '👿 最可畏的守卫',
+          attackName: task.name,
+          desc: task.desc,
+          bpm: 120,
+          seconds: task.seconds || 0,
+          dmg: 0,
+          noDamage: true,
+          dildoName: '守卫那根粗壮的鸡巴',
+        })
+        failed = f
+      } else {
+        failed = !confirm(`完成虐待任务：${task.desc}`)
+      }
+      if (failed) {
+        EventBus.emit('ui:log', { text: '👿 你干呕着求饶，守卫却更兴奋了——继续受刑。', type: 'danger' })
+        EventBus.emit('state:changed', state)
+        prisonAdvPunishment(); return
+      }
+      state._prisonPoints = Math.min(prisonTarget(), (state._prisonPoints || 0) + task.points)
+      EventBus.emit('ui:log', { text: `👿 你熬过虐待，获得 ${task.points} 积分（现 ${state._prisonPoints}/${prisonTarget()}）。守卫仍不打算放你走，继续受刑。`, type: 'good' })
+      EventBus.emit('state:changed', state)
+      prisonAdvPunishment()
     }
     showPunish()
   }
