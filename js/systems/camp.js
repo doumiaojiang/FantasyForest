@@ -810,13 +810,21 @@ window.CampSystem = (function () {
     const midUnlocked = points >= 80
     const advUnlocked = points >= 300
     const pct = Math.min(100, Math.round((points / target) * 100))
-    campShow({
-      title: '📋 选择任务类型', className: 'prison-modal',
-      body: `<div class="prison-progress">
+    // 永久监禁：不显示积分进度条
+    const progressHtml = state._prisonLife
+      ? `<div class="prison-progress">
+          <div class="prison-progress-head"><span>⛓️ 永久监禁</span><b>无法出狱</b></div>
+          <div class="prison-progress-bar"><i style="width:100%"></i></div>
+          <em>你已永远无法离开这座牢房，但仍被要求继续服务。</em>
+        </div>`
+      : `<div class="prison-progress">
           <div class="prison-progress-head"><span>⛓️ 出狱积分</span><b>${points} / ${target}</b></div>
           <div class="prison-progress-bar"><i style="width:${pct}%"></i></div>
           <em>${pct}% · 中级任务需 80 积分，进阶任务需 300 积分</em>
-        </div>
+        </div>`
+    campShow({
+      title: '📋 选择任务类型', className: 'prison-modal',
+      body: `${progressHtml}
         <div class="prison-intro"><div class="prison-mark" aria-hidden="true">📋</div>
         <p>牢房守卫把任务板推到你面前。选择要接哪种任务，然后掷骰决定具体内容。</p>
         <div class="toilet-grid">
