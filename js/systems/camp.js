@@ -1319,16 +1319,16 @@ window.CampSystem = (function () {
 
   /* ============ 铁匠铺：普通NPC + 佩戴监狱贞操装备时有特殊求情 ============ */
 
-  /** 铁匠铺入口：正常进主界面；佩戴监狱贞操装备时先弹服务求情对话框 */
+  /** 铁匠铺入口：正常进主界面；若已和铁匠签了服务契约则先服务 */
   function blacksmith () {
     const state = State.get()
     setCampPhase()
-    // 佩戴监狱贞操带/贞操锁：铁匠认出你，要求先服务才能谈解锁
-    if (state._prisonChastity) {
+    // 已签订服务契约（解锁监狱贞操装备时）：每次进铺子都要先服务铁匠
+    if (state._blacksmithContract) {
       Dialog.show({
         title: '🔨 铁匠', className: 'camp-tavern-modal',
-        body: `<div class="camp-character"><i>🔨</i><div><b>“等等，你身上这把锁……监狱的货。”</b><p>壮硕的铁匠放下锤子，眯起眼打量你腿间的贞操锁："想让我撬开它？先把我的家伙伺候舒坦了再说。"</p></div></div>
-          <p class="camp-footnote">铁匠的要求：先给他<b>口交</b>，再给他<b>肛交/性交</b>，才肯谈解锁你身上的监狱贞操装备。</p>`,
+        body: `<div class="camp-character"><i>🔨</i><div><b>“哟，签了契约的母狗来了。”</b><p>铁匠咧嘴一笑，放下锤子："规矩还记得吧？想进我的铺子，先把老子伺候舒坦了。"</p></div></div>
+          <p class="camp-footnote">契约（永久）：每次进铁匠铺都要先给他<b>口交</b>，再给他<b>肛交/性交</b>。</p>`,
         actions: [
           { label: '💦 服务铁匠（进店）', cls: 'btn-primary', handler: () => { Dialog.close(); blacksmithService() } },
           { label: '🚶 转身就走', handler: () => { Dialog.close(); open() } },
@@ -1433,19 +1433,65 @@ window.CampSystem = (function () {
     campShow({
       title: '🔓 解锁监狱贞操装备', className: 'camp-tavern-modal',
       body: `<div class="camp-character"><i>🔨</i><div><b>“身上那把锁，我认得。”</b><p>铁匠盯着你腿间的贞操锁："监狱的货。想让我撬开？可以——<b>500G</b>，外加在大腿上烙上这几个字：<b>免费肉便器</b>。"</p></div></div>
-        <p class="camp-footnote">解锁后监狱贞操带/贞操锁会取下，但会永久留下"免费肉便器"的烙印。</p>`,
+        <p class="camp-footnote">但解这个锁是有条件的——你得先跟我<b>签个契约</b>：往后每次进我的铺子，都得先伺候我一顿（口交 + 肛交/性交）。</p>`,
       actions: [
-        { label: state.gold >= 500 ? '💸 花 500G + 写烙印解锁' : '💰 钱不够（500G）', cls: state.gold >= 500 ? 'btn-primary' : 'btn-danger', handler: () => {
+        { label: state.gold >= 500 ? '📜 签契约 + 花 500G 解锁' : '💰 钱不够（500G）', cls: state.gold >= 500 ? 'btn-primary' : 'btn-danger', handler: () => {
           if (state.gold < 500) { EventBus.emit('ui:log', { text: '💰 钱不够解锁。', type: 'dim' }); blacksmithUnlock(); return }
-          state.gold -= 500
-          state._prisonChastity = false
-          state._freeMeatBrand = true   // 永久烙印
-          if (StatusSystem.has('chastity')) StatusSystem.remove('chastity')
-          EventBus.emit('ui:log', { text: '🔓 铁匠撬开了你的监狱贞操锁，并在你大腿上烙下"免费肉便器"。', type: 'good' })
-          EventBus.emit('state:changed', state)
-          Dialog.close(); blacksmithShop()
+          // 先签契约 + 服务，服务完才真正解锁
+          Dialog.close()
+          blacksmithContractService()
         } },
         { label: '算了', handler: () => { Dialog.close(); blacksmithShop() } },
+      ],
+    })
+  }
+
+  /** 签订契约：先服务铁匠（口交+肛交/性交），服务完才解锁 */
+  async function blacksmithContractService () {
+    const state = State.get()
+    const isFemale = state.gender !== 'male'
+    const sexDesc = isFemale ? '你躺下来张开腿，让铁匠用粗鸡巴狠狠操进你的小穴' : '你趴跪在铁砧边，撅起屁股让铁匠从背后操进你的菊穴'
+    let failed = false
+    if (typeof BattleUI !== 'undefined' && BattleUI.showTaskDialog) {
+      const steps = [
+        { desc: '你跪在铁匠腿间，含住他那根粗壮的鸡巴卖力吞吐深喉', bpm: 0, seconds: 30 },
+        { desc: sexDesc, bpm: 90, seconds: 30 },
+      ]
+      for (let i = 0; i < steps.length; i++) {
+        const f = await BattleUI.showTaskDialog({
+          enemyName: `🔨 铁匠（第 ${i + 1}/2 段）`,
+          attackName: '签订契约 · 服务铁匠',
+          desc: steps[i].desc,
+          bpm: steps[i].bpm || 0,
+          seconds: steps[i].seconds || 0,
+          dmg: 0,
+          noDamage: true,
+          dildoName: '铁匠那根粗壮的鸡巴',
+        })
+        if (f) { failed = true; break }
+      }
+    } else {
+      failed = !confirm('服务铁匠：口交 + 肛交/性交。')
+    }
+    if (failed) {
+      EventBus.emit('ui:log', { text: '🏃 你伺候到一半就跑，铁匠骂骂咧咧："契约不签了？锁也别想开！"', type: 'danger' })
+      blacksmithShop()
+      return
+    }
+    // 服务完成：签订契约 + 解锁
+    state.gold -= 500
+    state._prisonChastity = false
+    state._freeMeatBrand = true
+    state._blacksmithContract = true   // 永久契约：以后每次进铺子都要先服务
+    if (StatusSystem.has('chastity')) StatusSystem.remove('chastity')
+    EventBus.emit('ui:log', { text: '💦 铁匠被你伺候舒服了，签下契约，撬开了你的监狱贞操锁，并烙上"免费肉便器"。', type: 'good' })
+    EventBus.emit('state:changed', state)
+    Dialog.show({
+      title: '🔓 契约签订 · 解锁完成', className: 'camp-tavern-modal',
+      body: `<div class="camp-character"><i>🔨</i><div><b>“成了。锁开了，契约也签了。”</b><p>铁匠拍拍你的屁股："记住，往后每次进我这铺子，都得先伺候我一顿——这是你自己签的。"</p></div></div>
+        <p class="camp-footnote">你的大腿上烙下了<b>免费肉便器</b>，监狱贞操装备已取下。</p>`,
+      actions: [
+        { label: '进店', cls: 'btn-primary', handler: () => { Dialog.close(); blacksmithShop() } },
       ],
     })
   }
