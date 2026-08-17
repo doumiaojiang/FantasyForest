@@ -106,11 +106,10 @@ window.CampSystem = (function () {
         </section>
         <div class="camp-stats" aria-label="营地状态"><span>❤️ ${state.hp}/${state.maxHp}</span><span>💎 ${state.gold} 金币</span><span>🧭 出生点东侧</span></div>
         <div class="camp-grid">
-          <button class="camp-opt camp-opt-shop" data-opt="shop"><i>🛒</i><span><b>旅行商店</b><small>补给、装备与消耗品</small></span><em>营业中</em></button>
-          <button class="camp-opt camp-opt-potion" data-opt="potion"><i>🧪</i><span><b>道具商</b><small>药品与各种消耗品</small></span><em>营业中</em></button>
-          <button class="camp-opt camp-opt-blacksmith" data-opt="blacksmith"><i>🔨</i><span><b>铁匠铺</b><small>武器与饰品</small></span><em>营业中</em></button>
-          <button class="camp-opt camp-opt-glory" data-opt="glory"><i>🚻</i><span><b>公共厕所</b><small>${toiletHint}</small></span><em>${toiletStatus}</em></button>
           <button class="camp-opt camp-opt-tavern" data-opt="tavern"><i>🍺</i><span><b>雾灯酒馆</b><small>摇骰子、买酒</small></span><em>营业中</em></button>
+          <button class="camp-opt camp-opt-blacksmith" data-opt="blacksmith"><i>🔨</i><span><b>铁匠铺</b><small>武器与饰品</small></span><em>营业中</em></button>
+          <button class="camp-opt camp-opt-potion" data-opt="potion"><i>🧪</i><span><b>道具商</b><small>药品与各种消耗品</small></span><em>营业中</em></button>
+          <button class="camp-opt camp-opt-glory" data-opt="glory"><i>🚻</i><span><b>公共厕所</b><small>${toiletHint}</small></span><em>${toiletStatus}</em></button>
           <button class="camp-opt camp-opt-deer" data-opt="deer"><i>🦌</i><span><b>篝火旁的鹿</b><small>旅人的初次见面礼</small></span><em>${deerStatus}</em></button>
         </div>
         <p class="camp-footnote">营地不会消耗回合；离开后从当前格继续探索。</p>`,
@@ -119,10 +118,10 @@ window.CampSystem = (function () {
     document.querySelectorAll('.camp-opt').forEach(btn => {
       btn.onclick = () => {
         const opt = btn.dataset.opt
-        if (opt === 'shop' || opt === 'potion' || opt === 'blacksmith') {
+        if (opt === 'potion' || opt === 'blacksmith') {
           state._shopReturnToCamp = true
           EventBus.emit('state:changed', state)
-          const raw = opt === 'shop' ? '营地商店' : opt === 'potion' ? '道具商' : '铁匠铺'
+          const raw = opt === 'potion' ? '道具商' : '铁匠铺'
           ShopSystem.open({ type: TILE.CAMP, raw })
         } else if (opt === 'glory') gloryHole()
         else if (opt === 'tavern') tavern()
@@ -1194,6 +1193,10 @@ window.CampSystem = (function () {
     { title: '💬 老板娘 · 林子的传闻', body: `<div class="camp-character"><i>💃</i><div><b>“听说林子里最近多了些不长眼的怪物。”</b><p>她擦着酒杯：“你要是胆子够大，出门右转进林子里，能捡到不少好东西。”</p></div></div>` },
     { title: '💬 老板娘 · 酒馆的风云', body: `<div class="camp-character"><i>💃</i><div><b>“隔壁桌那些赌棍，输急了眼连裤子都敢押。”</b><p>她呷了口酒：“你可别学他们，姐这儿不赊账。”</p></div></div>` },
     { title: '💬 老板娘 · 今晚的风', body: `<div class="camp-character"><i>💃</i><div><b>“夜里风凉，当心别在林子里过夜。”</b><p>她往炉子里添了根柴：“我这酒馆，永远给你留着一盏灯。”</p></div></div>` },
+    { title: '💬 老板娘 · 铁匠铺', body: `<div class="camp-character"><i>💃</i><div><b>“新来的铁匠可有一手好手艺。”</b><p>她朝门口努努嘴：“他打的家伙什儿结实，你要是想换把趁手的兵器，去找他准没错。”</p></div></div>` },
+    { title: '💬 老板娘 · 道具商', body: `<div class="camp-character"><i>💃</i><div><b>“镇上那个道具商，进货的路子野得很。”</b><p>她压低声音：“药膏、肛塞、假阳具……什么稀奇古怪的玩意儿他都有。有钱尽管去逛逛。”</p></div></div>` },
+    { title: '💬 老板娘 · 旅行商人走了', body: `<div class="camp-character"><i>💃</i><div><b>“诶，你听说了没？老旅行商人走了。”</b><p>她擦着吧台叹了口气：“说是咱这镇子越来越大了，他得赶去别的穷地方做生意。往后补给、装备，就得靠镇上的铁匠和道具商了。”</p></div></div>` },
+    { title: '💬 老板娘 · 镇子变大了', body: `<div class="camp-character"><i>💃</i><div><b>“这几年镇子是一天比一天热闹。”</b><p>她给自己倒了杯酒：“铁匠铺、道具铺一个个开起来，就剩我这酒馆还守着老味道。”</p></div></div>` },
   ]
   function barkeepChat () {
     const state = State.get()
