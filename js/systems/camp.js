@@ -124,11 +124,12 @@ window.CampSystem = (function () {
     document.querySelectorAll('.camp-opt').forEach(btn => {
       btn.onclick = () => {
         const opt = btn.dataset.opt
-        if (opt === 'potion' || opt === 'blacksmith') {
+        if (opt === 'potion') {
           state._shopReturnToCamp = true
           EventBus.emit('state:changed', state)
-          const raw = opt === 'potion' ? '道具商' : '铁匠铺'
-          ShopSystem.open({ type: TILE.CAMP, raw })
+          ShopSystem.open({ type: TILE.CAMP, raw: '道具商' })
+        } else if (opt === 'blacksmith') {
+          blacksmith()
         } else if (opt === 'glory') gloryHole()
         else if (opt === 'tavern') tavern()
         else if (opt === 'prison') prisonDoor()
@@ -674,7 +675,8 @@ window.CampSystem = (function () {
     state._prisonPoints = 0
     state.phase = 'camp'
     EventBus.emit('state:changed', state)
-    // 贞操锁：监狱里你的小穴被贞操笼/贞操带锁死
+    // 监狱专用贞操带/贞操锁：小穴被锁死（作为装备）
+    state._prisonChastity = true
     if (!StatusSystem.has('chastity')) StatusSystem.apply('chastity', 99999)
     const target = prisonTarget()
     campShow({
@@ -1073,6 +1075,7 @@ window.CampSystem = (function () {
     state._prisonRehab = 0
     state._prisonEscapeFails = 0
     state._prisonEscapePenalty = 0
+    state._prisonChastity = false   // 正常出狱：解锁监狱贞操装备
     if (StatusSystem.has('chastity')) StatusSystem.remove('chastity')
     EventBus.emit('state:changed', state)
     campShow({
@@ -1311,6 +1314,133 @@ window.CampSystem = (function () {
       body: `<div class="glory-section"><h3><span>“哟，厕所的味儿都还没散呢。”</span><small>卫兵捂着鼻子，露出嫌弃又好笑的表情</small></h3>
         <p class="camp-muted">“看你${state.gender === 'male' ? '男雌婊' : '丫头'}是刚从洞里爬出来还清了债——行，滚回营地去歇着吧。下次想溜号，记得先掂量掂量自己的屁股值几个钱。”</p></div>`,
       actions: [{ label: '回营地', cls: 'btn-primary', handler: () => { Dialog.close(); open() } }],
+    })
+  }
+
+  /* ============ 铁匠铺：每次先服务才能买东西 ============ */
+
+  /** 铁匠铺入口：每次进入先弹服务对话框（可服务或转身就走） */
+  function blacksmith () {
+    const state = State.get()
+    setCampPhase()
+    Dialog.show({
+      title: '🔨 铁匠', className: 'camp-tavern-modal',
+      body: `<div class="camp-character"><i>🔨</i><div><b>“又来了？我这铺子可不是白进的。”</b><p>壮硕的铁匠放下锤子，叉腰打量你：“想买我的东西？先把我的家伙伺候舒坦了再说。”</p></div></div>
+        <p class="camp-footnote">铁匠的要求（永久）：先给他<b>口交</b>，再给他<b>肛交/性交</b>，才能进铺子买东西。</p>`,
+      actions: [
+        { label: '💦 服务铁匠（进店）', cls: 'btn-primary', handler: () => { Dialog.close(); blacksmithService() } },
+        { label: '🚶 转身就走', handler: () => { Dialog.close(); open() } },
+      ],
+    })
+  }
+
+  /** 铁匠服务任务：口交 + 肛交/性交 */
+  async function blacksmithService () {
+    const state = State.get()
+    const isFemale = state.gender !== 'male'
+    const sexDesc = isFemale ? '你躺下来张开腿，让铁匠用粗鸡巴狠狠操进你的小穴' : '你趴跪在铁砧边，撅起屁股让铁匠从背后操进你的菊穴'
+    let failed = false
+    if (typeof BattleUI !== 'undefined' && BattleUI.showTaskDialog) {
+      const steps = [
+        { desc: '你跪在铁匠腿间，含住他那根粗壮的鸡巴卖力吞吐深喉', bpm: 0, seconds: 30 },
+        { desc: sexDesc, bpm: 90, seconds: 30 },
+      ]
+      for (let i = 0; i < steps.length; i++) {
+        const f = await BattleUI.showTaskDialog({
+          enemyName: `🔨 铁匠（第 ${i + 1}/2 段）`,
+          attackName: '服务铁匠',
+          desc: steps[i].desc,
+          bpm: steps[i].bpm || 0,
+          seconds: steps[i].seconds || 0,
+          dmg: 0,
+          noDamage: true,
+          dildoName: '铁匠那根粗壮的鸡巴',
+        })
+        if (f) { failed = true; break }
+      }
+    } else {
+      failed = !confirm('服务铁匠：口交 + 肛交/性交（完成代表伺候完了）。')
+    }
+    if (failed) {
+      EventBus.emit('ui:log', { text: '🏃 你伺候到一半就跑，铁匠骂骂咧咧："下次再来，别想进我的铺子！"', type: 'danger' })
+      open()
+      return
+    }
+    EventBus.emit('ui:log', { text: '💦 铁匠被你伺候舒服了，擦擦手："行，进来挑吧。"', type: 'good' })
+    blacksmithShop()
+  }
+
+  /** 铁匠主界面：聊天 / 商店 / 解锁监狱贞操装备 */
+  function blacksmithShop () {
+    const state = State.get()
+    campShow({
+      title: '🔨 铁匠铺', className: 'camp-tavern-modal',
+      body: `<div class="camp-character"><i>🔨</i><div><b>“想看点什么？”</b><p>铁匠磨着刀，扫了你一眼："家伙什儿都在架上，自己挑。"</p></div></div>
+        <div class="camp-grid">
+          <button class="camp-opt" data-bs="buy"><i>🛒</i><span><b>商店</b><small>武器与饰品</small></span><em>进店</em></button>
+          <button class="camp-opt" data-bs="chat"><i>💬</i><span><b>聊天</b><small>听铁匠唠唠</small></span><em>搭话</em></button>
+          ${state._prisonChastity ? `<button class="camp-opt" data-bs="unlock"><i>🔓</i><span><b>解锁监狱贞操装备</b><small>求铁匠打开你身上的锁</small></span><em>求解锁</em></button>` : ''}
+        </div>`,
+      actions: [{ label: '返回营地', handler: () => { Dialog.close(); open() } }],
+    })
+    document.querySelectorAll('[data-bs]').forEach(btn => {
+      btn.onclick = () => {
+        const opt = btn.dataset.bs
+        Dialog.close()
+        if (opt === 'buy') blacksmithBuy()
+        else if (opt === 'chat') blacksmithChat()
+        else if (opt === 'unlock') blacksmithUnlock()
+      }
+    })
+  }
+
+  /** 进铁匠商店 */
+  function blacksmithBuy () {
+    const state = State.get()
+    state._shopReturnToCamp = true
+    EventBus.emit('state:changed', state)
+    ShopSystem.open({ type: TILE.CAMP, raw: '铁匠铺' })
+  }
+
+  /** 铁匠聊天：随机循环 */
+  const BLACKSMITH_CHATS = [
+    { title: '💬 铁匠 · 打铁', body: `<div class="camp-character"><i>🔨</i><div><b>“打了一辈子铁，什么家伙都见过。”</b><p>他敲了敲砧子：“你这小身板，扛得住好剑。”</p></div></div>` },
+    { title: '💬 铁匠 · 兵器', body: `<div class="camp-character"><i>🔨</i><div><b>“好兵器要趁手，更要趁热。”</b><p>他指了指墙上的剑："想要好货，得先过我这关。"</p></div></div>` },
+    { title: '💬 铁匠 · 镇子', body: `<div class="camp-character"><i>🔨</i><div><b>“镇上铁匠铺就我一家，不愁没生意。”</b><p>他咧嘴一笑："不过嘛，来我这儿的，多少得付出点代价。"</p></div></div>` },
+  ]
+  function blacksmithChat () {
+    const state = State.get()
+    const pool = BLACKSMITH_CHATS
+    const pick = pool[Math.floor(Math.random() * pool.length)]
+    campShow({
+      title: pick.title, className: 'camp-tavern-modal', body: pick.body,
+      actions: [
+        { label: '再聊聊', handler: () => { Dialog.close(); blacksmithChat() } },
+        { label: '返回铁匠', handler: () => { Dialog.close(); blacksmithShop() } },
+      ],
+    })
+  }
+
+  /** 解锁监狱贞操装备：500G + 大腿写"免费肉便器" */
+  function blacksmithUnlock () {
+    const state = State.get()
+    campShow({
+      title: '🔓 解锁监狱贞操装备', className: 'camp-tavern-modal',
+      body: `<div class="camp-character"><i>🔨</i><div><b>“身上那把锁，我认得。”</b><p>铁匠盯着你腿间的贞操锁："监狱的货。想让我撬开？可以——<b>500G</b>，外加在大腿上烙上这几个字：<b>免费肉便器</b>。"</p></div></div>
+        <p class="camp-footnote">解锁后监狱贞操带/贞操锁会取下，但会永久留下"免费肉便器"的烙印。</p>`,
+      actions: [
+        { label: state.gold >= 500 ? '💸 花 500G + 写烙印解锁' : '💰 钱不够（500G）', cls: state.gold >= 500 ? 'btn-primary' : 'btn-danger', handler: () => {
+          if (state.gold < 500) { EventBus.emit('ui:log', { text: '💰 钱不够解锁。', type: 'dim' }); blacksmithUnlock(); return }
+          state.gold -= 500
+          state._prisonChastity = false
+          state._freeMeatBrand = true   // 永久烙印
+          if (StatusSystem.has('chastity')) StatusSystem.remove('chastity')
+          EventBus.emit('ui:log', { text: '🔓 铁匠撬开了你的监狱贞操锁，并在你大腿上烙下"免费肉便器"。', type: 'good' })
+          EventBus.emit('state:changed', state)
+          Dialog.close(); blacksmithShop()
+        } },
+        { label: '算了', handler: () => { Dialog.close(); blacksmithShop() } },
+      ],
     })
   }
 

@@ -88,6 +88,8 @@ window.State = (function () {
       _prisonEscapeFails: 0,            // 越狱失败次数（0/1/2，第3次永久监禁）
       _prisonEscapePenalty: 0,          // 越狱失败额外积分惩罚（第1次+200，第2次+350）
       _prisonLife: false,               // 永久监禁（越狱失败3次）
+      _prisonChastity: false,           // 是否佩戴监狱专用贞操带/贞操锁（false/true）
+      _freeMeatBrand: false,            // 大腿上"免费肉便器"烙印（铁匠解锁后永久）
       _gloryDiscovered: false,          // 是否已发现荣耀洞（调查隔间后）
       _toiletUsed: false,               // 本次进入营地是否已上过厕所（CD）
       _campReturnPos: null,             // 进入营地前的位置（离开时返回）
@@ -384,6 +386,8 @@ window.State = (function () {
     state._prisonEscapeFails = Math.max(0, Math.min(3, Math.floor(finite(state._prisonEscapeFails, 0))))
     state._prisonEscapePenalty = Math.max(0, Math.floor(finite(state._prisonEscapePenalty, 0)))
     state._prisonLife = !!state._prisonLife
+    state._prisonChastity = !!state._prisonChastity
+    state._freeMeatBrand = !!state._freeMeatBrand
     if (state._gloryDiscovered === undefined) state._gloryDiscovered = !!state._gloryDiscovered
     if (state._toiletUsed === undefined) state._toiletUsed = !!state._toiletUsed
    if (state._campReturnPos === undefined) state._campReturnPos = null

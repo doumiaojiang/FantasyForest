@@ -71,11 +71,11 @@ function render (state) {
       ? (ItemLib.weapon(state.inventory.weapon)?.name || state.inventory.weapon)
       : '赤手空拳'
 
-    // 饰品（可穿多件）
+    // 饰品（可穿多件）+ 监狱贞操装备
     const accs = state.inventory.accessories || []
-    accessoryEl.textContent = accs.length
-      ? accs.map(id => (ItemLib.accessory(id)?.name || id)).join('、')
-      : '无'
+    const accNames = accs.map(id => (ItemLib.accessory(id)?.name || id))
+    if (state._prisonChastity) accNames.unshift('🔒 监狱专用贞操带')
+    accessoryEl.textContent = accNames.length ? accNames.join('、') : '无'
 
     // 物品框（消耗品 + 妓院许可证）
     const consumables = Object.entries(state.inventory.consumables || {}).filter(([, n]) => n > 0)
