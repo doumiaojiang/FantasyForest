@@ -933,7 +933,8 @@ window.CampSystem = (function () {
     const prisonAdvPunishRoll = async () => {
       const z = Dice.rollZ()
       await Dialog.showDice(z, 'Z')
-      if (z === 1 || z === 4 || z === 6) {
+      // 只有 Z=1 才释放
+      if (z === 1) {
         EventBus.emit('ui:log', { text: `🎲 Z=${z}：最可畏的守卫狞笑一声，放你回牢房。`, type: 'good' })
         prisonWork()
         return
@@ -943,6 +944,7 @@ window.CampSystem = (function () {
         3: { name: '深喉循环', desc: '深喉保持 30 秒，休息 5 秒，重复 3 次', points: 22, seconds: 120 },
         4: { name: '喉咙旋转', desc: '将假阳具在喉咙中旋转 360 度 10 次', points: 26, seconds: 90 },
         5: { name: '深喉干呕三次', desc: '深喉直到你干呕 3 次', points: 30, seconds: 60 },
+        6: { name: '操到呕吐三次', desc: '多喝水，操你的喉穴直到你呕吐 3 次', points: 34, seconds: 90 },
       }
       const task = tasks[z]
       if (!task) { prisonWork(); return }
