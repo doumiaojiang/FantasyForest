@@ -430,15 +430,30 @@ window.CampSystem = (function () {
       const vaginaBtn = state.gender !== 'male'
         ? `<button class="glory-hole-btn" data-hole="vagina"><i>🌸</i><span><b>把小穴凑过去</b><small>张开双腿任客人使用</small></span></button>`
         : ''
+      // 白嫖时：客人随机指定一个洞（指名），玩家不能选
+      let namedHole = ''
+      if (isFree) {
+        const pool = state.gender !== 'male' ? ['oral', 'anal', 'vagina'] : ['oral', 'anal']
+        const hole = pool[Math.floor(Math.random() * pool.length)]
+        const holeInfo = {
+          oral: { icon: '👄', name: '嘴穴', tip: '把嘴凑过去，任由客人操弄你的嘴' },
+          anal: { icon: '🍑', name: '菊穴', tip: '撅起屁股，让客人从背后操进来' },
+          vagina: { icon: '🌸', name: '小穴', tip: '张开双腿，任客人操弄你的小穴' },
+        }[hole]
+        namedHole = `<div class="glory-section"><h3><span>客人指名要你的${holeInfo.name}</span><small>“就用这里，快给我。”</small></h3>
+          <div class="glory-hole-choice">
+            <button class="glory-hole-btn" data-hole="${hole}"><i>${holeInfo.icon}</i><span><b>把${holeInfo.name === '嘴穴' ? '嘴' : holeInfo.name === '小穴' ? '小穴' : '屁股'}凑过去</b><small>${holeInfo.tip}</small></span></button>
+          </div></div>`
+      }
       campShow({
         title: '🍑 荣耀洞 · 接客', className: 'glory-modal',
-        body: `${notice}<div class="glory-section"><h3><span>洞后已经有人了</span><small>把身体凑过去，剩下的交给客人</small></h3>
+        body: `${notice}${isFree ? namedHole : `<div class="glory-section"><h3><span>洞后已经有人了</span><small>把身体凑过去，剩下的交给客人</small></h3>
           <div class="glory-hole-choice">
             <button class="glory-hole-btn" data-hole="oral"><i>👄</i><span><b>把嘴凑过去</b><small>任由客人操弄你的嘴</small></span></button>
             <button class="glory-hole-btn" data-hole="anal"><i>🍑</i><span><b>把屁股凑过去</b><small>撅起屁股任客人使用</small></span></button>
             ${vaginaBtn}
-          </div>
-          <p class="camp-footnote">你只负责把洞贴上去，客人会用多少钱、怎么干你，全凭他的心情——完事后掷 Z 看是否有额外惊喜。</p></div>`,
+          </div></div>`}
+          <p class="camp-footnote">你只负责把洞贴上去，客人会用多少钱、怎么干你，全凭他的心情——完事后掷 Z 看是否有额外惊喜。</p>`,
         actions: forced ? [] : [{ label: '返回营地', handler: () => { open() } }],
       })
       document.querySelectorAll('.glory-hole-btn').forEach(btn => {
