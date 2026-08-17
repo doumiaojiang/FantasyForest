@@ -995,20 +995,20 @@ window.CampSystem = (function () {
 
   /** 基础任务表（点数 <80）：掷 Z 决定 */
   const PRISON_BASIC = {
-    1: { name: '深喉', desc: '深喉 25 次，每次都吞到底', points: 2, seconds: 30 },
+    1: { name: '深喉', desc: '深喉 25 次，每次都吞到底', points: 2, textOnly: true },
     2: { name: '深喉保持', desc: '保持深喉 15 秒，鸡巴顶在嗓子眼里不许动', points: 4, seconds: 15 },
-    3: { name: '深喉连击', desc: '深喉 50 次，节奏稳定', points: 7, seconds: 60 },
+    3: { name: '深喉连击', desc: '深喉 50 次，节奏稳定', points: 7, textOnly: true },
     4: { name: '喉穴抽插', desc: '以 60 BPM 的速度抽插你的喉穴 30 秒', points: 7, bpm: 60, seconds: 30 },
-    5: { name: '深喉不干呕', desc: '深喉 10 次，全程忍住不许干呕', points: 16, seconds: 30 },
+    5: { name: '深喉不干呕', desc: '深喉 10 次，全程忍住不许干呕', points: 16, textOnly: true },
   }
 
   /** 中级任务表（点数 ≥80）：掷 Z 决定 */
   const PRISON_MID = {
-    1: { name: '深喉百次', desc: '深喉 100 次，喉咙被操到发麻', points: 15, seconds: 90 },
+    1: { name: '深喉百次', desc: '深喉 100 次，喉咙被操到发麻', points: 15, textOnly: true },
     2: { name: '深喉舔蛋', desc: '保持深喉 15 秒，期间舔舐蛋蛋，重复 1 次', points: 17, holdSeconds: 15, repeat: 1, phaseDesc: '保持深喉 15 秒，期间舔舐蛋蛋', restSeconds: 0 },
     3: { name: '喉穴猛操', desc: '以 90 BPM 的速度操你的喉穴 90 秒（可暂停休息呼吸，每次不超过 10 秒）', points: 20, bpm: 90, pauseTimer: true, pauseSeconds: 90, pauseLimit: 10 },
     4: { name: '干呕两次', desc: '操你喉穴直到你干呕 2 次', points: 24, countTarget: 2, countDesc: '干呕' },
-    5: { name: '操到呕吐', desc: '多喝水，操你的喉穴直到你呕吐', points: 27, countTarget: 1, countDesc: '呕吐' },
+    5: { name: '操到呕吐', desc: '多喝水，操你的喉穴直到你呕吐', points: 27, textOnly: true },
   }
 
   /** 进阶任务表（积分 ≥300）：掷 X 决定 */
@@ -1051,23 +1051,24 @@ window.CampSystem = (function () {
     const prisonPunishRoll = async () => {
       const z = Dice.rollZ()
       await Dialog.showDice(z, 'Z')
-      // Z=1/4/6：释放
-      if (z === 1 || z === 4 || z === 6) {
+      // 释放规则：基础 1/4/6 释放，中级 1/4 释放
+      if (z === 1 || z === 4 || (tier === 'basic' && z === 6)) {
         EventBus.emit('ui:log', { text: `🎲 Z=${z}：矫正专家网开一面，放你回牢房。`, type: 'good' })
         prisonWork()
         return
       }
-      // Z=2/3/5：做赎罪任务
+      // 赎罪任务
       const tasks = tier === 'basic'
         ? {
-            2: { name: '深喉 50 下', desc: '深喉 50 下', points: 8, seconds: 60 },
+            2: { name: '深喉 50 下', desc: '深喉 50 下', points: 8, textOnly: true },
             3: { name: '保持深喉 15 秒', desc: '保持深喉 15 秒', points: 6, seconds: 15 },
-            5: { name: '深喉直到干呕一次', desc: '深喉直到你干呕一次', points: 10, countTarget: 1, countDesc: '干呕' },
+            5: { name: '干呕两次', desc: '深喉直到你干呕 2 次', points: 10, countTarget: 2, countDesc: '干呕' },
           }
         : {
-            2: { name: '深喉 100 下', desc: '深喉 100 下', points: 15, seconds: 90 },
+            2: { name: '深喉 100 下', desc: '深喉 100 下', points: 15, textOnly: true },
             3: { name: '保持深喉 30 秒', desc: '保持深喉 30 秒', points: 18, seconds: 30 },
-            5: { name: '深喉直到干呕 5 次', desc: '深喉直到你干呕 5 次', points: 24, countTarget: 5, countDesc: '干呕' },
+            5: { name: '干呕十次', desc: '深喉直到你干呕 10 次', points: 24, countTarget: 10, countDesc: '干呕' },
+            6: { name: '操到呕吐', desc: '多喝水，操你的喉穴直到你呕吐', points: 20, textOnly: true },
           }
       const task = tasks[z]
       if (!task) { prisonWork(); return }
