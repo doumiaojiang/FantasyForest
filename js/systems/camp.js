@@ -539,8 +539,10 @@ window.CampSystem = (function () {
       EventBus.emit('ui:log', { text: `🏃 你中途受不住溜了，没拿报酬但也没欠债。`, type: 'dim' }); rerender(); return
     }
     if (wasFree) state._gloryFreeService = false
+    // 白嫖服务：一毛钱都不给（基础费和小费都归零）
     const baseEarn = (!wasFree && event.basePay) ? service.pay : 0
-    let totalEarn = baseEarn + (event.tip || 0)
+    const tip = wasFree ? 0 : (event.tip || 0)
+    let totalEarn = baseEarn + tip
     // 营地税率：按难度从收入中扣除（厕所也交税）
     const taxRate = (CONFIG.difficulty[state.difficulty] || {}).campTax || 0
     const tax = Math.floor(totalEarn * taxRate)
@@ -558,14 +560,14 @@ window.CampSystem = (function () {
       state._gloryByGuard = false
     }
     if (event.free) state._gloryFreeService = true
-    EventBus.emit('ui:log', { text: `🍑 你伺候完「${service.name}」，累得腰酸背痛，赚了 ${totalEarn} 金币。`, type: totalEarn > 0 ? 'good' : 'dim' })
+    EventBus.emit('ui:log', { text: wasFree ? `🍑 你伺候完「${service.name}」，客人提起裤子就走，一分钱没给（白嫖）。` : `🍑 你伺候完「${service.name}」，累得腰酸背痛，赚了 ${totalEarn} 金币。`, type: totalEarn > 0 ? 'good' : 'dim' })
     if (repaid > 0) EventBus.emit('ui:log', { text: `💸 你挣的钱先被营地扣去还债 ${repaid} 金币，还剩 ${state._gloryDebt} 没还清。`, type: 'dim' })
-    EventBus.emit('ui:log', { text: `🎲 Z=${event.z}：${event.msg}`, type: event.tip > 0 ? 'good' : 'dim' })
+    EventBus.emit('ui:log', { text: `🎲 Z=${event.z}：${wasFree && event.tip > 0 ? event.msg.replace(/小费|金币/g, '') : event.msg}`, type: event.tip > 0 && !wasFree ? 'good' : 'dim' })
     EventBus.emit('state:changed', state)
     const forced = state._gloryDebt > 0 || state._gloryFreeService
     campShow({
       title: '🍑 服务完成', className: 'glory-result-modal',
-      body: `<div class="glory-result"><strong>${totalEarn > 0 ? `赚了 ${totalEarn}G` : '白干了一场'}</strong><p>${event.msg}</p>${repaid > 0 ? `<span>还债 ${repaid}G · 还欠 ${state._gloryDebt}G</span>` : ''}${state._gloryFreeService ? '<span class="danger">还有个免费的得做完才能走</span>' : ''}</div>`,
+      body: `<div class="glory-result"><strong>${totalEarn > 0 ? `赚了 ${totalEarn}G` : '白干了一场'}</strong><p>${wasFree && event.tip > 0 ? event.msg.replace(/小费|金币/g, '') : event.msg}</p>${repaid > 0 ? `<span>还债 ${repaid}G · 还欠 ${state._gloryDebt}G</span>` : ''}${state._gloryFreeService ? '<span class="danger">还有个免费的得做完才能走</span>' : ''}</div>`,
       actions: [
         { label: forced ? '继续服务' : '继续接客', cls: 'btn-primary', handler: () => { Dialog.close(); rerender() } },
         ...(!forced ? [{ label: '返回营地', handler: () => { Dialog.close(); gloryClearedLeave() } }] : []),
