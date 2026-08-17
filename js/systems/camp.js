@@ -767,6 +767,44 @@ window.CampSystem = (function () {
   }
 
   /** 监狱休息按钮：点击确认开始休息 */
+  /** 监狱纯文字提示弹窗：无需计时/计数，看完点继续 */
+  function prisonTextDialog (desc, enemyName) {
+    return new Promise(resolve => {
+      Dialog.show({
+        title: '⛓️ ' + enemyName,
+        body: `<div class="camp-task"><div class="camp-task-icon">🗣️</div><p>${desc}</p><small>完成这段后点击继续。</small></div>`,
+        actions: [
+          { label: '继续', cls: 'btn-primary', handler: () => { Dialog.close(); resolve(false) } },
+        ],
+      })
+    })
+  }
+
+  /** 监狱计数弹窗：数呕吐/干呕次数，达标自动完成 */
+  function prisonCountDialog (desc, target, countDesc, enemyName, dildoName) {
+    return new Promise(resolve => {
+      let count = 0
+      const render = () => {
+        Dialog.show({
+          title: '🗯️ 计数任务', className: 'camp-task-modal',
+          body: `<div class="camp-task"><div class="camp-task-icon">🗯️</div><p>${desc}</p>
+            <div style="text-align:center;margin:10px 0"><strong style="font-size:1.5rem;color:var(--danger)">${count}</strong><span style="color:var(--text-dim);font-size:.8rem"> / ${target}</span></div>
+            <div class="camp-task-track"><i style="width:${Math.min(100, (count / target) * 100)}%"></i></div>
+            <small>每${countDesc}一次点一下「再${countDesc}一次」，达到 ${target} 次自动完成。</small></div>`,
+          actions: [
+            { label: `🤮 再${countDesc}一次`, cls: 'btn-danger', handler: () => {
+              count++
+              if (count >= target) { Dialog.close(); resolve(false) }
+              else render()
+            } },
+            { label: '🏃 中途放弃', handler: () => { Dialog.close(); resolve(true) } },
+          ],
+        })
+      }
+      render()
+    })
+  }
+
   function prisonRestButton (restSeconds) {
     return new Promise(resolve => {
       let count = restSeconds
@@ -810,21 +848,28 @@ window.CampSystem = (function () {
           steps.push({ desc: task.phaseDesc || task.desc, bpm: task.bpm || 0, seconds: task.holdSeconds, restAfter: task.restSeconds > 0 && i < task.repeat - 1 })
         }
       } else {
-        steps = [{ desc: task.desc, bpm: task.bpm || 0, seconds: task.seconds || 0 }]
+        steps = [{ desc: task.desc, bpm: task.bpm || 0, seconds: task.seconds || 0, countTarget: task.countTarget || 0, countDesc: task.countDesc }]
       }
       for (let i = 0; i < steps.length; i++) {
         if (failed) break
         const step = steps[i]
-        const f = await BattleUI.showTaskDialog({
-          enemyName: steps.length > 1 ? `⛓️ 监狱守卫（第 ${i + 1}/${steps.length} 段）` : '⛓️ 监狱守卫',
-          attackName: task.name,
-          desc: step.desc,
-          bpm: step.bpm || 0,
-          seconds: step.seconds || 0,
-          dmg: 0,
-          noDamage: true,
-          dildoName: '守卫的粗鸡巴',
-        })
+        let f
+        if (step.textOnly) {
+          f = await prisonTextDialog(step.desc, '⛓️ 监狱守卫')
+        } else if (step.countTarget) {
+          f = await prisonCountDialog(step.desc, step.countTarget, step.countDesc || '干呕', '⛓️ 监狱守卫', '守卫的粗鸡巴')
+        } else {
+          f = await BattleUI.showTaskDialog({
+            enemyName: steps.length > 1 ? `⛓️ 监狱守卫（第 ${i + 1}/${steps.length} 段）` : '⛓️ 监狱守卫',
+            attackName: task.name,
+            desc: step.desc,
+            bpm: step.bpm || 0,
+            seconds: step.seconds || 0,
+            dmg: 0,
+            noDamage: true,
+            dildoName: '守卫的粗鸡巴',
+          })
+        }
         if (f) { failed = true; break }
         if (step.restAfter) {
           await prisonRestButton(5)
@@ -883,8 +928,8 @@ window.CampSystem = (function () {
     1: { name: '深喉百次', desc: '深喉 100 次，喉咙被操到发麻', points: 15, seconds: 90 },
     2: { name: '深喉舔蛋', desc: '保持深喉 15 秒，期间舔舐蛋蛋，重复 1 次', points: 17, holdSeconds: 15, repeat: 1, phaseDesc: '保持深喉 15 秒，期间舔舐蛋蛋', restSeconds: 0 },
     3: { name: '喉穴猛操', desc: '以 90 BPM 的速度操你的喉穴 90 秒（可休息呼吸，但每次休息不超过 10 秒）', points: 20, bpm: 90, seconds: 90 },
-    4: { name: '干呕两次', desc: '操你喉穴直到你干呕 2 次', points: 24, seconds: 60 },
-    5: { name: '操到呕吐', desc: '多喝水，操你的喉穴直到你呕吐', points: 27, seconds: 60 },
+    4: { name: '干呕两次', desc: '操你喉穴直到你干呕 2 次', points: 24, countTarget: 2, countDesc: '干呕' },
+    5: { name: '操到呕吐', desc: '多喝水，操你的喉穴直到你呕吐', points: 27, countTarget: 1, countDesc: '呕吐' },
   }
 
   /** 进阶任务表（积分 ≥300）：掷 X 决定 */
@@ -892,18 +937,18 @@ window.CampSystem = (function () {
     1: { name: '深喉三分钟', desc: '在 3 分钟内深喉 150 次，节奏紧凑不停歇', points: 25, seconds: 180 },
     2: { name: '深喉循环', desc: '深喉保持 15 秒，休息 5 秒，重复 3 次', points: 27, holdSeconds: 15, restSeconds: 5, repeat: 3, phaseDesc: '深喉保持 15 秒', restDesc: '休息 5 秒' },
     3: { name: '深喉猛操', desc: '深喉 120 BPM 直到你干呕 5 次，然后以 120 BPM 操你的喉穴 90 秒（可休息呼吸，每次不超过 5 秒）', points: 30, bpm: 120, steps: [
-      { desc: '深喉 120 BPM 直到你干呕 5 次', bpm: 120, seconds: 60, restAfter: true },
+      { desc: '深喉 120 BPM 直到你干呕 5 次', countTarget: 5, countDesc: '干呕', restAfter: true },
       { desc: '以 120 BPM 操你的喉穴 90 秒', bpm: 120, seconds: 90 },
     ] },
     4: { name: '喉咙旋转', desc: '按顺序：假阳具在喉咙中旋转 360 度 5 次；操喉穴直到干呕 5 次；深喉 3 次，每次保持 30 秒', points: 34, steps: [
       { desc: '将假阳具在喉咙中旋转 360 度 5 次', bpm: 0, seconds: 30, restAfter: true },
-      { desc: '操你的喉穴直到干呕 5 次', bpm: 120, seconds: 60, restAfter: true },
+      { desc: '操你的喉穴直到干呕 5 次', countTarget: 5, countDesc: '干呕', restAfter: true },
       { desc: '深喉 3 次，每次保持 30 秒', bpm: 0, seconds: 90 },
     ] },
-    5: { name: '极限深喉', desc: '操你喉咙 150 下尽可能快，然后喝很多水，操喉咙直到呕吐 2 次', points: 40, steps: [
-      { desc: '操你喉咙 150 下，尽可能快', bpm: 150, seconds: 60, restAfter: true },
-      { desc: '喝很多水', bpm: 0, seconds: 10, restAfter: true },
-      { desc: '操你的喉咙直到呕吐 2 次', bpm: 120, seconds: 60 },
+    5: { name: '极限深喉', desc: '操你喉咙 150 下尽可能快，然后喝很多水，操喉咙直到呕吐 3 次', points: 40, steps: [
+      { desc: '操你喉咙 150 下，尽可能快', textOnly: true },
+      { desc: '喝很多水', textOnly: true },
+      { desc: '操你的喉咙直到呕吐 3 次', countTarget: 3, countDesc: '呕吐' },
     ] },
   }
 
@@ -1007,8 +1052,8 @@ window.CampSystem = (function () {
         2: { name: '深喉 300 下', desc: '深喉 300 下，喉咙几乎报废', points: 20, seconds: 180 },
         3: { name: '深喉循环', desc: '深喉保持 30 秒，休息 5 秒，重复 3 次', points: 22, holdSeconds: 30, restSeconds: 5, repeat: 3, phaseDesc: '深喉保持 30 秒', restDesc: '休息 5 秒' },
         4: { name: '喉咙旋转', desc: '将假阳具在喉咙中旋转 360 度 10 次', points: 26, seconds: 90 },
-        5: { name: '深喉干呕三次', desc: '深喉直到你干呕 3 次', points: 30, seconds: 60 },
-        6: { name: '操到呕吐三次', desc: '多喝水，操你的喉穴直到你呕吐 3 次', points: 34, seconds: 90 },
+        5: { name: '深喉干呕三次', desc: '深喉直到你干呕 3 次', points: 30, countTarget: 3, countDesc: '干呕' },
+        6: { name: '操到呕吐三次', desc: '多喝水，操你的喉穴直到你呕吐 3 次', points: 34, countTarget: 3, countDesc: '呕吐' },
       }
       const task = tasks[z]
       if (!task) { prisonWork(); return }
@@ -1026,21 +1071,26 @@ window.CampSystem = (function () {
             steps.push({ desc: task.phaseDesc || task.desc, bpm: 120, seconds: task.holdSeconds, restAfter: task.restSeconds > 0 && i < task.repeat - 1 })
           }
         } else {
-          steps = [{ desc: task.desc, bpm: 120, seconds: task.seconds || 0 }]
+          steps = [{ desc: task.desc, bpm: 120, seconds: task.seconds || 0, countTarget: task.countTarget || 0, countDesc: task.countDesc }]
         }
         for (let i = 0; i < steps.length; i++) {
           if (failed) break
           const step = steps[i]
-          const f = await BattleUI.showTaskDialog({
-            enemyName: steps.length > 1 ? `👿 最可畏的守卫（第 ${i + 1}/${steps.length} 段）` : '👿 最可畏的守卫',
-            attackName: task.name,
-            desc: step.desc,
-            bpm: step.bpm || 120,
-            seconds: step.seconds || 0,
-            dmg: 0,
-            noDamage: true,
-            dildoName: '守卫那根粗壮的鸡巴',
-          })
+          let f
+          if (step.countTarget) {
+            f = await prisonCountDialog(step.desc, step.countTarget, step.countDesc || '干呕', '👿 最可畏的守卫', '守卫那根粗壮的鸡巴')
+          } else {
+            f = await BattleUI.showTaskDialog({
+              enemyName: steps.length > 1 ? `👿 最可畏的守卫（第 ${i + 1}/${steps.length} 段）` : '👿 最可畏的守卫',
+              attackName: task.name,
+              desc: step.desc,
+              bpm: step.bpm || 120,
+              seconds: step.seconds || 0,
+              dmg: 0,
+              noDamage: true,
+              dildoName: '守卫那根粗壮的鸡巴',
+            })
+          }
           if (f) { failed = true; break }
           if (step.restAfter) {
             await prisonRestButton(5)
