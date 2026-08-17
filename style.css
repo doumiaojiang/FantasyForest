@@ -88,9 +88,9 @@ body {
 
 /* 营地页面面板 */
 .camp-panel { overflow: visible; grid-column: 1; grid-row: 1; }
-.camp-panel .camp-panel-inner { display: flex; flex-direction: column; gap: 12px; }
-.camp-panel .camp-panel-inner .modal-title { margin: 0; color: #f3e4d6; font-size: 1rem; }
-.camp-panel .camp-panel-inner .modal-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 4px; }
+.camp-panel .camp-panel-inner.modal-box { max-width: 100%; box-shadow: none; }
+.camp-panel .camp-panel-inner .modal-title { margin: 0 0 12px; color: #f3e4d6; font-size: 1.05rem; }
+.camp-panel .camp-panel-inner .modal-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 14px; }
 
 /* =========================================================
    03. 通用布局

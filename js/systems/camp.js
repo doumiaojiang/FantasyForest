@@ -41,7 +41,7 @@ window.CampSystem = (function () {
     if (mapPanel) mapPanel.classList.add('panel-hidden')
     panel.classList.remove('panel-hidden')
     panel.innerHTML = `
-      <div class="camp-panel-inner ${className}">
+      <div class="camp-panel-inner modal-box ${className}">
         ${title ? `<h3 class="modal-title">${title}</h3>` : ''}
         <div class="modal-body">${body}</div>
         ${actions.length ? `<div class="modal-actions">${actions.map((a, i) =>
