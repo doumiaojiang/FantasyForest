@@ -673,7 +673,7 @@ window.CampSystem = (function () {
     })
   }
 
-  /** 牢房工作界面：点数 + 狱友 + 掷 Z 工作；满 300 点可自行选择出狱 */
+  /** 牢房工作界面：点数 + 狱友 + 自选任务类型后掷 Z；满 300 点可自行选择出狱 */
   function prisonWork () {
     const state = State.get()
     const points = state._prisonPoints || 0
@@ -686,29 +686,53 @@ window.CampSystem = (function () {
           <div class="camp-character"><i>🧔</i><div><b>五名囚犯挤在牢房里，表情阴郁。</b><p>“我们不过是偷了块面包、欠了点酒钱，就被关了进来。”其中一个压低声音，“这明显不公……嘘，守卫来了。”</p></div></div>
           <p class="prison-guard">“不要再说话了！是时候开始工作了！”</p>
         </div>
-        ${done ? '<p class="camp-footnote">你已经攒够了 300 点，随时可以出狱——也可以留下继续接活。</p>' : '<p class="camp-footnote">牢房角落的守卫示意你过去。掷 Z 决定你被要求提供的服务。</p>'}`,
+        ${done ? '<p class="camp-footnote">你已经攒够了 300 点，随时可以出狱——也可以留下继续接活。</p>' : '<p class="camp-footnote">选择要做的基础或中级任务，然后掷 Z 决定具体服务。</p>'}`,
       actions: done
         ? [
             { label: '🔓 选择出狱', cls: 'btn-primary', handler: () => { Dialog.close(); prisonRelease() } },
-            { label: '⛓️ 留下继续工作', handler: () => { Dialog.close(); prisonRollTask() } },
+            { label: '⛓️ 留下继续工作', handler: () => { Dialog.close(); prisonTierChoice() } },
           ]
         : [
-            { label: '🎲 开始工作（掷 Z）', cls: 'btn-danger', handler: () => { Dialog.close(); prisonRollTask() } },
+            { label: '🎲 选择任务并掷 Z', cls: 'btn-danger', handler: () => { Dialog.close(); prisonTierChoice() } },
           ],
     })
   }
 
-  /** 掷 Z 决定任务 */
-  async function prisonRollTask () {
+  /** 自选任务类型（基础/中级），再掷 Z */
+  function prisonTierChoice () {
+    const state = State.get()
+    const points = state._prisonPoints || 0
+    campShow({
+      title: '📋 选择任务类型', className: 'prison-modal',
+      body: `<div class="prison-intro"><div class="prison-mark" aria-hidden="true">📋</div>
+        <p>牢房守卫把任务板推到你面前。选择要接哪种任务，然后掷 Z 决定具体内容。</p>
+        <div class="toilet-grid">
+          <button class="toilet-card toilet-card-safe" data-tier="basic"><i>🔰</i><span><b>基础任务</b><small>2-16 积分 · 深喉/喉穴抽插</small></span><em>推荐新手</em></button>
+          <button class="toilet-card toilet-card-secret" data-tier="mid"><i>📈</i><span><b>中级任务</b><small>15-27 积分 · 深喉百次/操到呕吐</small></span><em>积分更多</em></button>
+        </div></div>`,
+      actions: [
+        { label: '返回牢房', handler: () => { prisonWork() } },
+      ],
+    })
+    document.querySelectorAll('[data-tier]').forEach(btn => {
+      btn.onclick = () => {
+        const tier = btn.dataset.tier
+        Dialog.close()
+        prisonRollTask(tier)
+      }
+    })
+  }
+
+  /** 掷 Z 决定任务（按所选类型） */
+  async function prisonRollTask (tier) {
     const z = Dice.rollZ()
     await Dialog.showDice(z, 'Z')
     const state = State.get()
-    const points = state._prisonPoints || 0
     // Z=6 送惩罚牢房
     if (z === 6) { prisonPunishment(); return }
-    // 按点数分级
-    const tier = points < 80 ? PRISON_BASIC : PRISON_MID
-    const task = tier[z]
+    // 使用所选任务类型（无证卖淫被抓的初级/中级自选）
+    const table = tier === 'mid' ? PRISON_MID : PRISON_BASIC
+    const task = table[z]
     if (!task) { prisonWork(); return }
     EventBus.emit('ui:log', { text: `⛓️ 守卫指定任务：${task.desc}（${task.points} 积分）`, type: 'danger' })
     await prisonTaskTimer(task)
