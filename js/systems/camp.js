@@ -100,22 +100,9 @@ window.CampSystem = (function () {
       Dialog.close(); showGloryWork(); return
     }
     Dialog.close()
-    // 刚在荣耀洞还清欠款：根据来源决定卫兵放行嘲笑（卫兵扔的）或队长羞辱（队长扔的）
+    // 兜底：荣耀洞还清欠款标记未清除（如刷新跳过）→ 回营地触发卫兵/队长事件，而非直接出城
     if (state._gloryJustCleared) {
-      state._gloryJustCleared = false
-      EventBus.emit('state:changed', state)
-      if (state._gloryByCaptain) {
-        state._gloryByCaptain = false
-        EventBus.emit('state:changed', state)
-        captainGloryHumiliation()
-        return
-      }
-      Dialog.show({
-        title: '🛡️ 城门口 · 卫兵', className: 'glory-modal',
-        body: `<div class="glory-section"><h3><span>“哟，厕所的味儿都还没散呢。”</span><small>卫兵捂着鼻子，露出嫌弃又好笑的表情</small></h3>
-          <p class="camp-muted">“看你${state.gender === 'male' ? '男雌婊' : '丫头'}是刚从洞里爬出来还清了债——行，滚吧。下次想溜号，记得先掂量掂量自己的屁股值几个钱。”</p></div>`,
-        actions: [{ label: '出城', cls: 'btn-primary', handler: () => { Dialog.close(); doLeaveCamp() } }],
-      })
+      gloryClearedLeave()
       return
     }
     // 取得妓女许可证：出城会遇到卫兵
@@ -531,8 +518,28 @@ window.CampSystem = (function () {
       body: `<div class="glory-result"><strong>${totalEarn > 0 ? `赚了 ${totalEarn}G` : '白干了一场'}</strong><p>${event.msg}</p>${repaid > 0 ? `<span>还债 ${repaid}G · 还欠 ${state._gloryDebt}G</span>` : ''}${state._gloryFreeService ? '<span class="danger">还有个免费的得做完才能走</span>' : ''}</div>`,
       actions: [
         { label: forced ? '继续服务' : '继续接客', cls: 'btn-primary', handler: () => { Dialog.close(); rerender() } },
-        ...(!forced ? [{ label: '返回营地', handler: () => { Dialog.close(); open() } }] : []),
+        ...(!forced ? [{ label: '返回营地', handler: () => { Dialog.close(); gloryClearedLeave() } }] : []),
       ],
+    })
+  }
+
+  /** 还清欠款后离开荣耀洞：根据来源触发卫兵嘲笑 / 队长羞辱，再回营地 */
+  function gloryClearedLeave () {
+    const state = State.get()
+    if (!state._gloryJustCleared) { open(); return }
+    state._gloryJustCleared = false
+    EventBus.emit('state:changed', state)
+    if (state._gloryByCaptain) {
+      state._gloryByCaptain = false
+      EventBus.emit('state:changed', state)
+      captainGloryHumiliation()
+      return
+    }
+    Dialog.show({
+      title: '🛡️ 荣耀洞出口 · 卫兵', className: 'glory-modal',
+      body: `<div class="glory-section"><h3><span>“哟，厕所的味儿都还没散呢。”</span><small>卫兵捂着鼻子，露出嫌弃又好笑的表情</small></h3>
+        <p class="camp-muted">“看你${state.gender === 'male' ? '男雌婊' : '丫头'}是刚从洞里爬出来还清了债——行，滚回营地去歇着吧。下次想溜号，记得先掂量掂量自己的屁股值几个钱。”</p></div>`,
+      actions: [{ label: '回营地', cls: 'btn-primary', handler: () => { Dialog.close(); open() } }],
     })
   }
 
