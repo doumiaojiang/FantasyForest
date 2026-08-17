@@ -48,6 +48,9 @@
     if (!st) return
     const gameActive = !gameScreen.classList.contains('screen-hidden')
     if (!gameActive || st.phase !== 'idle' || _isWalking || _moveLocked) return
+    // 先清理浮动方向键避免残留
+    const float = document.getElementById('dpad-float')
+    if (float) float.classList.add('hidden')
     readyToRoll(_turning)
   })
 
@@ -839,6 +842,11 @@
         if (itemBtn) itemBtn.onclick = showMoveItemMenu
       }
     } else {
+      // 桌面端：确保操作栏显示（防止进营地/商店后遗留 hidden）
+      const actionBar = document.getElementById('action-bar')
+      if (actionBar) actionBar.classList.remove('hidden')
+      const float = document.getElementById('dpad-float')
+      if (float) float.classList.add('hidden')
       btns.innerHTML = buildDpad()
       document.getElementById('btn-move-item').onclick = showMoveItemMenu
       bindDpad()
