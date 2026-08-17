@@ -1207,8 +1207,7 @@ window.CampSystem = (function () {
         EventBus.emit('state:changed', state)
         prisonPunishment(); return
       }
-      state._prisonPoints = Math.min(prisonTarget(), (state._prisonPoints || 0) + task.points)
-      EventBus.emit('ui:log', { text: `🎓 你完成再教育，获得 ${task.points} 积分（现 ${state._prisonPoints}/${prisonTarget()}）。专家仍不打算放你走，继续赎罪。`, type: 'good' })
+      EventBus.emit('ui:log', { text: '🎓 你完成再教育，但惩罚牢房不给积分。', type: 'dim' })
       EventBus.emit('state:changed', state)
       prisonPunishment()
     }
@@ -1298,8 +1297,7 @@ window.CampSystem = (function () {
         EventBus.emit('state:changed', state)
         prisonAdvPunishment(); return
       }
-      state._prisonPoints = Math.min(prisonTarget(), (state._prisonPoints || 0) + task.points)
-      EventBus.emit('ui:log', { text: `👿 你熬过虐待，获得 ${task.points} 积分（现 ${state._prisonPoints}/${prisonTarget()}）。守卫仍不打算放你走，继续受刑。`, type: 'good' })
+      EventBus.emit('ui:log', { text: '👿 你熬过虐待，但惩罚牢房不给积分。守卫仍不打算放你走，继续受刑。', type: 'dim' })
       EventBus.emit('state:changed', state)
       prisonAdvPunishment()
     }
