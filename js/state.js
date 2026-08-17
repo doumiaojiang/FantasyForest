@@ -78,6 +78,8 @@ window.State = (function () {
       _pendingBossAttack: null,         // Boss 召唤攻击持久化（任务中刷新不丢失）
       _gloryDebt: 0,                    // 厕所欠债金额
       _gloryFreeService: false,         // 厕所待完成的免费追加服务
+      _gloryByGuard: false,             // 被卫兵丢进荣耀洞（出城卫兵放行嘲笑）
+      _gloryByCaptain: false,           // 被队长丢进荣耀洞（出城队长羞辱）
       _gloryDiscovered: false,          // 是否已发现荣耀洞（调查隔间后）
       _toiletUsed: false,               // 本次进入营地是否已上过厕所（CD）
       _campReturnPos: null,             // 进入营地前的位置（离开时返回）
@@ -364,6 +366,8 @@ window.State = (function () {
     if (state._pendingBossAttack === undefined) state._pendingBossAttack = null
     state._gloryDebt = Math.max(0, Math.min(9999, Math.floor(finite(state._gloryDebt, 0))))
     state._gloryFreeService = !!state._gloryFreeService
+    state._gloryByGuard = !!state._gloryByGuard
+    state._gloryByCaptain = !!state._gloryByCaptain
     if (state._gloryDiscovered === undefined) state._gloryDiscovered = !!state._gloryDiscovered
     if (state._toiletUsed === undefined) state._toiletUsed = !!state._toiletUsed
    if (state._campReturnPos === undefined) state._campReturnPos = null

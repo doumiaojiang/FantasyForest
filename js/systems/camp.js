@@ -100,10 +100,16 @@ window.CampSystem = (function () {
       Dialog.close(); showGloryWork(); return
     }
     Dialog.close()
-    // 刚在荣耀洞还清欠款：卫兵放行并嘲笑
+    // 刚在荣耀洞还清欠款：根据来源决定卫兵放行嘲笑（卫兵扔的）或队长羞辱（队长扔的）
     if (state._gloryJustCleared) {
       state._gloryJustCleared = false
       EventBus.emit('state:changed', state)
+      if (state._gloryByCaptain) {
+        state._gloryByCaptain = false
+        EventBus.emit('state:changed', state)
+        captainGloryHumiliation()
+        return
+      }
       Dialog.show({
         title: '🛡️ 城门口 · 卫兵', className: 'glory-modal',
         body: `<div class="glory-section"><h3><span>“哟，厕所的味儿都还没散呢。”</span><small>卫兵捂着鼻子，露出嫌弃又好笑的表情</small></h3>
@@ -509,8 +515,8 @@ window.CampSystem = (function () {
     const repaid = Math.min(debtBefore, totalEarn)
     state._gloryDebt = debtBefore - repaid
     state.gold += totalEarn - repaid
-    // 仅"被卫兵丢进来"且还清欠款：出城卫兵才放行并嘲笑
-    if (repaid > 0 && state._gloryDebt === 0 && state._gloryByGuard) {
+    // 还清欠款：出城时根据来源触发——卫兵放行嘲笑 / 队长羞辱
+    if (repaid > 0 && state._gloryDebt === 0 && (state._gloryByGuard || state._gloryByCaptain)) {
       state._gloryJustCleared = true
       state._gloryByGuard = false
     }
@@ -811,9 +817,9 @@ window.CampSystem = (function () {
     }
     EventBus.emit('ui:log', { text: '🚫 你被队长操得腿软，趴在地上喘气。', type: 'danger' })
     if (isPerfect) {
-      // 头牌妓畜：罚金 200 + 30 入场费，丢荣耀洞
+      // 头牌妓畜：罚金 200 + 30 入场费，丢荣耀洞（队长标记，出城时队长羞辱）
       state._gloryDebt = (state._gloryDebt || 0) + 200 + GLORY_FEE
-      state._gloryByGuard = true
+      state._gloryByCaptain = true
       EventBus.emit('ui:log', { text: `💸 队长把你扔进荣耀洞：罚金 200G + ${GLORY_FEE}G 入场费，合计欠债 ${state._gloryDebt}G！`, type: 'danger' })
       EventBus.emit('state:changed', state)
       showGloryWork()
@@ -830,6 +836,76 @@ window.CampSystem = (function () {
       })
       EventBus.emit('state:changed', state)
     }
+  }
+
+  /** 头牌妓畜从荣耀洞出来：队长羞辱——下跪磕头、选羞辱话、口交一次，仍不退证 */
+  function captainGloryHumiliation () {
+    const state = State.get()
+    const humiliate = () => {
+      Dialog.show({
+        title: '🛡️ 守卫队队长 · 羞辱', className: 'glory-modal',
+        body: `<div class="glory-section"><h3><span>“哟，头牌妓畜从洞里爬出来了？”</span><small>队长翘着二郎腿，居高临下地看着你</small></h3>
+          <p class="camp-muted">“想退证？行啊——先跪下给老子磕三个头，再说两句能让我高兴的话。不然，你今天就别想出这个门。”</p></div>`,
+        actions: [
+          { label: '🧎 跪下磕头', cls: 'btn-danger', handler: () => {
+            Dialog.close()
+            EventBus.emit('ui:log', { text: '🧎 你双膝一软跪在队长面前，磕了三个响头。', type: 'danger' })
+            pickInsult()
+          } },
+        ],
+      })
+    }
+    const pickInsult = () => {
+      const insults = [
+        '「队长大人，我是您养的母畜，一辈子都是您的肉便器。」',
+        '「我就是条贱母狗，活该被您操，还请队长大人饶了我。」',
+        '「我是您最听话的畜牲，随时供您泄欲，求您高抬贵手。」',
+      ]
+      Dialog.show({
+        title: '🛡️ 守卫队队长 · 羞辱', className: 'glory-modal',
+        body: `<div class="glory-section"><h3><span>“磕完了？说吧，怎么求我。”</span><small>队长把靴子踩在你面前，等你开口</small></h3>
+          <p class="camp-muted">选一句羞辱自己的话，说给他听。</p></div>`,
+        actions: insults.map(txt => ({
+          label: txt, cls: 'btn-danger',
+          handler: () => {
+            Dialog.close()
+            EventBus.emit('ui:log', { text: `🗣️ 你跪着说：${txt}`, type: 'danger' })
+            suckTask()
+          },
+        })),
+      })
+    }
+    const suckTask = async () => {
+      let failed = false
+      if (typeof BattleUI !== 'undefined' && BattleUI.showTaskDialog) {
+        const f = await BattleUI.showTaskDialog({
+          enemyName: '🛡️ 守卫队队长',
+          attackName: '跪着口交',
+          desc: '你跪在队长胯下，卖力地为他口交 30 秒，把鸡巴整根吞到底深喉',
+          bpm: 0,
+          seconds: 30,
+          dmg: 0,
+          noDamage: true,
+          dildoName: '队长那根粗壮的鸡巴',
+        })
+        failed = f
+      } else {
+        failed = !confirm('给队长口交 30 秒（完成代表含到底）。')
+      }
+      EventBus.emit('ui:log', { text: failed ? '🛡️ 你口交到一半，队长嫌你不够卖力，但还是放过了你。' : '🛡️ 你跪着伺候完队长，他满意地收回了脚。', type: 'dim' })
+      finalRefuse()
+    }
+    const finalRefuse = () => {
+      Dialog.show({
+        title: '🛡️ 守卫队队长 · 结果', className: 'glory-modal',
+        body: `<div class="glory-section"><h3><span>“行了，磕也磕了，骚话也说了。”</span><small>队长提起裤子，慢条斯理地系腰带</small></h3>
+          <p class="camp-muted">“但是——证还是不能退。”<br><br>他拍拍你的脸：“你这头牌妓畜的名号，可是老子一手捧起来的。退证？你死了这条心吧。老老实实当你的头牌，爷高兴了少操你两顿。”</p></div>`,
+        actions: [
+          { label: '接受现实，回营地', cls: 'btn-danger', handler: () => { Dialog.close(); open() } },
+        ],
+      })
+    }
+    humiliate()
   }
 
   /** 真正撤销许可证 */
