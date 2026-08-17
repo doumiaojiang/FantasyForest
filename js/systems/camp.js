@@ -644,7 +644,7 @@ window.CampSystem = (function () {
       title: '⛓️ 营地监狱', className: 'prison-modal',
       body: `<div class="prison-intro"><div class="prison-mark" aria-hidden="true">⛓️</div>
         <p>营地角落的石砌监狱，铁门紧锁。</p>
-        <p>没有<b>妓女许可证</b>就在荣耀洞卖淫是违法的——每次服务都会增加你的<b>危险值</b>，一旦被守卫抓到，就会被关进来，攒够 <b>300 点</b>才能出狱。</p>
+        <p>没有<b>妓女许可证</b>就在荣耀洞卖淫是违法的——每次服务都会增加你的<b>危险值</b>，一旦被守卫抓到，就会被关进来，靠给犯人提供<b>口交 / 深喉服务</b>攒积分，积分攒够了才能出狱。</p>
         <p>墙内隐约传来压抑的呻吟和皮鞭声。</p></div>`,
       actions: [
         { label: '离开', handler: () => { open() } },
