@@ -836,7 +836,7 @@ window.CampSystem = (function () {
         body: `<div class="prison-intro"><div class="prison-mark" aria-hidden="true">🎓</div>
           <p>狱警主管认为你的<b>服务态度不够好</b>，将你送进了惩罚室。</p>
           <p>在这里，<b>矫正教育专家</b>将对你进行再教育。她无意将你从这个牢房中释放出来，直到你完全反思自己的行为。</p>
-          <p class="prison-guard">"选一个赎罪的方式吧，小婊子。"（掷 Z 决定，只有掷到 1 / 4 / 6 才会放你走）</p></div>`,
+          <p class="prison-guard">"选一个赎罪的方式吧，小婊子。"</p></div>`,
         actions: [
           { label: '🎲 掷 Z 决定赎罪方式', cls: 'btn-danger', handler: () => { Dialog.close(); prisonPunishRoll() } },
         ],
