@@ -842,18 +842,24 @@
     const actionBar = document.getElementById('action-bar')
     if (actionBar) actionBar.classList.add('hidden')
     const float = document.getElementById('dpad-float')
+    // 先确保显示（即使 buildDpad 出错也不影响）
     if (float) {
-      float.innerHTML = buildDpad()
-      // 重置内联定位（防止拖动残留导致在视口外）
       float.style.left = ''
       float.style.top = ''
       float.style.right = ''
       float.style.bottom = ''
       float.classList.remove('hidden')
-      bindDpad()
-      makeDraggable(float)
-      const itemBtn = document.getElementById('btn-move-item')
-      if (itemBtn) itemBtn.onclick = showMoveItemMenu
+    }
+    try {
+      if (float) {
+        float.innerHTML = buildDpad()
+        bindDpad()
+        makeDraggable(float)
+        const itemBtn = document.getElementById('btn-move-item')
+        if (itemBtn) itemBtn.onclick = showMoveItemMenu
+      }
+    } catch (e) {
+      console.error('方向键渲染失败:', e)
     }
     // 延迟重试：确保浮动键在 DOM 就绪后显示（新建游戏时可能因布局未稳定而隐藏）
     clearTimeout(_readyToRollTimer)
