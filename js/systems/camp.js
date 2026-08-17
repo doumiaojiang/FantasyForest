@@ -695,16 +695,18 @@ window.CampSystem = (function () {
     const points = state._prisonPoints || 0
     const target = prisonTarget()
     const done = points >= target
-    // 永久监禁：无法出狱，只能永远服刑
+    // 永久监禁：可以继续做任务，但没有越狱/出狱按钮（做了也无用）
     if (state._prisonLife) {
       campShow({
         title: '⛓️ 营地监狱 · 永久监禁', className: 'prison-modal',
-        body: `<div class="prison-intro"><div class="prison-mark" aria-hidden="true">⛓️</div>
+        body: `<div class="prison-stats"><span>⛓️ 永久监禁</span><span>⚖️ 罪名 <b>非法卖淫罪</b></span><span>🔒 贞操锁焊死</span></div>
+          <div class="prison-intro"><div class="prison-mark" aria-hidden="true">⛓️</div>
           <p>你越狱失败三次，被判处<b>永久监禁</b>。</p>
           <p>守卫当众给你戴上特制的贞操笼，焊死了锁眼："这辈子，你就老老实实当牢房的肉便器吧。"</p>
+          <p>你已经无法出狱——但你仍然被要求继续提供口交/深喉服务，供牢房里的犯人取乐。</p>
           <p class="prison-guard">狱友投来同情的目光，没人再和你说话。</p></div>`,
         actions: [
-          { label: '继续服刑', cls: 'btn-danger', handler: () => { prisonWork() } },
+          { label: '🎲 继续服刑（掷 Z）', cls: 'btn-danger', handler: () => { Dialog.close(); prisonTierChoice() } },
         ],
       })
       return
@@ -751,7 +753,7 @@ window.CampSystem = (function () {
     state._prisonEscapeFails = (state._prisonEscapeFails || 0) + 1
     const fail = state._prisonEscapeFails
     if (fail >= 3) {
-      // 第 3 次：永久监禁
+      // 第 3 次：永久监禁（狱警嘲讽，仍被扔进进阶惩罚牢房）
       state._prisonLife = true
       state._prisonPoints = 0
       EventBus.emit('state:changed', state)
@@ -759,27 +761,41 @@ window.CampSystem = (function () {
         title: '⛓️ 越狱失败 · 永久监禁', className: 'prison-modal',
         body: `<div class="prison-intro"><div class="prison-mark" aria-hidden="true">⛓️</div>
           <p>第 <b>3</b> 次越狱失败！（掷骰 ${roll}% ≥ 25%）</p>
+          <p class="prison-guard">“三顾茅庐？你倒挺执着。不过这回，连茅庐你都别想出了。”</p>
           <p>守卫把你按在地上，当众宣布：<b>永久监禁</b>。</p>
-          <p>"你以为这里是你想来就来想走就走的？"守卫冷笑道："这辈子，你就烂在牢房里吧。"</p></div>`,
+          <p>“你以为这里是你想来就来想走就走的？这辈子，你就烂在牢房里吧。”——然后把你扔进了<b>进阶惩罚牢房</b>。</p></div>`,
         actions: [
-          { label: '……', cls: 'btn-danger', handler: () => { Dialog.close(); prisonWork() } },
+          { label: '被拖去受刑', cls: 'btn-danger', handler: () => { Dialog.close(); prisonAdvPunishment() } },
         ],
       })
       return
     }
-    // 第 1/2 次失败：积分清零 + 惩罚
+    // 第 1/2 次失败：积分清零 + 惩罚，然后被扔进进阶惩罚牢房（狱警嘲讽）
     const penalty = fail === 1 ? 200 : 350
     state._prisonPoints = 0
     state._prisonEscapePenalty = (state._prisonEscapePenalty || 0) + penalty
     EventBus.emit('state:changed', state)
+    const taunts = {
+      1: {
+        title: '⛓️ 越狱失败 · 第一次',
+        line: '“哟，第一次就想越狱？天真。”',
+        mark: '🪓',
+      },
+      2: {
+        title: '⛓️ 越狱失败 · 第二次',
+        line: '“又来了？上次的教训还没吃够？”',
+        mark: '⛓️',
+      },
+    }
+    const t = taunts[fail] || taunts[2]
     Dialog.show({
-      title: '⛓️ 越狱失败', className: 'prison-modal',
-      body: `<div class="prison-intro"><div class="prison-mark" aria-hidden="true">⛓️</div>
+      title: t.title, className: 'prison-modal',
+      body: `<div class="prison-intro"><div class="prison-mark" aria-hidden="true">${t.mark}</div>
         <p>第 <b>${fail}</b> 次越狱失败！（掷骰 ${roll}% ≥ 25%）</p>
-        <p>守卫逮住你，把你狠狠拖回牢房。已攒的积分全部清零，出狱所需积分 <b>+${penalty}</b>（现需 ${prisonTarget()}）。</p>
-        <p>还剩 ${2 - (fail - 1)} 次机会。第 3 次失败将被永久监禁。</p></div>`,
+        <p class="prison-guard">${t.line}这牢房是你想进就进、想出就出的？行啊，带你去见个人——"</p>
+        <p>你被拖进了<b>进阶惩罚牢房</b>。已攒积分全部清零，出狱所需积分 <b>+${penalty}</b>（现需 ${prisonTarget()}）。</p></div>`,
       actions: [
-        { label: '……', cls: 'btn-danger', handler: () => { Dialog.close(); prisonWork() } },
+        { label: '被拖去受刑', cls: 'btn-danger', handler: () => { Dialog.close(); prisonAdvPunishment() } },
       ],
     })
   }
