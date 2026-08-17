@@ -673,12 +673,11 @@ window.CampSystem = (function () {
     })
   }
 
-  /** 牢房工作界面：点数 + 狱友 + 掷 Z 工作 */
+  /** 牢房工作界面：点数 + 狱友 + 掷 Z 工作；满 300 点可自行选择出狱 */
   function prisonWork () {
     const state = State.get()
     const points = state._prisonPoints || 0
     const done = points >= 300
-    if (done) { prisonRelease(); return }
     const tier = points < 80 ? '基础任务' : '中级任务'
     campShow({
       title: '⛓️ 营地监狱 · 集体牢房', className: 'prison-modal',
@@ -687,10 +686,15 @@ window.CampSystem = (function () {
           <div class="camp-character"><i>🧔</i><div><b>五名囚犯挤在牢房里，表情阴郁。</b><p>“我们不过是偷了块面包、欠了点酒钱，就被关了进来。”其中一个压低声音，“这明显不公……嘘，守卫来了。”</p></div></div>
           <p class="prison-guard">“不要再说话了！是时候开始工作了！”</p>
         </div>
-        <p class="camp-footnote">牢房角落的守卫示意你过去。掷 Z 决定你被要求提供的服务。</p>`,
-      actions: [
-        { label: '🎲 开始工作（掷 Z）', cls: 'btn-danger', handler: () => { Dialog.close(); prisonRollTask() } },
-      ],
+        ${done ? '<p class="camp-footnote">你已经攒够了 300 点，随时可以出狱——也可以留下继续接活。</p>' : '<p class="camp-footnote">牢房角落的守卫示意你过去。掷 Z 决定你被要求提供的服务。</p>'}`,
+      actions: done
+        ? [
+            { label: '🔓 选择出狱', cls: 'btn-primary', handler: () => { Dialog.close(); prisonRelease() } },
+            { label: '⛓️ 留下继续工作', handler: () => { Dialog.close(); prisonRollTask() } },
+          ]
+        : [
+            { label: '🎲 开始工作（掷 Z）', cls: 'btn-danger', handler: () => { Dialog.close(); prisonRollTask() } },
+          ],
     })
   }
 
