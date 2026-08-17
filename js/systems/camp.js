@@ -479,7 +479,7 @@ window.CampSystem = (function () {
       function begin () {
         if (timer) return
         finishAt = Date.now() + seconds * 1000
-        const actions = document.querySelector('.modal-actions')
+        const actions = document.querySelector('#modal-layer .modal-actions')
         if (actions) actions.innerHTML = '<button class="btn" id="camp-task-cancel">⏭ 跳过（无惩罚）</button>'
         const cancel = document.getElementById('camp-task-cancel')
         if (cancel) cancel.onclick = () => { cleanup(); Dialog.close(); resolve('skip') }
@@ -493,7 +493,7 @@ window.CampSystem = (function () {
         if (fillEl) fillEl.style.width = `${Math.max(0, Math.min(100, leftMs / (seconds * 10)))}%`
         if (leftMs > 0) return
         cleanup()
-        const actions = document.querySelector('.modal-actions')
+        const actions = document.querySelector('#modal-layer .modal-actions')
         if (actions) {
           actions.innerHTML = '<button class="btn btn-success" id="camp-task-complete">✓ 撑过来了，收钱！</button>'
           document.getElementById('camp-task-complete').onclick = () => { Dialog.close(); resolve(true) }

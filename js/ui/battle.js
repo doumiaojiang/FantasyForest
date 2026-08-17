@@ -640,10 +640,11 @@ window.BattleUI = (function () {
       })
 
       function beginTask () {
-        const btns = document.querySelectorAll('.modal-actions button')
+        const layer = document.getElementById('modal-layer')
+        const btns = (layer ? layer : document).querySelectorAll('.modal-actions button')
         btns.forEach(b => { if (b.textContent.includes('开始任务')) b.style.display = 'none' })
         // 添加跳过计时器按钮
-        const actionsDiv = document.querySelector('.modal-actions')
+        const actionsDiv = (layer ? layer : document).querySelector('.modal-actions')
         if (actionsDiv && hasTimer) {
           const skipBtn = document.createElement('button')
           skipBtn.className = 'btn btn-danger'
@@ -721,7 +722,7 @@ window.BattleUI = (function () {
         if (done) return
         done = true
         stopTimer()
-        const modalBox = document.querySelector('.modal-box')
+        const modalBox = document.querySelector('#modal-layer .modal-box')
         if (!modalBox) { resolve(false); return }
         const actionsDiv = modalBox.querySelector('.modal-actions')
         if (actionsDiv) {
