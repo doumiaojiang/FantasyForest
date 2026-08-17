@@ -683,16 +683,15 @@ window.CampSystem = (function () {
     })
   }
 
-  /** 牢房工作界面：点数 + 狱友 + 自选任务类型后掷 Z；攒够积分可自行选择出狱 */
+  /** 牢房工作界面：罪名 + 狱友 + 自选任务类型后掷 Z；攒够积分可自行选择出狱 */
   function prisonWork () {
     const state = State.get()
     const points = state._prisonPoints || 0
     const target = prisonTarget()
     const done = points >= target
-    const tier = points < 80 ? '基础任务' : '基础 / 中级'
     campShow({
       title: '⛓️ 营地监狱 · 集体牢房', className: 'prison-modal',
-      body: `<div class="prison-stats"><span>⛓️ 出狱积分 <b>${points}/${target}</b></span><span>📋 任务 <b>${tier}</b></span><span>🔒 贞操笼已锁</span></div>
+      body: `<div class="prison-stats"><span>⛓️ 出狱积分 <b>${points}/${target}</b></span><span>⚖️ 罪名 <b>非法卖淫罪</b></span><span>🔒 贞操笼已锁</span></div>
         <div class="prison-cell">
           <div class="camp-character"><i>🧔</i><div><b>五名囚犯挤在牢房里，表情阴郁。</b><p>“我们不过是偷了块面包、欠了点酒钱，就被关了进来。”其中一个压低声音，“这明显不公……嘘，守卫来了。”</p></div></div>
           <p class="prison-guard">“不要再说话了！是时候开始工作了！”</p>
@@ -713,10 +712,17 @@ window.CampSystem = (function () {
   function prisonTierChoice () {
     const state = State.get()
     const points = state._prisonPoints || 0
+    const target = prisonTarget()
     const midUnlocked = points >= 80
+    const pct = Math.min(100, Math.round((points / target) * 100))
     campShow({
       title: '📋 选择任务类型', className: 'prison-modal',
-      body: `<div class="prison-intro"><div class="prison-mark" aria-hidden="true">📋</div>
+      body: `<div class="prison-progress">
+          <div class="prison-progress-head"><span>⛓️ 出狱积分</span><b>${points} / ${target}</b></div>
+          <div class="prison-progress-bar"><i style="width:${pct}%"></i></div>
+          <em>${pct}% · 中级任务需 80 积分解锁</em>
+        </div>
+        <div class="prison-intro"><div class="prison-mark" aria-hidden="true">📋</div>
         <p>牢房守卫把任务板推到你面前。选择要接哪种任务，然后掷 Z 决定具体内容。</p>
         <div class="toilet-grid">
           <button class="toilet-card toilet-card-safe" data-tier="basic"><i>🔰</i><span><b>基础任务</b><small>2-16 积分 · 深喉/喉穴抽插</small></span><em>随时可接</em></button>

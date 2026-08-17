@@ -2767,3 +2767,12 @@ body:has(.age-gate:not(.age-gate-hidden)) { overflow: hidden; }
 .prison-cell { border: 1px solid rgba(180,150,120,.2); border-radius: 10px; padding: 10px; background: rgba(40,32,22,.25); }
 .prison-guard { color: #d8b98a !important; font-weight: 700; font-style: italic; border-left: 3px solid #b08954; padding-left: 8px; }
 .prison-punish-modal .prison-intro { border: 1px solid rgba(200,90,90,.25); border-radius: 10px; padding: 12px; background: rgba(90,30,30,.12); }
+
+/* 监狱积分进度条 */
+.prison-progress { margin-bottom: 12px; padding: 10px 12px; border: 1px solid rgba(180,150,120,.18); border-radius: 10px; background: rgba(40,32,22,.25); }
+.prison-progress-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 7px; }
+.prison-progress-head span { color: #8a7a64; font-size: .62rem; }
+.prison-progress-head b { color: #e8c58a; font-size: .82rem; }
+.prison-progress-bar { height: 10px; border-radius: 6px; background: rgba(255,255,255,.07); overflow: hidden; }
+.prison-progress-bar i { display: block; height: 100%; border-radius: 6px; background: linear-gradient(90deg, #b08954, #e8c58a); transition: width .3s ease; }
+.prison-progress em { display: block; margin-top: 5px; color: #8a7a64; font-size: .58rem; font-style: normal; }
