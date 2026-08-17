@@ -806,7 +806,8 @@ window.CampSystem = (function () {
   }
 
   /** 监狱暂停计时器：倒计时 + 暂停休息按钮（暂停5秒自动恢复，5秒CD） */
-  function prisonPauseTimerDialog (desc, seconds, bpm, enemyName) {
+  function prisonPauseTimerDialog (desc, seconds, bpm, enemyName, pauseDuration) {
+    pauseDuration = pauseDuration || 5
     return new Promise(resolve => {
       let left = seconds
       let paused = false
@@ -831,7 +832,7 @@ window.CampSystem = (function () {
             btn.textContent = `⏸ 休息（冷却 ${Math.ceil((cdUntil - now) / 1000)}秒）`
             btn.disabled = true
           } else {
-            btn.textContent = '⏸ 暂停休息（5秒）'
+            btn.textContent = `⏸ 暂停休息（${pauseDuration}秒）`
             btn.disabled = false
           }
         }
@@ -859,8 +860,8 @@ window.CampSystem = (function () {
       Dialog.show({
         title: `⏱ ${enemyName} · ${desc}`,
         className: 'camp-task-modal',
-        body: `<div class="camp-task"><div class="camp-task-icon">⏱</div><p>${desc}</p><strong id="prison-pause-time" aria-live="polite">${seconds}</strong><span>秒</span><div class="camp-task-track"><i id="prison-pause-fill"></i></div><small>点「暂停休息」可暂停计时 5 秒，自动恢复；有 5 秒冷却。</small>
-          <div style="margin-top:10px"><button class="btn" id="prison-pause-btn" style="width:100%">⏸ 暂停休息（5秒）</button></div></div>`,
+        body: `<div class="camp-task"><div class="camp-task-icon">⏱</div><p>${desc}</p><strong id="prison-pause-time" aria-live="polite">${seconds}</strong><span>秒</span><div class="camp-task-track"><i id="prison-pause-fill"></i></div><small>点「暂停休息」可暂停计时 ${pauseDuration} 秒，自动恢复；有 ${pauseDuration} 秒冷却。</small>
+          <div style="margin-top:10px"><button class="btn" id="prison-pause-btn" style="width:100%">⏸ 暂停休息（${pauseDuration}秒）</button></div></div>`,
         actions: [
           { label: '🏃 放弃任务', cls: 'btn-danger', handler: () => { cleanup(); Dialog.close(); resolve(true) } },
         ],
@@ -871,9 +872,9 @@ window.CampSystem = (function () {
           const now = Date.now()
           if (paused || now < cdUntil) return
           paused = true
-          pauseLeft = 5
-          cdUntil = now + 10000
-          EventBus.emit('ui:log', { text: '⏸ 你暂停休息 5 秒……', type: 'dim' })
+          pauseLeft = pauseDuration
+          cdUntil = now + (pauseDuration * 2000)   // 暂停后冷却 = 暂停时长 × 2
+          EventBus.emit('ui:log', { text: `⏸ 你暂停休息 ${pauseDuration} 秒……`, type: 'dim' })
           render()
         }
       }
@@ -933,7 +934,7 @@ window.CampSystem = (function () {
         if (step.textOnly) {
           f = await prisonTextDialog(step.desc, '⛓️ 监狱守卫')
         } else if (step.pauseTimer) {
-          f = await prisonPauseTimerDialog(step.desc, step.pauseSeconds || 90, step.bpm || 0, '⛓️ 监狱守卫')
+          f = await prisonPauseTimerDialog(step.desc, step.pauseSeconds || 90, step.bpm || 0, '⛓️ 监狱守卫', step.pauseLimit || 5)
         } else if (step.countTarget) {
           f = await prisonCountDialog(step.desc, step.countTarget, step.countDesc || '干呕', '⛓️ 监狱守卫', '守卫的粗鸡巴')
         } else {
@@ -1005,7 +1006,7 @@ window.CampSystem = (function () {
   const PRISON_MID = {
     1: { name: '深喉百次', desc: '深喉 100 次，喉咙被操到发麻', points: 15, seconds: 90 },
     2: { name: '深喉舔蛋', desc: '保持深喉 15 秒，期间舔舐蛋蛋，重复 1 次', points: 17, holdSeconds: 15, repeat: 1, phaseDesc: '保持深喉 15 秒，期间舔舐蛋蛋', restSeconds: 0 },
-    3: { name: '喉穴猛操', desc: '以 90 BPM 的速度操你的喉穴 90 秒（可休息呼吸，但每次休息不超过 10 秒）', points: 20, bpm: 90, seconds: 90 },
+    3: { name: '喉穴猛操', desc: '以 90 BPM 的速度操你的喉穴 90 秒（可暂停休息呼吸，每次不超过 10 秒）', points: 20, bpm: 90, pauseTimer: true, pauseSeconds: 90, pauseLimit: 10 },
     4: { name: '干呕两次', desc: '操你喉穴直到你干呕 2 次', points: 24, countTarget: 2, countDesc: '干呕' },
     5: { name: '操到呕吐', desc: '多喝水，操你的喉穴直到你呕吐', points: 27, countTarget: 1, countDesc: '呕吐' },
   }
@@ -1061,12 +1062,12 @@ window.CampSystem = (function () {
         ? {
             2: { name: '深喉 50 下', desc: '深喉 50 下', points: 8, seconds: 60 },
             3: { name: '保持深喉 15 秒', desc: '保持深喉 15 秒', points: 6, seconds: 15 },
-            5: { name: '深喉直到干呕一次', desc: '深喉直到你干呕一次', points: 10, seconds: 30 },
+            5: { name: '深喉直到干呕一次', desc: '深喉直到你干呕一次', points: 10, countTarget: 1, countDesc: '干呕' },
           }
         : {
             2: { name: '深喉 100 下', desc: '深喉 100 下', points: 15, seconds: 90 },
             3: { name: '保持深喉 30 秒', desc: '保持深喉 30 秒', points: 18, seconds: 30 },
-            5: { name: '深喉直到干呕 5 次', desc: '深喉直到你干呕 5 次', points: 24, seconds: 60 },
+            5: { name: '深喉直到干呕 5 次', desc: '深喉直到你干呕 5 次', points: 24, countTarget: 5, countDesc: '干呕' },
           }
       const task = tasks[z]
       if (!task) { prisonWork(); return }
@@ -1076,17 +1077,21 @@ window.CampSystem = (function () {
     const doPunishTask = async (task) => {
       let failed = false
       if (typeof BattleUI !== 'undefined' && BattleUI.showTaskDialog) {
-        const f = await BattleUI.showTaskDialog({
-          enemyName: '🎓 矫正教育专家',
-          attackName: task.name,
-          desc: task.desc,
-          bpm: 0,
-          seconds: task.seconds || 0,
-          dmg: 0,
-          noDamage: true,
-          dildoName: '矫正专家的鸡巴',
-        })
-        failed = f
+        if (task.countTarget) {
+          failed = await prisonCountDialog(task.desc, task.countTarget, task.countDesc || '干呕', '🎓 矫正教育专家', '矫正专家的鸡巴')
+        } else {
+          const f = await BattleUI.showTaskDialog({
+            enemyName: '🎓 矫正教育专家',
+            attackName: task.name,
+            desc: task.desc,
+            bpm: 0,
+            seconds: task.seconds || 0,
+            dmg: 0,
+            noDamage: true,
+            dildoName: '矫正专家的鸡巴',
+          })
+          failed = f
+        }
       } else {
         failed = !confirm(`完成惩罚任务：${task.desc}`)
       }
@@ -1127,11 +1132,11 @@ window.CampSystem = (function () {
         return
       }
       const tasks = {
-        2: { name: '深喉 300 下', desc: '深喉 300 下，喉咙几乎报废', points: 20, seconds: 180 },
+        2: { name: '深喉 300 下', desc: '深喉 300 下，喉咙几乎报废', points: 20, textOnly: true },
         3: { name: '深喉循环', desc: '深喉保持 30 秒，休息 5 秒，重复 3 次', points: 22, holdSeconds: 30, restSeconds: 5, repeat: 3, phaseDesc: '深喉保持 30 秒', restDesc: '休息 5 秒' },
         4: { name: '喉咙旋转', desc: '将假阳具在喉咙中旋转 360 度 10 次', points: 26, countTarget: 10, countDesc: '旋转' },
-        5: { name: '深喉干呕三次', desc: '深喉直到你干呕 3 次', points: 30, countTarget: 3, countDesc: '干呕' },
-        6: { name: '操到呕吐三次', desc: '多喝水，操你的喉穴直到你呕吐 3 次', points: 34, countTarget: 3, countDesc: '呕吐' },
+        5: { name: '深喉干呕十次', desc: '深喉直到你干呕 10 次', points: 30, countTarget: 10, countDesc: '干呕' },
+        6: { name: '操到呕吐两次', desc: '多喝水，操你的喉穴直到你呕吐 2 次', points: 34, countTarget: 2, countDesc: '呕吐' },
       }
       const task = tasks[z]
       if (!task) { prisonWork(); return }
@@ -1149,13 +1154,17 @@ window.CampSystem = (function () {
             steps.push({ desc: task.phaseDesc || task.desc, bpm: 120, seconds: task.holdSeconds, restAfter: task.restSeconds > 0 && i < task.repeat - 1 })
           }
         } else {
-          steps = [{ desc: task.desc, bpm: 120, seconds: task.seconds || 0, countTarget: task.countTarget || 0, countDesc: task.countDesc }]
+          steps = [{ desc: task.desc, bpm: 120, seconds: task.seconds || 0, countTarget: task.countTarget || 0, countDesc: task.countDesc, textOnly: !!task.textOnly }]
         }
         for (let i = 0; i < steps.length; i++) {
           if (failed) break
           const step = steps[i]
           let f
-          if (step.countTarget) {
+          if (step.textOnly) {
+            f = await prisonTextDialog(step.desc, '👿 最可畏的守卫')
+          } else if (step.pauseTimer) {
+            f = await prisonPauseTimerDialog(step.desc, step.pauseSeconds || 90, step.bpm || 120, '👿 最可畏的守卫', step.pauseLimit || 5)
+          } else if (step.countTarget) {
             f = await prisonCountDialog(step.desc, step.countTarget, step.countDesc || '干呕', '👿 最可畏的守卫', '守卫那根粗壮的鸡巴')
           } else {
             f = await BattleUI.showTaskDialog({
