@@ -808,6 +808,14 @@
   }
 
   /* ============ 掷骰阶段 ============ */
+  /** 显示底部操作栏（战斗 / gameover / 结局等用） */
+  function showActionBar () {
+    const bar = document.getElementById('action-bar')
+    if (bar) bar.classList.remove('hidden')
+    const float = document.getElementById('dpad-float')
+    if (float) float.classList.add('hidden')
+  }
+
   function readyToRoll (keepSteps) {
     if (State.get().phase === 'gameover') return
     State.update(s => s.phase = 'idle')
@@ -827,29 +835,18 @@
       ? `🧭 选择方向继续移动（剩余 ${_stepsRemaining} 步）`
       : '🧭 选择方向（点击后掷 Y 移动）'
 
-    // 手机端：十字键浮动可拖动，隐藏底部操作栏；桌面端：放操作栏
-    if (window.innerWidth <= 860) {
-      btns.innerHTML = ''
-      const actionBar = document.getElementById('action-bar')
-      if (actionBar) actionBar.classList.add('hidden')
-      const float = document.getElementById('dpad-float')
-      if (float) {
-        float.innerHTML = buildDpad()   // buildDpad 已含左上角物品按钮
-        float.classList.remove('hidden')
-        bindDpad()
-        makeDraggable(float)
-        const itemBtn = document.getElementById('btn-move-item')
-        if (itemBtn) itemBtn.onclick = showMoveItemMenu
-      }
-    } else {
-      // 桌面端：确保操作栏显示（防止进营地/商店后遗留 hidden）
-      const actionBar = document.getElementById('action-bar')
-      if (actionBar) actionBar.classList.remove('hidden')
-      const float = document.getElementById('dpad-float')
-      if (float) float.classList.add('hidden')
-      btns.innerHTML = buildDpad()
-      document.getElementById('btn-move-item').onclick = showMoveItemMenu
+    // 统一浮动方向键（比操作栏更可靠，避免响应式断点问题）
+    btns.innerHTML = ''
+    const actionBar = document.getElementById('action-bar')
+    if (actionBar) actionBar.classList.add('hidden')
+    const float = document.getElementById('dpad-float')
+    if (float) {
+      float.innerHTML = buildDpad()
+      float.classList.remove('hidden')
       bindDpad()
+      makeDraggable(float)
+      const itemBtn = document.getElementById('btn-move-item')
+      if (itemBtn) itemBtn.onclick = showMoveItemMenu
     }
   }
 
@@ -1368,6 +1365,7 @@
 
   EventBus.on('game:gameover', () => {
     _isWalking = false
+    showActionBar()
     const wasBoss = State.get()._battle && State.get()._battle.enemyId === 'spirit_of_forest'
 
     if (wasBoss) {
@@ -1494,6 +1492,7 @@
 
   function showBossVictory () {
     const state = State.get()
+    showActionBar()
     const lover = loverTerm(state.gender)
     hint.textContent = '🎉 你击败了森林之灵！'
     EventBus.emit('ui:log', { text: '🎉 你杀死了森林之灵，疯长的村庄开始恢复原样。', type: 'good' })
