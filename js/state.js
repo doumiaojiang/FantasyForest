@@ -381,7 +381,7 @@ window.State = (function () {
     state._captainChatCount = Math.max(0, Math.floor(finite(state._captainChatCount, 0)))
     state._captainLastChat = Math.max(-1, Math.floor(finite(state._captainLastChat, -1)))
     state._mercenary = state._mercenary && typeof state._mercenary === 'object' && state._mercenary.dmg
-      ? { id: String(state._mercenary.id || ''), name: String(state._mercenary.name || ''), icon: String(state._mercenary.icon || '⚔️'), dmg: Math.max(0, Math.floor(finite(state._mercenary.dmg, 2))), dead: !!state._mercenary.dead }
+      ? { id: String(state._mercenary.id || ''), name: String(state._mercenary.name || ''), icon: String(state._mercenary.icon || '⚔️'), dmg: Math.max(0, Math.floor(finite(state._mercenary.dmg, 2))), dead: !!state._mercenary.dead, lust: Math.max(0, Math.min(100, Math.floor(finite(state._mercenary.lust, 0)))) }
       : null
     state._futaLastChat = Math.max(-1, Math.floor(finite(state._futaLastChat, -1)))
     state._prostituteDressed = !!state._prostituteDressed

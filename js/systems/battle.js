@@ -123,18 +123,26 @@ window.BattleSystem = (function () {
       }
     }
 
-    // 佣兵攻击：玩家命中后，佣兵补一刀（玩家 miss 时她也 miss）
+    // 佣兵攻击：玩家命中后，佣兵补一刀（玩家 miss 时她也 miss）；发情时无法专心攻击
     const mercenary = state._mercenary
     if (mercenary && !mercenary.dead && !result.hitSelf && !result.miss && battle.targets.length > 0 && state.hp > 0) {
-      const mTarget = battle.targets[0]
-      mTarget.hp -= mercenary.dmg
-      result.mercenary = { name: mercenary.name, icon: mercenary.icon, dmg: mercenary.dmg, target: mTarget.name, killed: false }
-      EventBus.emit('ui:log', { text: `💀 ${mercenary.icon} ${mercenary.name} 挥刀砍向 ${mTarget.name}，造成 ${mercenary.dmg} 伤害！`, type: 'good' })
-      if (mTarget.hp <= 0) {
-        result.mercenary.killed = true
-        bossDefeated = battle.enemyId === 'spirit_of_forest' && mTarget.id === 'main'
-        handleTargetDeath(battle, mTarget)
+      if (mercenary.lust >= 100) {
+        result.mercenary = { name: mercenary.name, icon: mercenary.icon, dmg: 0, target: '发情中', lustBlocked: true }
+        EventBus.emit('ui:log', { text: `💢 ${mercenary.icon} ${mercenary.name} 欲火焚身，夹着腿扭来扭去，没法专心攻击！快去服务她。`, type: 'danger' })
+      } else {
+        const mTarget = battle.targets[0]
+        mTarget.hp -= mercenary.dmg
+        result.mercenary = { name: mercenary.name, icon: mercenary.icon, dmg: mercenary.dmg, target: mTarget.name, killed: false }
+        EventBus.emit('ui:log', { text: `💀 ${mercenary.icon} ${mercenary.name} 挥刀砍向 ${mTarget.name}，造成 ${mercenary.dmg} 伤害！`, type: 'good' })
+        if (mTarget.hp <= 0) {
+          result.mercenary.killed = true
+          bossDefeated = battle.enemyId === 'spirit_of_forest' && mTarget.id === 'main'
+          handleTargetDeath(battle, mTarget)
+        }
       }
+      // 战斗后性欲上升
+      mercenary.lust = Math.min(100, (mercenary.lust || 0) + 25)
+      EventBus.emit('state:changed', state)
     }
 
     // 魅魔生命链接

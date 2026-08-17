@@ -1015,7 +1015,7 @@ window.CampSystem = (function () {
         { label: state.gold >= 1000 ? '💸 花 1000G 招募' : '💰 钱不够（1000G）', cls: state.gold >= 1000 ? 'btn-primary' : 'btn-danger', handler: () => {
           if (state.gold < 1000) { EventBus.emit('ui:log', { text: '💰 钱不够招募。', type: 'dim' }); hireFuta(); return }
           state.gold -= 1000
-          state._mercenary = { id: 'futa_warrior', name: '芙蕾雅', icon: '⚔️', dmg: 2 }
+          state._mercenary = { id: 'futa_warrior', name: '芙蕾雅', icon: '⚔️', dmg: 2, lust: 0 }
           EventBus.emit('ui:log', { text: '⚔️ 芙蕾雅加入了你的队伍！你攻击命中后她会补上 2 点伤害。', type: 'good' })
           EventBus.emit('state:changed', state)
           Dialog.close(); renderTavern()
@@ -1023,6 +1023,88 @@ window.CampSystem = (function () {
         { label: '返回', handler: () => { Dialog.close(); tavernFuta() } },
       ],
     })
+  }
+
+  /** 服务佣兵：选择服务方式降低性欲（口交 -40 / 肛交 -50 / 性交 -60 女性专用） */
+  function serveMercenary () {
+    const state = State.get()
+    const merc = state._mercenary
+    if (!merc || merc.dead) { EventBus.emit('ui:log', { text: '没有可服务的佣兵。', type: 'dim' }); return }
+    if ((merc.lust || 0) < 25) {
+      EventBus.emit('ui:log', { text: `${merc.icon} ${merc.name} 现在很冷静，暂时不需要服务。`, type: 'dim' })
+      return
+    }
+    const isFemale = state.gender !== 'male'
+    const sexBtn = isFemale
+      ? `<button class="camp-opt" data-serve="sex"><i>🌸</i><span><b>性交服务</b><small>主动骑上去，用小穴好好伺候她</small></span><em>欲 -60</em></button>`
+      : ''
+    Dialog.show({
+      title: `💋 服务佣兵 · ${merc.icon} ${merc.name}`,
+      className: 'camp-tavern-modal',
+      body: `<div class="camp-character"><i>${merc.icon}</i><div><b>“嗯……人家有点忍不住了。”</b><p>她脸颊泛红，腿间已经湿了。性欲 <b>${Math.min(100, merc.lust || 0)}%</b>。选一种方式喂饱她吧。</p></div></div>
+        <div class="camp-grid">
+          <button class="camp-opt" data-serve="oral"><i>👄</i><span><b>口交服务</b><small>跪下来含住她的鸡巴卖力吞吐</small></span><em>欲 -40</em></button>
+          <button class="camp-opt" data-serve="anal"><i>🍑</i><span><b>肛交服务</b><small>撅起屁股让她从背后操进来</small></span><em>欲 -50</em></button>
+          ${sexBtn}
+        </div>`,
+      actions: [{ label: '返回', handler: () => { Dialog.close() } }],
+    })
+    document.querySelectorAll('[data-serve]').forEach(btn => {
+      btn.onclick = () => {
+        const type = btn.dataset.serve
+        Dialog.close()
+        runMercenaryService(type)
+      }
+    })
+  }
+
+  /** 执行佣兵服务任务 */
+  async function runMercenaryService (type) {
+    const state = State.get()
+    const merc = state._mercenary
+    if (!merc || merc.dead) return
+    const cfg = {
+      oral: { name: '口交服务', dmg: 40, steps: [
+        { desc: '你跪在她腿间，含住她硬邦邦的鸡巴卖力吞吐，深喉吞到底', bpm: 0, seconds: 30 },
+        { desc: '你一边深喉一边用手揉着她的蛋蛋，把她伺候得腿软', bpm: 0, seconds: 30 },
+      ] },
+      anal: { name: '肛交服务', dmg: 50, steps: [
+        { desc: '你趴跪在床沿，撅起屁股，让她从背后狠狠操进你的菊穴', bpm: 90, seconds: 30 },
+        { desc: '她掐着你的腰猛操，你咬着枕头承受，她越来越兴奋', bpm: 90, seconds: 30 },
+      ] },
+      sex: { name: '性交服务', dmg: 60, steps: [
+        { desc: '你躺下来张开腿，让她挺着粗壮的鸡巴狠狠操进你的小穴', bpm: 90, seconds: 30 },
+        { desc: '你主动用双腿缠住她的腰，迎合着她的抽插，浪叫连连', bpm: 90, seconds: 30 },
+      ] },
+    }[type]
+    if (!cfg) return
+    let failed = false
+    if (typeof BattleUI !== 'undefined' && BattleUI.showTaskDialog) {
+      for (let i = 0; i < cfg.steps.length; i++) {
+        const step = cfg.steps[i]
+        const f = await BattleUI.showTaskDialog({
+          enemyName: `${merc.icon} ${merc.name}（第 ${i + 1}/${cfg.steps.length} 段）`,
+          attackName: cfg.name,
+          desc: step.desc,
+          bpm: step.bpm || 0,
+          seconds: step.seconds || 0,
+          dmg: 0,
+          noDamage: true,
+          dildoName: '她那根粗壮的鸡巴',
+        })
+        if (f) { failed = true; break }
+      }
+    } else {
+      failed = !confirm(`给${merc.name}做${cfg.name}（完成代表伺候完了）。`)
+    }
+    if (failed) {
+      EventBus.emit('ui:log', { text: `🏃 你半途停下来，${merc.icon} ${merc.name} 不满地瞪了你一眼（性欲没降）。`, type: 'danger' })
+      EventBus.emit('state:changed', state)
+      return
+    }
+    merc.lust = Math.max(0, (merc.lust || 0) - cfg.dmg)
+    EventBus.emit('ui:log', { text: `💋 你给${merc.icon} ${merc.name}做了${cfg.name}，她满足地哼了一声，性欲降到 ${merc.lust}%。`, type: 'good' })
+    EventBus.emit('state:changed', state)
   }
 
   /** 老板娘聊天：随机循环闲话；聊到打工话题后解锁打工 */
@@ -2009,5 +2091,5 @@ window.CampSystem = (function () {
     })
   }
 
-  return { open, gloryHole, renderToilet, investigateStall, enterGlory, useToilet, deer, tavern }
+  return { open, gloryHole, renderToilet, investigateStall, enterGlory, useToilet, deer, tavern, serveMercenary }
 })()

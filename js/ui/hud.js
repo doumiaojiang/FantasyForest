@@ -114,7 +114,14 @@ function render (state) {
       } else if (state._mercenary.dead) {
         mercenaryEl.innerHTML = `<span class="mercenary-avatar" style="opacity:.45">${state._mercenary.icon}</span><span class="mercenary-meta"><small>MERCENARY</small><b style="color:var(--danger)">${state._mercenary.name}（已阵亡）</b><em style="color:var(--danger)">💔 可到商店花 50G 复活</em></span>`
       } else {
-        mercenaryEl.innerHTML = `<span class="mercenary-avatar">${state._mercenary.icon}</span><span class="mercenary-meta"><small>MERCENARY</small><b>${state._mercenary.name}</b><em>⚔️ 帮你攻击 ${state._mercenary.dmg} 伤害</em></span>`
+        const lust = state._mercenary.lust || 0
+        const lustFull = lust >= 100
+        const lustLabel = lustFull ? '发情中' : `${lust}%`
+        const lustBar = `<span class="mercenary-lust-bar"><i style="width:${Math.min(100, lust)}%" class="${lustFull ? 'is-full' : ''}"></i></span><em class="${lustFull ? 'mercenary-lust-full' : ''}">${lustFull ? '💢 ' : '🔥 '}${lustLabel}</em>`
+        mercenaryEl.innerHTML = `<span class="mercenary-avatar">${state._mercenary.icon}</span>
+          <span class="mercenary-meta"><small>MERCENARY</small><b>${state._mercenary.name}</b><em>⚔️ 帮你攻击 ${state._mercenary.dmg} 伤害</em></span>
+          <span class="mercenary-lust">${lustBar}</span>
+          <button class="btn btn-danger mercenary-serve-btn" id="btn-serve-merc" title="服务佣兵降低性欲">💋 服务</button>`
       }
     }
 
@@ -142,6 +149,16 @@ function render (state) {
     } else {
       enemyContainer.classList.remove('show')
       enemyContainer.classList.add('hud-hidden')
+    }
+
+    // 服务佣兵按钮
+    const serveBtn = document.getElementById('btn-serve-merc')
+    if (serveBtn) {
+      serveBtn.onclick = () => {
+        if (typeof CampSystem !== 'undefined' && CampSystem.serveMercenary) {
+          CampSystem.serveMercenary()
+        }
+      }
     }
   }
 

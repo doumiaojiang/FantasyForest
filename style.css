@@ -694,6 +694,16 @@ body:has(.modal-box.boss-ending-modal) #topbar {
 .hud-mercenary .mercenary-meta b { color: #d9eccb; font-size: .76rem; }
 .hud-mercenary .mercenary-meta em { color: #9fc494; font-size: .6rem; font-style: normal; }
 
+/* 佣兵性欲条 */
+.hud-mercenary .mercenary-lust { display: flex; flex-direction: column; align-items: flex-end; gap: 2px; margin-left: auto; }
+.hud-mercenary .mercenary-lust-bar { width: 64px; height: 6px; border-radius: 4px; background: rgba(255,255,255,.08); overflow: hidden; display: block; }
+.hud-mercenary .mercenary-lust-bar i { display: block; height: 100%; border-radius: 4px; background: linear-gradient(90deg, #ff7ba8, #ff4d6d); transition: width .3s ease; }
+.hud-mercenary .mercenary-lust-bar i.is-full { background: linear-gradient(90deg, #ff4d6d, #ff1e3c); box-shadow: 0 0 8px rgba(255,30,60,.7); }
+.hud-mercenary .mercenary-lust em { font-style: normal; font-size: .58rem; color: #e58ca8; }
+.hud-mercenary .mercenary-lust em.mercenary-lust-full { color: #ff1e3c; font-weight: 700; }
+.hud-mercenary .mercenary-serve-btn { flex-shrink: 0; font-size: .68rem; padding: 4px 9px; min-height: 0; border-radius: 8px; }
+.hud-mercenary .mercenary-lust-full + .mercenary-serve-btn, .hud-mercenary .mercenary-serve-btn { margin-left: 0; }
+
 /* 状态标签 */
 .hud-status { display: flex; gap: 6px; flex-wrap: wrap; }
 .status-chip {
