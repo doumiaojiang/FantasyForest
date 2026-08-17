@@ -941,7 +941,7 @@ window.CampSystem = (function () {
       { desc: '以 120 BPM 操你的喉穴 90 秒', bpm: 120, seconds: 90 },
     ] },
     4: { name: '喉咙旋转', desc: '按顺序：假阳具在喉咙中旋转 360 度 5 次；操喉穴直到干呕 5 次；深喉 3 次，每次保持 30 秒', points: 34, steps: [
-      { desc: '将假阳具在喉咙中旋转 360 度 5 次', bpm: 0, seconds: 30, restAfter: true },
+      { desc: '将假阳具在喉咙中旋转 360 度 5 次', countTarget: 5, countDesc: '旋转', restAfter: true },
       { desc: '操你的喉穴直到干呕 5 次', countTarget: 5, countDesc: '干呕', restAfter: true },
       { desc: '深喉 3 次，每次保持 30 秒', bpm: 0, seconds: 90 },
     ] },
