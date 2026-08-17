@@ -818,9 +818,17 @@ window.CampSystem = (function () {
       EventBus.emit('state:changed', state)
       showGloryWork()
     } else {
+      // 职业妓女：被操完后羞辱辱骂，明确不给注销
       EventBus.emit('ui:log', { text: '🛡️ 队长提上裤子："证不能退，下次再敢提，还操你。"', type: 'dim' })
+      Dialog.show({
+        title: '🛡️ 守卫队队长 · 羞辱', className: 'camp-tavern-modal',
+        body: `<div class="camp-character"><i>🛡️</i><div><b>“还想退行？哼，你这种货色，除了被操还能干什么。”</b><p>队长居高临下地看着你：“你当职业妓女当出了名，你以为这证是你想退就能退的？”<br><br>他凑近你的脸，声音里全是轻蔑：“册子上你的名字，老子给你写得死死的。想注销？做梦。下次再来提，我还操你一顿，操到你服为止。”</p></div></div>
+          <p class="work-footnote">你的名字被队长牢牢按在册子上，妓女证注销无望。</p>`,
+        actions: [
+          { label: '被羞辱得无地自容', cls: 'btn-danger', handler: () => { Dialog.close(); tavernCaptain() } },
+        ],
+      })
       EventBus.emit('state:changed', state)
-      tavernCaptain()
     }
   }
 
