@@ -886,13 +886,14 @@ window.CampSystem = (function () {
         failed = !confirm(`完成惩罚任务：${task.desc}`)
       }
       if (failed) {
-        EventBus.emit('ui:log', { text: '🎓 你干呕着认错，专家勉强放过你。', type: 'danger' })
-        prisonWork(); return
+        EventBus.emit('ui:log', { text: '🎓 你干呕着认错，但专家还不满意——继续赎罪。', type: 'danger' })
+        EventBus.emit('state:changed', state)
+        prisonPunishment(); return
       }
       state._prisonPoints = Math.min(prisonTarget(), (state._prisonPoints || 0) + task.points)
-      EventBus.emit('ui:log', { text: `🎓 你完成再教育，获得 ${task.points} 积分（现 ${state._prisonPoints}/${prisonTarget()}）。`, type: 'good' })
+      EventBus.emit('ui:log', { text: `🎓 你完成再教育，获得 ${task.points} 积分（现 ${state._prisonPoints}/${prisonTarget()}）。专家仍不打算放你走，继续赎罪。`, type: 'good' })
       EventBus.emit('state:changed', state)
-      prisonWork()
+      prisonPunishment()
     }
     showPunish()
   }
