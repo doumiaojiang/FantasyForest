@@ -640,6 +640,11 @@ window.CampSystem = (function () {
 
   /* ============ 监狱系统 ============ */
 
+  /** 出狱所需积分（按难度：普通 300 / 困难 400 / 残酷 500） */
+  function prisonTarget () {
+    return { normal: 300, hard: 400, brutal: 500 }[State.get().difficulty] || 300
+  }
+
   /** 监狱大门（平时查看） */
   function prisonDoor () {
     const state = State.get()
@@ -656,7 +661,7 @@ window.CampSystem = (function () {
     })
   }
 
-  /** 被抓进监狱：无证卖淫的惩罚，需 300 点出狱 */
+  /** 被抓进监狱：无证卖淫的惩罚，需按难度攒积分出狱 */
   function enterPrison () {
     const state = State.get()
     state._inPrison = true
@@ -665,32 +670,34 @@ window.CampSystem = (function () {
     EventBus.emit('state:changed', state)
     // 贞操锁：监狱里你的小穴被贞操笼/贞操带锁死
     if (!StatusSystem.has('chastity')) StatusSystem.apply('chastity', 99999)
+    const target = prisonTarget()
     campShow({
       title: '⛓️ 营地监狱', className: 'prison-modal',
       body: `<div class="prison-intro"><div class="prison-mark" aria-hidden="true">⛓️</div>
-        <p>你因为<b>无证非法卖淫</b>被守卫当场抓获，押进了营地监狱。</p>
-        <p>你的小穴被锁进冰冷的<b>贞操笼</b>——"你这种废物肉虫，不配使用自己的身体，就像你一样。"</p>
-        <p>要出狱，你得靠给牢房里的犯人提供<b>口交 / 深喉服务</b>，攒够 <b>300 点</b>才行。</p></div>`,
+        <p>你因犯下<b>非法卖淫罪</b>被守卫当场抓获，押进了营地监狱。</p>
+        <p>判决如下：罚你进入<b>深喉监狱</b>——你的小穴会被锁进冰冷的<b>贞操笼</b>，"你这种废物肉虫，不配使用自己的身体，就像你一样。以后你就用你的<b>嘴穴</b>来服务大家吧。"</p>
+        <p>要出狱，你得靠提供<b>口交 / 深喉服务</b>伺候牢房里的犯人和过往的村民，攒够 <b>${target} 积分</b>才行。</p></div>`,
       actions: [
         { label: '⛓️ 进入牢房', cls: 'btn-danger', handler: () => { prisonWork() } },
       ],
     })
   }
 
-  /** 牢房工作界面：点数 + 狱友 + 自选任务类型后掷 Z；满 300 点可自行选择出狱 */
+  /** 牢房工作界面：点数 + 狱友 + 自选任务类型后掷 Z；攒够积分可自行选择出狱 */
   function prisonWork () {
     const state = State.get()
     const points = state._prisonPoints || 0
-    const done = points >= 300
-    const tier = points < 80 ? '基础任务' : '中级任务'
+    const target = prisonTarget()
+    const done = points >= target
+    const tier = points < 80 ? '基础任务' : '基础 / 中级'
     campShow({
       title: '⛓️ 营地监狱 · 集体牢房', className: 'prison-modal',
-      body: `<div class="prison-stats"><span>⛓️ 出狱点数 <b>${points}/300</b></span><span>📋 当前 <b>${tier}</b></span><span>🔒 贞操笼已锁</span></div>
+      body: `<div class="prison-stats"><span>⛓️ 出狱积分 <b>${points}/${target}</b></span><span>📋 任务 <b>${tier}</b></span><span>🔒 贞操笼已锁</span></div>
         <div class="prison-cell">
           <div class="camp-character"><i>🧔</i><div><b>五名囚犯挤在牢房里，表情阴郁。</b><p>“我们不过是偷了块面包、欠了点酒钱，就被关了进来。”其中一个压低声音，“这明显不公……嘘，守卫来了。”</p></div></div>
           <p class="prison-guard">“不要再说话了！是时候开始工作了！”</p>
         </div>
-        ${done ? '<p class="camp-footnote">你已经攒够了 300 点，随时可以出狱——也可以留下继续接活。</p>' : '<p class="camp-footnote">选择要做的基础或中级任务，然后掷 Z 决定具体服务。</p>'}`,
+        <p class="camp-footnote">${points < 80 ? '积分不到 80，只能接基础任务。攒到 80 分后可解锁中级任务。' : '你已解锁中级任务，可以接更挣积分的活了。'}${done ? ' 你已经攒够了出狱积分，随时可以离开——也可以留下继续接活。' : ''}</p>`,
       actions: done
         ? [
             { label: '🔓 选择出狱', cls: 'btn-primary', handler: () => { Dialog.close(); prisonRelease() } },
@@ -702,17 +709,18 @@ window.CampSystem = (function () {
     })
   }
 
-  /** 自选任务类型（基础/中级），再掷 Z */
+  /** 自选任务类型（基础/中级），再掷 Z；中级需积分 ≥80 解锁 */
   function prisonTierChoice () {
     const state = State.get()
     const points = state._prisonPoints || 0
+    const midUnlocked = points >= 80
     campShow({
       title: '📋 选择任务类型', className: 'prison-modal',
       body: `<div class="prison-intro"><div class="prison-mark" aria-hidden="true">📋</div>
         <p>牢房守卫把任务板推到你面前。选择要接哪种任务，然后掷 Z 决定具体内容。</p>
         <div class="toilet-grid">
-          <button class="toilet-card toilet-card-safe" data-tier="basic"><i>🔰</i><span><b>基础任务</b><small>2-16 积分 · 深喉/喉穴抽插</small></span><em>推荐新手</em></button>
-          <button class="toilet-card toilet-card-secret" data-tier="mid"><i>📈</i><span><b>中级任务</b><small>15-27 积分 · 深喉百次/操到呕吐</small></span><em>积分更多</em></button>
+          <button class="toilet-card toilet-card-safe" data-tier="basic"><i>🔰</i><span><b>基础任务</b><small>2-16 积分 · 深喉/喉穴抽插</small></span><em>随时可接</em></button>
+          <button class="toilet-card toilet-card-secret ${midUnlocked ? '' : 'is-locked'}" data-tier="${midUnlocked ? 'mid' : ''}"><i>📈</i><span><b>中级任务</b><small>15-27 积分 · 深喉百次/操到呕吐</small></span><em>${midUnlocked ? '可接' : '需 80 积分'}</em></button>
         </div></div>`,
       actions: [
         { label: '返回牢房', handler: () => { prisonWork() } },
@@ -721,6 +729,7 @@ window.CampSystem = (function () {
     document.querySelectorAll('[data-tier]').forEach(btn => {
       btn.onclick = () => {
         const tier = btn.dataset.tier
+        if (!tier) { EventBus.emit('ui:log', { text: '⛓️ 积分未到 80，中级任务还没解锁。', type: 'dim' }); return }
         Dialog.close()
         prisonRollTask(tier)
       }
@@ -766,8 +775,8 @@ window.CampSystem = (function () {
       EventBus.emit('state:changed', state)
       prisonWork(); return
     }
-    state._prisonPoints = Math.min(300, (state._prisonPoints || 0) + task.points)
-    EventBus.emit('ui:log', { text: `⛓️ 你卖力服务，获得 ${task.points} 积分（现 ${state._prisonPoints}/300）。`, type: 'good' })
+    state._prisonPoints = Math.min(prisonTarget(), (state._prisonPoints || 0) + task.points)
+    EventBus.emit('ui:log', { text: `⛓️ 你卖力服务，获得 ${task.points} 积分（现 ${state._prisonPoints}/${prisonTarget()}）。`, type: 'good' })
     EventBus.emit('state:changed', state)
     prisonWork()
   }
@@ -783,7 +792,7 @@ window.CampSystem = (function () {
     campShow({
       title: '⛓️ 监狱 · 释放', className: 'prison-modal',
       body: `<div class="prison-intro"><div class="prison-mark" aria-hidden="true">🔓</div>
-        <p>你终于攒够了 <b>300 点</b>，守卫解开了你的贞操笼和手铐。</p>
+        <p>你终于攒够了 <b>${prisonTarget()} 积分</b>，守卫解开了你的贞操笼和手铐。</p>
         <p>"出去吧。下次再敢无证卖淫，可就不是蹲几天这么简单了。"</p>
         <p>你拖着酸软的膝盖爬出牢房，重见天日。</p></div>`,
       actions: [
@@ -863,8 +872,8 @@ window.CampSystem = (function () {
         EventBus.emit('ui:log', { text: '🎓 你干呕着认错，专家勉强放过你。', type: 'danger' })
         prisonWork(); return
       }
-      state._prisonPoints = Math.min(300, (state._prisonPoints || 0) + task.points)
-      EventBus.emit('ui:log', { text: `🎓 你完成再教育，获得 ${task.points} 积分（现 ${state._prisonPoints}/300）。`, type: 'good' })
+      state._prisonPoints = Math.min(prisonTarget(), (state._prisonPoints || 0) + task.points)
+      EventBus.emit('ui:log', { text: `🎓 你完成再教育，获得 ${task.points} 积分（现 ${state._prisonPoints}/${prisonTarget()}）。`, type: 'good' })
       EventBus.emit('state:changed', state)
       prisonWork()
     }
