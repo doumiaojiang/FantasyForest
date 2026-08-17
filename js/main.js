@@ -266,6 +266,7 @@
             { label: '🗑️ 确认删除', cls: 'btn-danger', handler: () => {
               Dialog.close()
               State.clearSave()
+              State.reset()   // 同时清空内存状态，防止残留旧内容
               EventBus.emit('ui:log', { text: '🗑️ 存档已删除。', type: 'danger' })
               backToTitle(true)   // skipSave：避免 backToTitle 重新保存
             }},

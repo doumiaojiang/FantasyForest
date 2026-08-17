@@ -459,6 +459,7 @@ window.State = (function () {
     save, scheduleAutoSave, flushAutoSave, load, loadBackup, hasSave, clearSave, migrate,
     exportSave, importSave,
     saveBossCheckpoint, loadBossCheckpoint, clearBossCheckpoint,
+    reset () { _state = null },
     SAVE_KEY, BACKUP_SAVE_KEY, BOSS_SAVE_KEY, SAVE_VERSION,
   }
 })()
