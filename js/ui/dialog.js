@@ -169,6 +169,10 @@ window.Dialog = (function () {
     // 半价基于当前位置（与 ShopSystem.getPrice 一致，读档后位置不变仍半价）
     const curTile = MapLib.get(state.position.x, state.position.y)
     const isHalf = state.difficulty === 'normal' && curTile && curTile.type === TILE.SHOP
+    // 店铺类型：道具商只卖消耗品、铁匠铺只卖装备、其他全部
+    const shopRaw = tile && tile.raw
+    const isPotioneer = shopRaw === '道具商'
+    const isBlacksmith = shopRaw === '铁匠铺'
     let html = '<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">'
 
     const renderItem = (item) => {
@@ -214,13 +218,18 @@ window.Dialog = (function () {
     }
 
     // 消耗品（排除商店不出售的特殊物品：升级材料、小鹿树枝、卫兵免检查卷；女性专用塞入物男性不可见）
-    ITEMS.consumables.filter(it =>
-      it.id !== 'weapon_upgrade_material' && it.id !== 'twig' && it.id !== 'guard_pass' &&
-      !((it.id === 'vibrator_egg' || it.id === 'vibrating_dildo') && state.gender === 'male')
-    ).forEach(item => { html += renderItem(item) })
-    html += '</div><hr style="border-color:var(--border);margin:10px 0"><h4>装备</h4><div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">'
-    ITEMS.weapons.forEach(item => { html += renderItem(item) })
-    ITEMS.accessories.forEach(item => { html += renderItem(item) })
+    if (!isBlacksmith) {
+      ITEMS.consumables.filter(it =>
+        it.id !== 'weapon_upgrade_material' && it.id !== 'twig' && it.id !== 'guard_pass' &&
+        !((it.id === 'vibrator_egg' || it.id === 'vibrating_dildo') && state.gender === 'male')
+      ).forEach(item => { html += renderItem(item) })
+    }
+    // 装备（铁匠铺专售）
+    if (!isPotioneer) {
+      html += '</div><hr style="border-color:var(--border);margin:10px 0"><h4>装备</h4><div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">'
+      ITEMS.weapons.forEach(item => { html += renderItem(item) })
+      ITEMS.accessories.forEach(item => { html += renderItem(item) })
+    }
     html += '</div>'
 
     // 全裸时显示"买回衣服"选项
@@ -243,8 +252,9 @@ window.Dialog = (function () {
         </div>`
     }
 
+    const shopTitle = isPotioneer ? '🧪 道具商' : isBlacksmith ? '🔨 铁匠铺' : '🏪 旅行商店'
     Dialog.show({
-      title: `🏪 商店 ${isHalf ? '(半价优惠)' : ''}`,
+      title: `${shopTitle} ${isHalf ? '(半价优惠)' : ''}`,
       body: `<div style="margin-bottom:8px;color:var(--text-dim)">金币: <b style="color:var(--gold)">${state.gold}G</b></div>${clothesBtn}${mercBtn}${html}`,
       actions: [
         { label: '离开商店', handler: () => { close(); ShopSystem.close() } },

@@ -107,6 +107,8 @@ window.CampSystem = (function () {
         <div class="camp-stats" aria-label="营地状态"><span>❤️ ${state.hp}/${state.maxHp}</span><span>💎 ${state.gold} 金币</span><span>🧭 出生点东侧</span></div>
         <div class="camp-grid">
           <button class="camp-opt camp-opt-shop" data-opt="shop"><i>🛒</i><span><b>旅行商店</b><small>补给、装备与消耗品</small></span><em>营业中</em></button>
+          <button class="camp-opt camp-opt-potion" data-opt="potion"><i>🧪</i><span><b>道具商</b><small>药品与各种消耗品</small></span><em>营业中</em></button>
+          <button class="camp-opt camp-opt-blacksmith" data-opt="blacksmith"><i>🔨</i><span><b>铁匠铺</b><small>武器与饰品</small></span><em>营业中</em></button>
           <button class="camp-opt camp-opt-glory" data-opt="glory"><i>🚻</i><span><b>公共厕所</b><small>${toiletHint}</small></span><em>${toiletStatus}</em></button>
           <button class="camp-opt camp-opt-tavern" data-opt="tavern"><i>🍺</i><span><b>雾灯酒馆</b><small>摇骰子、买酒</small></span><em>营业中</em></button>
           <button class="camp-opt camp-opt-deer" data-opt="deer"><i>🦌</i><span><b>篝火旁的鹿</b><small>旅人的初次见面礼</small></span><em>${deerStatus}</em></button>
@@ -117,10 +119,11 @@ window.CampSystem = (function () {
     document.querySelectorAll('.camp-opt').forEach(btn => {
       btn.onclick = () => {
         const opt = btn.dataset.opt
-        if (opt === 'shop') {
+        if (opt === 'shop' || opt === 'potion' || opt === 'blacksmith') {
           state._shopReturnToCamp = true
           EventBus.emit('state:changed', state)
-          ShopSystem.open({ type: TILE.CAMP, raw: '营地商店' })
+          const raw = opt === 'shop' ? '营地商店' : opt === 'potion' ? '道具商' : '铁匠铺'
+          ShopSystem.open({ type: TILE.CAMP, raw })
         } else if (opt === 'glory') gloryHole()
         else if (opt === 'tavern') tavern()
         else if (opt === 'deer') deer()
