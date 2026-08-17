@@ -805,6 +805,82 @@ window.CampSystem = (function () {
     })
   }
 
+  /** 监狱暂停计时器：倒计时 + 暂停休息按钮（暂停5秒自动恢复，5秒CD） */
+  function prisonPauseTimerDialog (desc, seconds, bpm, enemyName) {
+    return new Promise(resolve => {
+      let left = seconds
+      let paused = false
+      let pauseLeft = 0
+      let cdUntil = 0   // 冷却结束时间戳
+      let timer = null
+      let fail = false
+      const cleanup = () => { if (timer) clearInterval(timer); timer = null }
+
+      const render = () => {
+        const el = document.getElementById('prison-pause-time')
+        const fill = document.getElementById('prison-pause-fill')
+        const btn = document.getElementById('prison-pause-btn')
+        if (el) el.textContent = Math.max(0, left)
+        if (fill) fill.style.width = `${Math.max(0, Math.min(100, (left / seconds) * 100))}%`
+        if (btn) {
+          const now = Date.now()
+          if (paused) {
+            btn.textContent = `⏸ 休息中（${Math.ceil(pauseLeft)}秒）`
+            btn.disabled = true
+          } else if (now < cdUntil) {
+            btn.textContent = `⏸ 休息（冷却 ${Math.ceil((cdUntil - now) / 1000)}秒）`
+            btn.disabled = true
+          } else {
+            btn.textContent = '⏸ 暂停休息（5秒）'
+            btn.disabled = false
+          }
+        }
+      }
+
+      const tick = () => {
+        if (paused) {
+          pauseLeft -= 1
+          if (pauseLeft <= 0) {
+            paused = false
+            EventBus.emit('ui:log', { text: '⏸ 休息结束，计时自动恢复！', type: 'dim' })
+          }
+          render()
+          return
+        }
+        left -= 1
+        render()
+        if (left <= 0) {
+          cleanup()
+          Dialog.close()
+          resolve(false)
+        }
+      }
+
+      Dialog.show({
+        title: `⏱ ${enemyName} · ${desc}`,
+        className: 'camp-task-modal',
+        body: `<div class="camp-task"><div class="camp-task-icon">⏱</div><p>${desc}</p><strong id="prison-pause-time" aria-live="polite">${seconds}</strong><span>秒</span><div class="camp-task-track"><i id="prison-pause-fill"></i></div><small>点「暂停休息」可暂停计时 5 秒，自动恢复；有 5 秒冷却。</small>
+          <div style="margin-top:10px"><button class="btn" id="prison-pause-btn" style="width:100%">⏸ 暂停休息（5秒）</button></div></div>`,
+        actions: [
+          { label: '🏃 放弃任务', cls: 'btn-danger', handler: () => { cleanup(); Dialog.close(); resolve(true) } },
+        ],
+      })
+      const pauseBtn = document.getElementById('prison-pause-btn')
+      if (pauseBtn) {
+        pauseBtn.onclick = () => {
+          const now = Date.now()
+          if (paused || now < cdUntil) return
+          paused = true
+          pauseLeft = 5
+          cdUntil = now + 10000
+          EventBus.emit('ui:log', { text: '⏸ 你暂停休息 5 秒……', type: 'dim' })
+          render()
+        }
+      }
+      timer = setInterval(tick, 1000)
+    })
+  }
+
   function prisonRestButton (restSeconds) {
     return new Promise(resolve => {
       let count = restSeconds
@@ -856,6 +932,8 @@ window.CampSystem = (function () {
         let f
         if (step.textOnly) {
           f = await prisonTextDialog(step.desc, '⛓️ 监狱守卫')
+        } else if (step.pauseTimer) {
+          f = await prisonPauseTimerDialog(step.desc, step.pauseSeconds || 90, step.bpm || 0, '⛓️ 监狱守卫')
         } else if (step.countTarget) {
           f = await prisonCountDialog(step.desc, step.countTarget, step.countDesc || '干呕', '⛓️ 监狱守卫', '守卫的粗鸡巴')
         } else {
@@ -936,9 +1014,9 @@ window.CampSystem = (function () {
   const PRISON_ADV = {
     1: { name: '深喉三分钟', desc: '在 3 分钟内深喉 150 次，节奏紧凑不停歇', points: 25, seconds: 180 },
     2: { name: '深喉循环', desc: '深喉保持 15 秒，休息 5 秒，重复 3 次', points: 27, holdSeconds: 15, restSeconds: 5, repeat: 3, phaseDesc: '深喉保持 15 秒', restDesc: '休息 5 秒' },
-    3: { name: '深喉猛操', desc: '深喉 120 BPM 直到你干呕 5 次，然后以 120 BPM 操你的喉穴 90 秒（可休息呼吸，每次不超过 5 秒）', points: 30, bpm: 120, steps: [
-      { desc: '深喉 120 BPM 直到你干呕 5 次', countTarget: 5, countDesc: '干呕', restAfter: true },
-      { desc: '以 120 BPM 操你的喉穴 90 秒', bpm: 120, seconds: 90 },
+    3: { name: '深喉猛操', desc: '深喉 120 BPM 直到你干呕 5 次，然后以 120 BPM 操你的喉穴 90 秒（可暂停休息，每次 5 秒，有 5 秒冷却）', points: 30, bpm: 120, steps: [
+      { desc: '深喉 120 BPM 直到你干呕 5 次', countTarget: 5, countDesc: '干呕' },
+      { desc: '以 120 BPM 操你的喉穴 90 秒', bpm: 120, pauseTimer: true, pauseSeconds: 90 },
     ] },
     4: { name: '喉咙旋转', desc: '按顺序：假阳具在喉咙中旋转 360 度 5 次；操喉穴直到干呕 5 次；深喉 3 次，每次保持 30 秒', points: 34, steps: [
       { desc: '将假阳具在喉咙中旋转 360 度 5 次', countTarget: 5, countDesc: '旋转', restAfter: true },
