@@ -73,6 +73,11 @@ window.CampSystem = (function () {
   function open () {
     const state = State.get()
     setCampPhase()
+    // 在监狱里：强制回到牢房工作，无法离开
+    if (state._inPrison) {
+      prisonWork()
+      return
+    }
     // 未完成的强制流程会持久化，刷新后不能绕过。
     if ((state._gloryDebt || 0) > 0 || state._gloryFreeService) {
       showGloryWork()
@@ -110,6 +115,7 @@ window.CampSystem = (function () {
           <button class="camp-opt camp-opt-blacksmith" data-opt="blacksmith"><i>🔨</i><span><b>铁匠铺</b><small>武器与饰品</small></span><em>营业中</em></button>
           <button class="camp-opt camp-opt-potion" data-opt="potion"><i>🧪</i><span><b>道具商</b><small>药品与各种消耗品</small></span><em>营业中</em></button>
           <button class="camp-opt camp-opt-glory" data-opt="glory"><i>🚻</i><span><b>公共厕所</b><small>${toiletHint}</small></span><em>${toiletStatus}</em></button>
+          <button class="camp-opt camp-opt-prison" data-opt="prison"><i>⛓️</i><span><b>监狱</b><small>无证卖淫的归宿</small></span><em>${state._inPrison ? '在押' : '戒备'}</em></button>
           <button class="camp-opt camp-opt-deer" data-opt="deer"><i>🦌</i><span><b>篝火旁的鹿</b><small>旅人的初次见面礼</small></span><em>${deerStatus}</em></button>
         </div>
         <p class="camp-footnote">营地不会消耗回合；离开后从当前格继续探索。</p>`,
@@ -125,6 +131,7 @@ window.CampSystem = (function () {
           ShopSystem.open({ type: TILE.CAMP, raw })
         } else if (opt === 'glory') gloryHole()
         else if (opt === 'tavern') tavern()
+        else if (opt === 'prison') prisonDoor()
         else if (opt === 'deer') deer()
       }
     })
@@ -355,23 +362,26 @@ window.CampSystem = (function () {
     })
   }
 
-  /** 进入荣耀洞：身上有钱直接交，没钱才借款 */
+  /** 进入荣耀洞：有妓女证免费；没证收费（没钱可赊账） */
   function enterGlory () {
     const state = State.get()
     setCampPhase()
     if ((state._gloryDebt || 0) > 0 || state._gloryFreeService) { showGloryWork(); return }
+    const hasLicense = !!state._prostituteLicensed
     const hasGold = state.gold >= GLORY_FEE
     campShow({
       title: '🍑 荣耀洞 · 入场处', className: 'glory-entry-modal',
       body: `<div class="glory-entry-mark">🍑</div><p class="glory-entry-lead">洞里已经有人了。你能听到压抑的喘息和皮带碰撞的声响。</p>
-        <div class="glory-rules"><span><b>${GLORY_FEE}G</b><small>给营地的服务费</small></span><span><b>${SERVICE_SECONDS}s</b><small>一次服务时长</small></span><span><b>Z</b><small>完事后的特殊惊喜</small></span></div>
-        <p class="camp-muted">兜里有钱就直接付；穷得叮当响就向营地借，服务收入先填债，填满前别想溜。</p>`,
+        <div class="glory-rules"><span><b>${hasLicense ? '免费' : GLORY_FEE + 'G'}</b><small>${hasLicense ? '持证免费进入' : '给营地的服务费'}</small></span><span><b>${SERVICE_SECONDS}s</b><small>一次服务时长</small></span><span><b>Z</b><small>完事后的特殊惊喜</small></span></div>
+        <p class="camp-muted">${hasLicense ? '你出示了妓女许可证，守卫挥挥手放你进洞。' : '没有许可证在这里接客是违法的——每次服务都会让你更危险，被抓到就要进监狱。'}</p>`,
       actions: [
-        { label: hasGold ? `付 ${GLORY_FEE}G 进洞` : `先欠 ${GLORY_FEE}G 进洞`, cls: hasGold ? 'btn-primary' : 'btn-danger', handler: () => {
-          if (hasGold) state.gold -= GLORY_FEE
-          else {
-            state._gloryDebt = GLORY_FEE
-            EventBus.emit('ui:log', { text: `💸 你身无分文，只能向营地赊账 ${GLORY_FEE}G，签下卖身契进洞。`, type: 'danger' })
+        { label: hasLicense ? '免费进洞' : hasGold ? `付 ${GLORY_FEE}G 进洞` : `先欠 ${GLORY_FEE}G 进洞`, cls: hasLicense ? 'btn-primary' : (hasGold ? 'btn-primary' : 'btn-danger'), handler: () => {
+          if (!hasLicense) {
+            if (hasGold) state.gold -= GLORY_FEE
+            else {
+              state._gloryDebt = GLORY_FEE
+              EventBus.emit('ui:log', { text: `💸 你身无分文，只能向营地赊账 ${GLORY_FEE}G，签下卖身契进洞。`, type: 'danger' })
+            }
           }
           EventBus.emit('state:changed', state); showGloryWork()
         } },
@@ -592,6 +602,27 @@ window.CampSystem = (function () {
     if (repaid > 0) EventBus.emit('ui:log', { text: `💸 你挣的钱先被营地扣去还债 ${repaid} 金币，还剩 ${state._gloryDebt} 没还清。`, type: 'dim' })
     EventBus.emit('ui:log', { text: `🎲 Z=${event.z}：${wasFree && event.tip > 0 ? event.msg.replace(/小费|金币/g, '') : event.msg}`, type: event.tip > 0 && !wasFree ? 'good' : 'dim' })
     EventBus.emit('state:changed', state)
+    // 无证卖淫：危险值处理（管理员使用 -10，否则 +2），越高越容易被抓
+    if (!state._prostituteLicensed && !wasFree) {
+      if (event.z === 1) {
+        state._gloryWanted = Math.max(0, (state._gloryWanted || 0) - 10)
+        EventBus.emit('ui:log', { text: `👮 管理员刚刚「使用」过你，给你罩着点，危险值 -10（现 ${state._gloryWanted}%）。`, type: 'good' })
+      } else {
+        state._gloryWanted = Math.min(100, (state._gloryWanted || 0) + 2)
+        EventBus.emit('ui:log', { text: `🚨 无证卖淫，危险值 +2（现 ${state._gloryWanted}%）。越高越容易被抓！`, type: 'danger' })
+      }
+      EventBus.emit('state:changed', state)
+      // 按危险值概率被抓进监狱
+      const wantRoll = Math.floor(Math.random() * 100)
+      if (wantRoll < state._gloryWanted) {
+        EventBus.emit('ui:log', { text: `⛓️ 危险值过高，守卫冲进来把你逮个正着！`, type: 'danger' })
+        state._gloryWanted = 0
+        EventBus.emit('state:changed', state)
+        Dialog.close()
+        enterPrison()
+        return
+      }
+    }
     const forced = state._gloryDebt > 0 || state._gloryFreeService
     campShow({
       title: '🍑 服务完成', className: 'glory-result-modal',
@@ -601,6 +632,211 @@ window.CampSystem = (function () {
         ...(!forced ? [{ label: '返回营地', handler: () => { Dialog.close(); gloryClearedLeave() } }] : []),
       ],
     })
+  }
+
+  /* ============ 监狱系统 ============ */
+
+  /** 监狱大门（平时查看） */
+  function prisonDoor () {
+    const state = State.get()
+    if (state._inPrison) { prisonWork(); return }
+    campShow({
+      title: '⛓️ 营地监狱', className: 'prison-modal',
+      body: `<div class="prison-intro"><div class="prison-mark" aria-hidden="true">⛓️</div>
+        <p>营地角落的石砌监狱，铁门紧锁。</p>
+        <p>没有<b>妓女许可证</b>就在荣耀洞卖淫是违法的——每次服务都会增加你的<b>危险值</b>，一旦被守卫抓到，就会被关进来，攒够 <b>300 点</b>才能出狱。</p>
+        <p>墙内隐约传来压抑的呻吟和皮鞭声。</p></div>`,
+      actions: [
+        { label: '离开', handler: () => { open() } },
+      ],
+    })
+  }
+
+  /** 被抓进监狱：无证卖淫的惩罚，需 300 点出狱 */
+  function enterPrison () {
+    const state = State.get()
+    state._inPrison = true
+    state._prisonPoints = 0
+    state.phase = 'camp'
+    EventBus.emit('state:changed', state)
+    // 贞操锁：监狱里你的小穴被贞操笼/贞操带锁死
+    if (!StatusSystem.has('chastity')) StatusSystem.apply('chastity', 99999)
+    campShow({
+      title: '⛓️ 营地监狱', className: 'prison-modal',
+      body: `<div class="prison-intro"><div class="prison-mark" aria-hidden="true">⛓️</div>
+        <p>你因为<b>无证非法卖淫</b>被守卫当场抓获，押进了营地监狱。</p>
+        <p>你的小穴被锁进冰冷的<b>贞操笼</b>——"你这种废物肉虫，不配使用自己的身体，就像你一样。"</p>
+        <p>要出狱，你得靠给牢房里的犯人提供<b>口交 / 深喉服务</b>，攒够 <b>300 点</b>才行。</p></div>`,
+      actions: [
+        { label: '⛓️ 进入牢房', cls: 'btn-danger', handler: () => { prisonWork() } },
+      ],
+    })
+  }
+
+  /** 牢房工作界面：点数 + 狱友 + 掷 Z 工作 */
+  function prisonWork () {
+    const state = State.get()
+    const points = state._prisonPoints || 0
+    const done = points >= 300
+    if (done) { prisonRelease(); return }
+    const tier = points < 80 ? '基础任务' : '中级任务'
+    campShow({
+      title: '⛓️ 营地监狱 · 集体牢房', className: 'prison-modal',
+      body: `<div class="prison-stats"><span>⛓️ 出狱点数 <b>${points}/300</b></span><span>📋 当前 <b>${tier}</b></span><span>🔒 贞操笼已锁</span></div>
+        <div class="prison-cell">
+          <div class="camp-character"><i>🧔</i><div><b>五名囚犯挤在牢房里，表情阴郁。</b><p>“我们不过是偷了块面包、欠了点酒钱，就被关了进来。”其中一个压低声音，“这明显不公……嘘，守卫来了。”</p></div></div>
+          <p class="prison-guard">“不要再说话了！是时候开始工作了！”</p>
+        </div>
+        <p class="camp-footnote">牢房角落的守卫示意你过去。掷 Z 决定你被要求提供的服务。</p>`,
+      actions: [
+        { label: '🎲 开始工作（掷 Z）', cls: 'btn-danger', handler: () => { Dialog.close(); prisonRollTask() } },
+      ],
+    })
+  }
+
+  /** 掷 Z 决定任务 */
+  async function prisonRollTask () {
+    const z = Dice.rollZ()
+    await Dialog.showDice(z, 'Z')
+    const state = State.get()
+    const points = state._prisonPoints || 0
+    // Z=6 送惩罚牢房
+    if (z === 6) { prisonPunishment(); return }
+    // 按点数分级
+    const tier = points < 80 ? PRISON_BASIC : PRISON_MID
+    const task = tier[z]
+    if (!task) { prisonWork(); return }
+    EventBus.emit('ui:log', { text: `⛓️ 守卫指定任务：${task.desc}（${task.points} 积分）`, type: 'danger' })
+    await prisonTaskTimer(task)
+  }
+
+  /** 执行监狱任务计时 */
+  async function prisonTaskTimer (task) {
+    const state = State.get()
+    let failed = false
+    if (typeof BattleUI !== 'undefined' && BattleUI.showTaskDialog) {
+      const f = await BattleUI.showTaskDialog({
+        enemyName: '⛓️ 监狱守卫',
+        attackName: task.name,
+        desc: task.desc,
+        bpm: task.bpm || 0,
+        seconds: task.seconds || 0,
+        dmg: 0,
+        noDamage: true,
+        dildoName: '守卫的粗鸡巴',
+      })
+      failed = f
+    } else {
+      failed = !confirm(`完成监狱任务：${task.desc}`)
+    }
+    if (failed) {
+      EventBus.emit('ui:log', { text: '⛓️ 你干呕着停下，守卫冷眼瞪着你，没加积分。', type: 'danger' })
+      EventBus.emit('state:changed', state)
+      prisonWork(); return
+    }
+    state._prisonPoints = Math.min(300, (state._prisonPoints || 0) + task.points)
+    EventBus.emit('ui:log', { text: `⛓️ 你卖力服务，获得 ${task.points} 积分（现 ${state._prisonPoints}/300）。`, type: 'good' })
+    EventBus.emit('state:changed', state)
+    prisonWork()
+  }
+
+  /** 出狱 */
+  function prisonRelease () {
+    const state = State.get()
+    state._inPrison = false
+    state._prisonPoints = 0
+    state._prisonRehab = 0
+    if (StatusSystem.has('chastity')) StatusSystem.remove('chastity')
+    EventBus.emit('state:changed', state)
+    campShow({
+      title: '⛓️ 监狱 · 释放', className: 'prison-modal',
+      body: `<div class="prison-intro"><div class="prison-mark" aria-hidden="true">🔓</div>
+        <p>你终于攒够了 <b>300 点</b>，守卫解开了你的贞操笼和手铐。</p>
+        <p>"出去吧。下次再敢无证卖淫，可就不是蹲几天这么简单了。"</p>
+        <p>你拖着酸软的膝盖爬出牢房，重见天日。</p></div>`,
+      actions: [
+        { label: '回到营地', cls: 'btn-primary', handler: () => { open() } },
+      ],
+    })
+  }
+
+  /** 基础任务表（点数 <80）：掷 Z 决定 */
+  const PRISON_BASIC = {
+    1: { name: '深喉', desc: '深喉 25 次，每次都吞到底', points: 2, seconds: 30 },
+    2: { name: '深喉保持', desc: '保持深喉 15 秒，鸡巴顶在嗓子眼里不许动', points: 4, seconds: 15 },
+    3: { name: '深喉连击', desc: '深喉 50 次，节奏稳定', points: 7, seconds: 60 },
+    4: { name: '喉穴抽插', desc: '以 60 BPM 的速度抽插你的喉穴 30 秒', points: 7, bpm: 60, seconds: 30 },
+    5: { name: '深喉不干呕', desc: '深喉 10 次，全程忍住不许干呕', points: 16, seconds: 30 },
+  }
+
+  /** 中级任务表（点数 ≥80）：掷 Z 决定 */
+  const PRISON_MID = {
+    1: { name: '深喉百次', desc: '深喉 100 次，喉咙被操到发麻', points: 15, seconds: 90 },
+    2: { name: '深喉舔蛋', desc: '保持深喉 15 秒，期间舔舐蛋蛋，重复 1 次', points: 17, seconds: 45 },
+    3: { name: '喉穴猛操', desc: '以 90 BPM 的速度操你的喉穴 90 秒（可休息呼吸，但每次休息不超过 10 秒）', points: 20, bpm: 90, seconds: 90 },
+    4: { name: '干呕两次', desc: '操你喉穴直到你干呕 2 次', points: 24, seconds: 60 },
+    5: { name: '操到呕吐', desc: '多喝水，操你的喉穴直到你呕吐', points: 27, seconds: 60 },
+  }
+
+  /** 惩罚牢房：狱警主管/矫正专家再教育 */
+  function prisonPunishment () {
+    const state = State.get()
+    const points = state._prisonPoints || 0
+    const tier = points < 80 ? 'basic' : 'mid'
+    const showPunish = () => {
+      const opts = tier === 'basic'
+        ? [
+            { label: '1 你将被释放', handler: () => { EventBus.emit('ui:log', { text: '🔓 矫正专家网开一面，放你回牢房。', type: 'good' }); prisonWork() } },
+            { label: '2 深喉 50 下', handler: () => doPunishTask({ name: '深喉 50 下', desc: '深喉 50 下', points: 8, seconds: 60 }) },
+            { label: '3 保持深喉 15 秒', handler: () => doPunishTask({ name: '保持深喉 15 秒', desc: '保持深喉 15 秒', points: 6, seconds: 15 }) },
+            { label: '4 你将被释放', handler: () => { EventBus.emit('ui:log', { text: '🔓 矫正专家摆摆手，放你回牢房。', type: 'good' }); prisonWork() } },
+            { label: '5 深喉直到干呕一次', handler: () => doPunishTask({ name: '深喉干呕', desc: '深喉直到你干呕一次', points: 10, seconds: 30 }) },
+            { label: '6 你将被释放', handler: () => { EventBus.emit('ui:log', { text: '🔓 矫正专家满意地点点头，放你回牢房。', type: 'good' }); prisonWork() } },
+          ]
+        : [
+            { label: '1 你将被释放', handler: () => { EventBus.emit('ui:log', { text: '🔓 惩教人员放你回牢房。', type: 'good' }); prisonWork() } },
+            { label: '2 深喉 100 下', handler: () => doPunishTask({ name: '深喉 100 下', desc: '深喉 100 下', points: 15, seconds: 90 }) },
+            { label: '3 保持深喉 30 秒', handler: () => doPunishTask({ name: '保持深喉 30 秒', desc: '保持深喉 30 秒', points: 18, seconds: 30 }) },
+            { label: '4 你将被释放', handler: () => { EventBus.emit('ui:log', { text: '🔓 惩教人员放你回牢房。', type: 'good' }); prisonWork() } },
+            { label: '5 深喉直到干呕 5 次', handler: () => doPunishTask({ name: '深喉干呕 5 次', desc: '深喉直到你干呕 5 次', points: 24, seconds: 60 }) },
+            { label: '6 多喝水，操喉穴直到呕吐', handler: () => doPunishTask({ name: '操到呕吐', desc: '多喝水，操你的喉穴直到你呕吐', points: 27, seconds: 60 }) },
+          ]
+      campShow({
+        title: '⛓️ 惩罚牢房 · 矫正教育', className: 'prison-punish-modal',
+        body: `<div class="prison-intro"><div class="prison-mark" aria-hidden="true">🎓</div>
+          <p>狱警主管认为你的<b>服务态度不够好</b>，将你送进了惩罚室。</p>
+          <p>在这里，<b>矫正教育专家</b>将对你进行再教育。她无意将你从这个牢房中释放出来，直到你完全反思自己的行为。</p>
+          <p class="prison-guard">"选一个赎罪的方式吧，小婊子。"</p></div>`,
+        actions: opts,
+      })
+    }
+    const doPunishTask = async (task) => {
+      let failed = false
+      if (typeof BattleUI !== 'undefined' && BattleUI.showTaskDialog) {
+        const f = await BattleUI.showTaskDialog({
+          enemyName: '🎓 矫正教育专家',
+          attackName: task.name,
+          desc: task.desc,
+          bpm: 0,
+          seconds: task.seconds || 0,
+          dmg: 0,
+          noDamage: true,
+          dildoName: '矫正专家的鸡巴',
+        })
+        failed = f
+      } else {
+        failed = !confirm(`完成惩罚任务：${task.desc}`)
+      }
+      if (failed) {
+        EventBus.emit('ui:log', { text: '🎓 你干呕着认错，专家勉强放过你。', type: 'danger' })
+        prisonWork(); return
+      }
+      state._prisonPoints = Math.min(300, (state._prisonPoints || 0) + task.points)
+      EventBus.emit('ui:log', { text: `🎓 你完成再教育，获得 ${task.points} 积分（现 ${state._prisonPoints}/300）。`, type: 'good' })
+      EventBus.emit('state:changed', state)
+      prisonWork()
+    }
+    showPunish()
   }
 
   /** 还清欠款后离开荣耀洞：根据来源触发卫兵嘲笑 / 队长羞辱，再回营地 */

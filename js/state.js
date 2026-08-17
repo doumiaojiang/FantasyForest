@@ -80,6 +80,9 @@ window.State = (function () {
       _gloryFreeService: false,         // 厕所待完成的免费追加服务
       _gloryByGuard: false,             // 被卫兵丢进荣耀洞（出城卫兵放行嘲笑）
       _gloryByCaptain: false,           // 被队长丢进荣耀洞（出城队长羞辱）
+      _gloryWanted: 0,                  // 无证卖淫危险值（0-100，越高越容易被抓）
+      _inPrison: false,                 // 是否在监狱（无证卖淫被抓）
+      _prisonPoints: 0,                 // 监狱点数（集满 300 出狱）
       _gloryDiscovered: false,          // 是否已发现荣耀洞（调查隔间后）
       _toiletUsed: false,               // 本次进入营地是否已上过厕所（CD）
       _campReturnPos: null,             // 进入营地前的位置（离开时返回）
@@ -368,6 +371,9 @@ window.State = (function () {
     state._gloryFreeService = !!state._gloryFreeService
     state._gloryByGuard = !!state._gloryByGuard
     state._gloryByCaptain = !!state._gloryByCaptain
+    state._gloryWanted = Math.max(0, Math.min(100, Math.floor(finite(state._gloryWanted, 0))))
+    state._inPrison = !!state._inPrison
+    state._prisonPoints = Math.max(0, Math.min(300, Math.floor(finite(state._prisonPoints, 0))))
     if (state._gloryDiscovered === undefined) state._gloryDiscovered = !!state._gloryDiscovered
     if (state._toiletUsed === undefined) state._toiletUsed = !!state._toiletUsed
    if (state._campReturnPos === undefined) state._campReturnPos = null
