@@ -2375,6 +2375,8 @@ body:has(.age-gate:not(.age-gate-hidden)) { overflow: hidden; }
 .toilet-card em { grid-column: 1 / -1; justify-self: start; padding: 3px 7px; border-radius: 99px; background: rgba(87,181,128,.1); color: #78c99c; font-size: .53rem; font-style: normal; }
 .toilet-card:hover, .toilet-card:focus-visible { transform: translateY(-2px); border-color: rgba(87,181,128,.45); background: rgba(20,48,42,.3); outline: none; }
 .toilet-card.is-used { opacity: .6; filter: saturate(.6); }
+.toilet-card.is-locked { opacity: .45; filter: saturate(.35); cursor: not-allowed; }
+.toilet-card.is-locked:hover, .toilet-card.is-locked:focus-visible { transform: none; border-color: rgba(255,255,255,.075); background: rgba(5,12,14,.42); }
 .toilet-card-secret { border-color: rgba(189, 112, 237, .16); background: linear-gradient(135deg, rgba(90,43,112,.15), rgba(5,12,14,.42)); }
 .toilet-card-secret em { background: rgba(189,112,237,.12); color: #d5a4ef; }
 .toilet-card-secret:hover, .toilet-card-secret:focus-visible { border-color: rgba(220, 145, 255, .4); background: rgba(55,25,68,.3); }
