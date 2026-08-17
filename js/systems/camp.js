@@ -769,14 +769,27 @@ window.CampSystem = (function () {
   /** 监狱休息按钮：点击确认开始休息 */
   function prisonRestButton (restSeconds) {
     return new Promise(resolve => {
+      let count = restSeconds
       Dialog.show({
         title: '💤 休息时间',
-        body: `<p style="color:var(--text-dim);font-size:.82rem;text-align:center">守卫允许你休息 <b>${restSeconds} 秒</b>再继续。</p>`,
+        body: `<p style="color:var(--text-dim);font-size:.82rem;text-align:center">守卫允许你休息 <b>${restSeconds} 秒</b>再继续。</p>
+          <div style="text-align:center;margin:10px 0"><strong id="prison-rest-count" style="font-size:1.6rem;color:var(--accent-bright)">${count}</strong></div>
+          <p style="color:var(--text-dim);font-size:.7rem;text-align:center">读完自动开始下一段。</p>`,
         actions: [
           { label: '▶ 开始休息', cls: 'btn-primary', handler: () => {
-            Dialog.close()
+            const layer = document.getElementById('modal-layer')
+            if (layer) layer.querySelectorAll('[data-action]').forEach(b => b.style.display = 'none')
             EventBus.emit('ui:log', { text: `💤 你休息 ${restSeconds} 秒……`, type: 'dim' })
-            setTimeout(() => resolve(), restSeconds * 1000)
+            const timer = setInterval(() => {
+              count--
+              const el = document.getElementById('prison-rest-count')
+              if (el) el.textContent = count
+              if (count <= 0) {
+                clearInterval(timer)
+                Dialog.close()
+                resolve()
+              }
+            }, 1000)
           } },
         ],
       })
