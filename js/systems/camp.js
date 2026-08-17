@@ -825,37 +825,48 @@ window.CampSystem = (function () {
     5: { name: '操到呕吐', desc: '多喝水，操你的喉穴直到你呕吐', points: 27, seconds: 60 },
   }
 
-  /** 惩罚牢房：狱警主管/矫正专家再教育 */
+  /** 惩罚牢房：狱警主管/矫正专家再教育（掷 Z 随机决定，只有 Z=1/4/6 才释放） */
   function prisonPunishment () {
     const state = State.get()
     const points = state._prisonPoints || 0
     const tier = points < 80 ? 'basic' : 'mid'
     const showPunish = () => {
-      const opts = tier === 'basic'
-        ? [
-            { label: '1 你将被释放', handler: () => { EventBus.emit('ui:log', { text: '🔓 矫正专家网开一面，放你回牢房。', type: 'good' }); prisonWork() } },
-            { label: '2 深喉 50 下', handler: () => doPunishTask({ name: '深喉 50 下', desc: '深喉 50 下', points: 8, seconds: 60 }) },
-            { label: '3 保持深喉 15 秒', handler: () => doPunishTask({ name: '保持深喉 15 秒', desc: '保持深喉 15 秒', points: 6, seconds: 15 }) },
-            { label: '4 你将被释放', handler: () => { EventBus.emit('ui:log', { text: '🔓 矫正专家摆摆手，放你回牢房。', type: 'good' }); prisonWork() } },
-            { label: '5 深喉直到干呕一次', handler: () => doPunishTask({ name: '深喉干呕', desc: '深喉直到你干呕一次', points: 10, seconds: 30 }) },
-            { label: '6 你将被释放', handler: () => { EventBus.emit('ui:log', { text: '🔓 矫正专家满意地点点头，放你回牢房。', type: 'good' }); prisonWork() } },
-          ]
-        : [
-            { label: '1 你将被释放', handler: () => { EventBus.emit('ui:log', { text: '🔓 惩教人员放你回牢房。', type: 'good' }); prisonWork() } },
-            { label: '2 深喉 100 下', handler: () => doPunishTask({ name: '深喉 100 下', desc: '深喉 100 下', points: 15, seconds: 90 }) },
-            { label: '3 保持深喉 30 秒', handler: () => doPunishTask({ name: '保持深喉 30 秒', desc: '保持深喉 30 秒', points: 18, seconds: 30 }) },
-            { label: '4 你将被释放', handler: () => { EventBus.emit('ui:log', { text: '🔓 惩教人员放你回牢房。', type: 'good' }); prisonWork() } },
-            { label: '5 深喉直到干呕 5 次', handler: () => doPunishTask({ name: '深喉干呕 5 次', desc: '深喉直到你干呕 5 次', points: 24, seconds: 60 }) },
-            { label: '6 多喝水，操喉穴直到呕吐', handler: () => doPunishTask({ name: '操到呕吐', desc: '多喝水，操你的喉穴直到你呕吐', points: 27, seconds: 60 }) },
-          ]
       campShow({
         title: '⛓️ 惩罚牢房 · 矫正教育', className: 'prison-punish-modal',
         body: `<div class="prison-intro"><div class="prison-mark" aria-hidden="true">🎓</div>
           <p>狱警主管认为你的<b>服务态度不够好</b>，将你送进了惩罚室。</p>
           <p>在这里，<b>矫正教育专家</b>将对你进行再教育。她无意将你从这个牢房中释放出来，直到你完全反思自己的行为。</p>
-          <p class="prison-guard">"选一个赎罪的方式吧，小婊子。"</p></div>`,
-        actions: opts,
+          <p class="prison-guard">"选一个赎罪的方式吧，小婊子。"（掷 Z 决定，只有掷到 1 / 4 / 6 才会放你走）</p></div>`,
+        actions: [
+          { label: '🎲 掷 Z 决定赎罪方式', cls: 'btn-danger', handler: () => { Dialog.close(); prisonPunishRoll() } },
+        ],
       })
+    }
+    const prisonPunishRoll = async () => {
+      const z = Dice.rollZ()
+      await Dialog.showDice(z, 'Z')
+      // Z=1/4/6：释放
+      if (z === 1 || z === 4 || z === 6) {
+        EventBus.emit('ui:log', { text: `🎲 Z=${z}：矫正专家网开一面，放你回牢房。`, type: 'good' })
+        prisonWork()
+        return
+      }
+      // Z=2/3/5：做赎罪任务
+      const tasks = tier === 'basic'
+        ? {
+            2: { name: '深喉 50 下', desc: '深喉 50 下', points: 8, seconds: 60 },
+            3: { name: '保持深喉 15 秒', desc: '保持深喉 15 秒', points: 6, seconds: 15 },
+            5: { name: '深喉直到干呕一次', desc: '深喉直到你干呕一次', points: 10, seconds: 30 },
+          }
+        : {
+            2: { name: '深喉 100 下', desc: '深喉 100 下', points: 15, seconds: 90 },
+            3: { name: '保持深喉 30 秒', desc: '保持深喉 30 秒', points: 18, seconds: 30 },
+            5: { name: '深喉直到干呕 5 次', desc: '深喉直到你干呕 5 次', points: 24, seconds: 60 },
+          }
+      const task = tasks[z]
+      if (!task) { prisonWork(); return }
+      EventBus.emit('ui:log', { text: `🎲 Z=${z}：矫正专家指定赎罪任务：${task.desc}`, type: 'danger' })
+      await doPunishTask(task)
     }
     const doPunishTask = async (task) => {
       let failed = false
