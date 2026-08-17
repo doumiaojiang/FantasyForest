@@ -544,7 +544,7 @@ window.CampSystem = (function () {
     EventBus.emit('ui:log', { text: `🎲 Z=${event.z}：${event.msg}`, type: event.tip > 0 ? 'good' : 'dim' })
     EventBus.emit('state:changed', state)
     const forced = state._gloryDebt > 0 || state._gloryFreeService
-    Dialog.show({
+    campShow({
       title: '🍑 服务完成', className: 'glory-result-modal',
       body: `<div class="glory-result"><strong>${totalEarn > 0 ? `赚了 ${totalEarn}G` : '白干了一场'}</strong><p>${event.msg}</p>${repaid > 0 ? `<span>还债 ${repaid}G · 还欠 ${state._gloryDebt}G</span>` : ''}${state._gloryFreeService ? '<span class="danger">还有个免费的得做完才能走</span>' : ''}</div>`,
       actions: [
@@ -566,7 +566,7 @@ window.CampSystem = (function () {
       captainGloryHumiliation()
       return
     }
-    Dialog.show({
+    campShow({
       title: '🛡️ 荣耀洞出口 · 卫兵', className: 'glory-modal',
       body: `<div class="glory-section"><h3><span>“哟，厕所的味儿都还没散呢。”</span><small>卫兵捂着鼻子，露出嫌弃又好笑的表情</small></h3>
         <p class="camp-muted">“看你${state.gender === 'male' ? '男雌婊' : '丫头'}是刚从洞里爬出来还清了债——行，滚回营地去歇着吧。下次想溜号，记得先掂量掂量自己的屁股值几个钱。”</p></div>`,
@@ -577,9 +577,9 @@ window.CampSystem = (function () {
   function deer () {
     const state = State.get(); setCampPhase()
     if (state._campDeerTaken) {
-      Dialog.show({ title: '🦌 篝火旁的鹿', className: 'camp-deer-modal', body: '<div class="camp-character"><i>🦌</i><div><b>“好好冒险吧，旅人。”</b><p>小鹿卧在火光边，温柔地朝你眨了眨眼。</p></div></div>', actions: [{ label: '返回营地', handler: () => { Dialog.close(); open() } }] }); return
+      campShow({ title: '🦌 篝火旁的鹿', className: 'camp-deer-modal', body: '<div class="camp-character"><i>🦌</i><div><b>“好好冒险吧，旅人。”</b><p>小鹿卧在火光边，温柔地朝你眨了眨眼。</p></div></div>', actions: [{ label: '返回营地', handler: () => { Dialog.close(); open() } }] }); return
     }
-    Dialog.show({
+    campShow({
       title: '🦌 篝火旁的鹿', className: 'camp-deer-modal',
       body: `<div class="camp-character"><i>🦌</i><div><b>“初次踏入妖林的旅人，带上这些吧。”</b><p>她把一束扎好的补给推到你面前。</p></div></div><div class="camp-gifts"><span><i>🌿</i><b>坚韧树枝</b><small>2 伤害 · 可战斗 4 次</small></span><span><i>🩹</i><b>创可贴 ×1</b><small>基础治疗补给</small></span><span><i>🍺</i><b>麦酒 ×1</b><small>旅途中恢复体力</small></span></div>`,
       actions: [{ label: '收下见面礼', cls: 'btn-primary', handler: () => {
@@ -632,20 +632,20 @@ window.CampSystem = (function () {
     const state = State.get()
     const guestGone = (state._tavernGuest || 0) <= 0
     if (guestGone) {
-      Dialog.show({
+      campShow({
         title: '🎲 老顾客的位子',
         body: '<p>那张椅子空了。你把他的钱赢光，他气得骂骂咧咧地走了。<br><span style="color:var(--text-dim)">打赢一个敌人后，他还会揣着 50G 回来。</span></p>',
-        actions: [{ label: '返回酒馆', handler: () => { Dialog.close(); renderTavern() } }],
+        actions: [{ label: '返回酒馆', handler: () => { renderTavern() } }],
       })
       return
     }
-    Dialog.show({
+    campShow({
       title: '🎲 老顾客',
       className: 'camp-tavern-modal',
       body: `<div class="camp-character"><i>🧔</i><div><b>“嘿，旅人，来两把骰子不？”</b><p>他晃了晃手里的骰子，咧嘴一笑。兜里还有 ${state._tavernGuest}G，看起来很好赢。</p></div></div>`,
       actions: [
-        { label: '🎲 摇骰子赌博', cls: 'btn-primary', handler: () => { Dialog.close(); tavernGamble() } },
-        { label: '返回酒馆', handler: () => { Dialog.close(); renderTavern() } },
+        { label: '🎲 摇骰子赌博', cls: 'btn-primary', handler: () => { tavernGamble() } },
+        { label: '返回酒馆', handler: () => { renderTavern() } },
       ],
     })
   }
@@ -654,7 +654,7 @@ window.CampSystem = (function () {
   function tavernCaptain () {
     const state = State.get()
     const hasLicense = state._prostituteLicensed
-    Dialog.show({
+    campShow({
       title: '🛡️ 守卫队队长', className: 'camp-tavern-modal',
       body: `<div class="camp-character"><i>🛡️</i><div><b>“哼，又是个想在这林子里讨生活的。”</b><p>军官抿了口酒，打量你几眼：“这城里不管做什么生意，都得在我这儿挂个号。懂？”</p></div></div>
         <div class="camp-grid">
@@ -662,12 +662,11 @@ window.CampSystem = (function () {
           ${hasLicense ? '' : `<button class="camp-opt" data-captain="buy"><i>📜</i><span><b>购买妓女许可证</b><small>在队长这也能办证，200G</small></span><em>${state.gold >= 200 ? '可办' : '钱不够'}</em></button>`}
           ${hasLicense ? `<button class="camp-opt" data-captain="cancel"><i>🗑️</i><span><b>取消妓女许可证</b><small>退出这行，退出前先想清楚</small></span><em>${prostituteTitle(state._prostituteLevel).name}</em></button>` : ''}
         </div>`,
-      actions: [{ label: '返回酒馆', handler: () => { Dialog.close(); renderTavern() } }],
+      actions: [{ label: '返回酒馆', handler: () => { renderTavern() } }],
     })
     document.querySelectorAll('[data-captain]').forEach(btn => {
       btn.onclick = () => {
         const opt = btn.dataset.captain
-        Dialog.close()
         if (opt === 'chat') captainChat()
         else if (opt === 'buy') captainBuyLicense()
         else if (opt === 'cancel') captainCancelLicense()
@@ -704,11 +703,11 @@ window.CampSystem = (function () {
       body = pick.body
     }
     EventBus.emit('state:changed', state)
-    Dialog.show({
+    campShow({
       title, className: 'camp-tavern-modal', body,
       actions: [
-        { label: '再聊两句', handler: () => { Dialog.close(); captainChat() } },
-        { label: '返回队长', handler: () => { Dialog.close(); tavernCaptain() } },
+        { label: '再聊两句', handler: () => { captainChat() } },
+        { label: '返回队长', handler: () => { tavernCaptain() } },
       ],
     })
   }
@@ -717,7 +716,7 @@ window.CampSystem = (function () {
   function captainBuyLicense () {
     const state = State.get()
     if (state._prostituteLicensed) { EventBus.emit('ui:log', { text: '🛡️ 你已经办过证了。', type: 'dim' }); tavernCaptain(); return }
-    Dialog.show({
+    campShow({
       title: '📜 守卫队队长 · 办证', className: 'tavern-work-modal',
       body: `<section class="work-license"><span>📜</span><div><small>守卫队 · 营业许可</small><h3>一次付费，永久有效</h3><p>队长收取 <b>200G</b> 办证。你现在持有 <b>${state.gold}G</b>。</p></div></section>
         <p class="work-footnote">“证给你，规矩照旧。出城的时候，我的人会查你。”</p>`,
@@ -744,7 +743,7 @@ window.CampSystem = (function () {
 
     if (lv >= 100) {
       // 头牌妓畜：操一顿 + 扔荣耀洞罚金 200 + 30 入场费（欠债）
-      Dialog.show({
+      campShow({
         title: '🛡️ 守卫队队长 · 撤销许可', className: 'camp-tavern-modal',
         body: `<div class="camp-character"><i>🛡️</i><div><b>“头牌妓畜？呵，你这种货色想退行，问过我的老二没有。”</b><p>队长冷笑一声，把你按倒在桌上：“想退？先把这顿操给我挨完！”</p></div></div>`,
         actions: [
@@ -754,7 +753,7 @@ window.CampSystem = (function () {
       })
     } else if (lv >= 70) {
       // 职业妓女：拒绝申请 + 操一顿
-      Dialog.show({
+      campShow({
         title: '🛡️ 守卫队队长 · 撤销许可', className: 'camp-tavern-modal',
         body: `<div class="camp-character"><i>🛡️</i><div><b>“职业妓女？你这种等级，还想金盆洗手？”</b><p>队长嗤笑一声：“证不能退，屁股得先给我用一用。”</p></div></div>`,
         actions: [
@@ -764,7 +763,7 @@ window.CampSystem = (function () {
       })
     } else if (lv >= 30) {
       // 顺从的妓女：1000G 可退
-      Dialog.show({
+      campShow({
         title: '🛡️ 守卫队队长 · 撤销许可', className: 'camp-tavern-modal',
         body: `<div class="camp-character"><i>🛡️</i><div><b>“顺从的妓女，想把证退了？”</b><p>队长翘着二郎腿：“行，拿 <b>1000G</b> 来，我把你的名字从册子上划掉。”</p></div></div>`,
         actions: [
@@ -781,7 +780,7 @@ window.CampSystem = (function () {
       })
     } else if (lv >= 10) {
       // 新手妓女：500G 可退
-      Dialog.show({
+      campShow({
         title: '🛡️ 守卫队队长 · 撤销许可', className: 'camp-tavern-modal',
         body: `<div class="camp-character"><i>🛡️</i><div><b>“新手妓女，想退行？”</b><p>队长挑眉：“入行容易退行难，拿 <b>500G</b> 来，我把你的号销了。”</p></div></div>`,
         actions: [
@@ -798,7 +797,7 @@ window.CampSystem = (function () {
       })
     } else {
       // 雏妓（<10）：免费可退
-      Dialog.show({
+      campShow({
         title: '🛡️ 守卫队队长 · 撤销许可', className: 'camp-tavern-modal',
         body: `<div class="camp-character"><i>🛡️</i><div><b>“刚入行就想退？也行。”</b><p>队长摇摇头：“雏妓一个，还没干出啥名堂，我就当没发过这张证。”</p></div></div>`,
         actions: [
@@ -863,7 +862,7 @@ window.CampSystem = (function () {
     } else {
       // 职业妓女：被操完后羞辱辱骂，明确不给注销
       EventBus.emit('ui:log', { text: '🛡️ 队长提上裤子："证不能退，下次再敢提，还操你。"', type: 'dim' })
-      Dialog.show({
+      campShow({
         title: '🛡️ 守卫队队长 · 羞辱', className: 'camp-tavern-modal',
         body: `<div class="camp-character"><i>🛡️</i><div><b>“还想退行？哼，你这种货色，除了被操还能干什么。”</b><p>队长居高临下地看着你：“你当职业妓女当出了名，你以为这证是你想退就能退的？”<br><br>他凑近你的脸，声音里全是轻蔑：“册子上你的名字，老子给你写得死死的。想注销？做梦。下次再来提，我还操你一顿，操到你服为止。”</p></div></div>
           <p class="work-footnote">你的名字被队长牢牢按在册子上，妓女证注销无望。</p>`,
@@ -879,7 +878,7 @@ window.CampSystem = (function () {
   function captainGloryHumiliation () {
     const state = State.get()
     const humiliate = () => {
-      Dialog.show({
+      campShow({
         title: '🛡️ 守卫队队长 · 羞辱', className: 'glory-modal',
         body: `<div class="glory-section"><h3><span>“哟，头牌妓畜从洞里爬出来了？”</span><small>队长翘着二郎腿，居高临下地看着你</small></h3>
           <p class="camp-muted">“想退证？行啊——先跪下给老子磕三个头，再说两句能让我高兴的话。不然，你今天就别想出这个门。”</p></div>`,
@@ -898,7 +897,7 @@ window.CampSystem = (function () {
         '「我就是条贱母狗，活该被您操，还请队长大人饶了我。」',
         '「我是您最听话的畜牲，随时供您泄欲，求您高抬贵手。」',
       ]
-      Dialog.show({
+      campShow({
         title: '🛡️ 守卫队队长 · 羞辱', className: 'glory-modal',
         body: `<div class="glory-section"><h3><span>“磕完了？说吧，怎么求我。”</span><small>队长把靴子踩在你面前，等你开口</small></h3>
           <p class="camp-muted">选一句羞辱自己的话，说给他听。</p></div>`,
@@ -933,7 +932,7 @@ window.CampSystem = (function () {
       finalRefuse()
     }
     const finalRefuse = () => {
-      Dialog.show({
+      campShow({
         title: '🛡️ 守卫队队长 · 结果', className: 'glory-modal',
         body: `<div class="glory-section"><h3><span>“行了，磕也磕了，骚话也说了。”</span><small>队长提起裤子，慢条斯理地系腰带</small></h3>
           <p class="camp-muted">“但是——证还是不能退。”<br><br>他拍拍你的脸：“你这头牌妓畜的名号，可是老子一手捧起来的。退证？你死了这条心吧。老老实实当你的头牌，爷高兴了少操你两顿。”</p></div>`,
@@ -960,7 +959,7 @@ window.CampSystem = (function () {
     const workBtn = workUnlocked
       ? `<button class="camp-opt" data-tavern="work"><i>💼</i><span><b>打工</b><small>老板娘给指了条赚钱的路</small></span><em>${state._prostituteLicensed ? '营业中' : '看看'}</em></button>`
       : ''
-    Dialog.show({
+    campShow({
       title: '💃 酒馆老板娘',
       className: 'camp-tavern-modal',
       body: `<div class="camp-character"><i>💃</i><div><b>“想喝点什么，还是想聊聊天？”</b><p>她托着腮，指尖轻叩吧台，眉眼带笑。</p></div></div>
@@ -987,7 +986,7 @@ window.CampSystem = (function () {
   function tavernFuta () {
     const state = State.get()
     const hired = !!state._mercenary
-    Dialog.show({
+    campShow({
       title: '⚔️ 芙蕾雅', className: 'camp-tavern-modal',
       body: `<div class="camp-character"><i>⚔️</i><div><b>“……有事？”</b><p>一个英气十足的扶她战士占着角落的座位，面前的酒没动过。她扫你一眼，又低头擦拭剑刃。</p></div></div>
         <div class="camp-grid">
@@ -1024,7 +1023,7 @@ window.CampSystem = (function () {
     const pick = pool[idx]
     state._futaLastChat = FUTA_CHATS.indexOf(pick)
     EventBus.emit('state:changed', state)
-    Dialog.show({
+    campShow({
       title: pick.title, className: 'camp-tavern-modal', body: pick.body,
       actions: [
         { label: '再聊聊', handler: () => { Dialog.close(); futaChat() } },
@@ -1038,7 +1037,7 @@ window.CampSystem = (function () {
     const state = State.get()
     if (state._mercenary) { tavernFuta(); return }
     if (state.gold < FUTA_WARRIOR.price) { EventBus.emit('ui:log', { text: '💰 钱不够招募芙蕾雅。', type: 'dim' }); tavernFuta(); return }
-    Dialog.show({
+    campShow({
       title: '⚔️ 招募芙蕾雅', className: 'camp-tavern-modal',
       body: `<div class="camp-character"><i>⚔️</i><div><b>“一千金币，买我这条命。”</b><p>她站起身，比你高出半个头：“你攻击的时候我会跟上补刀。你要是打空了，我也收招。”她顿了顿，“我不会死——但你要是死了，我会护到你咽气。”</p></div></div>`,
       actions: [
@@ -1068,7 +1067,7 @@ window.CampSystem = (function () {
     const sexBtn = isFemale
       ? `<button class="camp-opt" data-serve="sex"><i>🌸</i><span><b>性交服务</b><small>主动骑上去，用小穴好好伺候她</small></span><em>欲 -30</em></button>`
       : ''
-    Dialog.show({
+    campShow({
       title: `💋 服务佣兵 · ${merc.icon} ${merc.name}`,
       className: 'camp-tavern-modal',
       body: `<div class="camp-character"><i>${merc.icon}</i><div><b>“嗯……人家有点忍不住了。”</b><p>她脸颊泛红，腿间已经湿了。性欲 <b>${Math.min(100, merc.lust || 0)}%</b>。选一种方式喂饱她吧。</p></div></div>
@@ -1162,7 +1161,7 @@ window.CampSystem = (function () {
         body += `<p class="work-footnote">（老板娘认了你的证，打工入口已解锁）</p>`
       }
       EventBus.emit('state:changed', state)
-      Dialog.show({
+      campShow({
         title, className: 'camp-tavern-modal', body,
         actions: [
           { label: unlock ? '💼 看看打工的事' : '再聊两句', cls: unlock ? 'btn-primary' : 'btn', handler: () => { Dialog.close(); unlock ? tavernWork() : barkeepChat() } },
@@ -1195,7 +1194,7 @@ window.CampSystem = (function () {
       if (unlock) body += `<p class="work-footnote">（打工入口已解锁）</p>`
     }
     EventBus.emit('state:changed', state)
-    Dialog.show({
+    campShow({
       title, className: 'camp-tavern-modal',
       body,
       actions: [
@@ -1211,7 +1210,7 @@ window.CampSystem = (function () {
     const workStatus = state._prostituteLicensed
       ? `${prostituteTitle(state._prostituteLevel).icon} ${state._prostituteLevel} 级`
       : '需许可证'
-    Dialog.show({
+    campShow({
       title: '💼 老板娘的工作板', className: 'tavern-work-modal',
       body: `<section class="work-hero"><span aria-hidden="true">💃</span><div><small>THE MIST LANTERN · 招工中</small><h3>“想赚金币？挑个能做的活。”</h3><p>当前持有 <b>${state.gold}G</b></p></div></section>
       <div class="work-grid">
@@ -1251,7 +1250,7 @@ window.CampSystem = (function () {
   function prostitute () {
     const state = State.get()
     if (!state._prostituteLicensed) {
-      Dialog.show({
+      campShow({
         title: '💋 接客许可证', className: 'tavern-work-modal',
         body: `<section class="work-license"><span>📜</span><div><small>雾灯酒馆 · 营业许可</small><h3>一次付费，永久有效</h3><p>老板娘收取 <b>200G</b> 办证。你现在持有 <b>${state.gold}G</b>。</p></div></section>
           <p class="work-footnote">“干这行得先办证。规矩写清楚，赚到的钱归你，失败欠款得还。”</p>`,
@@ -1272,7 +1271,7 @@ window.CampSystem = (function () {
     if (!state._prostituteDressed) {
       // 全裸状态：不用脱衣服，老板娘直接让你上工
       if (StatusSystem.has('naked')) {
-        Dialog.show({
+        campShow({
           title: '👗 酒馆更衣室', className: 'tavern-work-modal',
           body: `<section class="work-wardrobe"><span>👙</span><div><small>上工准备</small><h3>你都全裸了，还换什么衣服？</h3><p>老板娘打量着你："反正你也没衣服，直接去接客吧。"</p></div></section>`,
           actions: [
@@ -1287,7 +1286,7 @@ window.CampSystem = (function () {
         })
         return
       }
-      Dialog.show({
+      campShow({
         title: '👗 酒馆更衣室', className: 'tavern-work-modal',
         body: `<section class="work-wardrobe"><span>🪞</span><div><small>上工准备</small><h3>换上老板娘准备的工作服</h3><p>完成更衣后即可在酒馆寻找顾客；没有欠款时可以随时换回冒险装备。</p></div></section>`,
         actions: [
@@ -1316,7 +1315,7 @@ window.CampSystem = (function () {
     const gearHtml = ownedList.length
       ? `<div class="work-gear"><small>💄 已装备用品</small><div class="work-gear-list">${ownedList.map(g => `<span title="${g.desc}">${g.icon} ${g.name}</span>`).join('')}</div></div>`
       : `<div class="work-gear"><small>💄 已装备用品</small><div class="work-gear-list work-gear-empty">尚未装备任何用品</div></div>`
-    Dialog.show({
+    campShow({
       title: '💋 今夜营业', className: 'tavern-work-modal',
       body: `${debtHtml}<section class="work-profile"><div class="work-rank"><i>${title.icon}</i><span><small>当前称号</small><b>${title.name}</b></span><em>Lv.${state._prostituteLevel}</em></div>
         <div class="work-progress" aria-label="称号进度"><span style="width:${progress.percent}%"></span></div><p>${progress.text}</p>
@@ -1687,7 +1686,7 @@ window.CampSystem = (function () {
     const intro = state.gender === 'male'
       ? customer.intro.replace('小穴/菊穴', '菊穴').replace('插入小穴/菊穴', '插入菊穴')
       : customer.intro
-    Dialog.show({
+    campShow({
       title: `🍻 你遇见了${customer.name}`,
       className: 'tavern-work-modal',
       body: `<div class="glory-section"><h3><span>${customer.name}看上了你</span><small>${customer.name === '哥布林' ? '小号假阳具（最多 3 个）' : customer.name === '狼人' ? '中号或大号假阳具' : customer.name === '兽人' ? '大号假阳具（最多 2 个）' : customer.name === '牛头人' ? '大号马/牛形假阳具' : customer.name === '卫兵' ? '中号假阳具' : '用你最大的假阳具'}</small></h3>
@@ -1866,7 +1865,7 @@ window.CampSystem = (function () {
     }
 
     const inDebt = (state._prostituteDebt || 0) > 0
-    Dialog.show({
+    campShow({
       title: '💋 服务结束', className: 'glory-result-modal',
       body: `<div class="glory-result"><strong>${failed ? `没完成，欠老板娘 30G` : gold >= 0 ? `赚了 ${gold}G${campTaxPaid > 0 ? `（税 ${campTaxPaid}G）` : ''}` : `被抢走 ${-gold}G`}</strong><p>${failed ? `等级未提升（仍是 ${state._prostituteLevel} 级 · ${title.icon} ${title.name}）` : `妓女等级提升到 <b>${state._prostituteLevel}</b> 级 · ${title.icon} ${title.name}`}</p>${inDebt ? `<p style="color:var(--danger);margin-top:6px">💸 你欠老板娘 ${state._prostituteDebt}G，还清前不能离开！</p>` : ''}${titleUp || ''}${rewardItemText || ''}${title.note ? `<p style="color:var(--text-dim);font-size:.75rem;margin-top:4px">${title.note}</p>` : ''}</div>`,
       actions: [
@@ -1893,7 +1892,7 @@ window.CampSystem = (function () {
     const state = State.get()
     const disc = state._merchantDiscount || 0
     const ownedCount = MERCHANT_GOODS.filter(goods => (state._prostituteGear || {})[goods.id]).length
-    Dialog.show({
+    campShow({
       title: '💄 酒馆用品供应商', className: 'tavern-merchant-modal',
       body: `<section class="merchant-hero"><span aria-hidden="true">💄</span><div><small>BACKROOM SUPPLIER · 酒馆后场</small><h3>“姐姐来挑点好东西？”</h3><p>她守着一只暗红色皮箱，里面全是接客用的特殊用品。</p></div></section>
         <div class="merchant-stats"><span>💎 ${state.gold}G</span><span>🎒 已购 ${ownedCount}/${MERCHANT_GOODS.length}</span><span>${disc > 0 ? `🏷️ 下件 -${disc * 100}%` : '🏷️ 当前原价'}</span></div>
@@ -1921,7 +1920,7 @@ window.CampSystem = (function () {
     const discBanner = disc > 0
       ? `<div class="merchant-discount is-active"><b>🏷️ ${disc * 100}% 折扣已生效</b><span>仅限下一件用品，购买后恢复原价</span><strong class="merchant-wallet">💎 ${state.gold}G</strong></div>`
       : `<div class="merchant-discount"><b>🏷️ 当前按原价出售</b><span>完成供应商任务，可以让下一件享受折扣</span><strong class="merchant-wallet">💎 ${state.gold}G</strong></div>`
-    Dialog.show({
+    campShow({
       title: '🎒 接客用品货箱', className: 'merchant-shop-modal',
       body: `${discBanner}<div class="merchant-catalog">${MERCHANT_GOODS.map(g => {
           const has = owned[g.id]
@@ -1960,7 +1959,7 @@ window.CampSystem = (function () {
       EventBus.emit('ui:log', { text: '💄 你已经有折扣了，买完这单再说。', type: 'dim' })
       merchantShop(); return
     }
-    Dialog.show({
+    campShow({
       title: '💋 和供应商讲价', className: 'tavern-merchant-modal',
       body: `<section class="merchant-flirt-intro"><span>💋</span><div><small>用服务换折扣</small><h3>选一个你愿意完成的任务</h3><p>只有完整完成全部计时阶段，下一件商品才会打折。</p></div></section>
         <div class="merchant-offers">
@@ -2033,14 +2032,14 @@ window.CampSystem = (function () {
     // 连 5G 都掏不出来 → 嘲讽
     if (state.gold < 5) {
       EventBus.emit('ui:log', { text: '🧔 "穷逼！连 5G 都拿不出来还想赌？滚远点！"', type: 'danger' })
-      Dialog.show({
+      campShow({
         title: '🎲 老顾客的嘲笑',
         body: '<p>他上下打量你一眼，嗤笑出声：<b>"穷逼，连 5G 都没有，别在这儿碍眼，滚！"</b></p>',
         actions: [{ label: '灰溜溜离开', handler: () => { Dialog.close(); tavernGuest() } }],
       })
       return
     }
-    Dialog.show({
+    campShow({
       title: '🎲 摇骰子', className: 'glory-modal',
       body: `<div class="glory-section"><h3><span>下注多少？</span><small>60% 会输光，40% 赚</small></h3>
         <div class="glory-hole-choice">
@@ -2094,7 +2093,7 @@ window.CampSystem = (function () {
 
   function tavernDrink () {
     const state = State.get()
-    Dialog.show({
+    campShow({
       title: '🍷 吧台酒单', className: 'glory-modal',
       body: `<div class="glory-section"><h3><span>想喝点什么？</span><small>喝完有劲，但也有代价</small></h3>
         <div class="drink-list">${DRINKS.map(d => `
