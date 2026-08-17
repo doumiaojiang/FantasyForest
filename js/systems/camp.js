@@ -1129,7 +1129,7 @@ window.CampSystem = (function () {
       const tasks = {
         2: { name: '深喉 300 下', desc: '深喉 300 下，喉咙几乎报废', points: 20, seconds: 180 },
         3: { name: '深喉循环', desc: '深喉保持 30 秒，休息 5 秒，重复 3 次', points: 22, holdSeconds: 30, restSeconds: 5, repeat: 3, phaseDesc: '深喉保持 30 秒', restDesc: '休息 5 秒' },
-        4: { name: '喉咙旋转', desc: '将假阳具在喉咙中旋转 360 度 10 次', points: 26, seconds: 90 },
+        4: { name: '喉咙旋转', desc: '将假阳具在喉咙中旋转 360 度 10 次', points: 26, countTarget: 10, countDesc: '旋转' },
         5: { name: '深喉干呕三次', desc: '深喉直到你干呕 3 次', points: 30, countTarget: 3, countDesc: '干呕' },
         6: { name: '操到呕吐三次', desc: '多喝水，操你的喉穴直到你呕吐 3 次', points: 34, countTarget: 3, countDesc: '呕吐' },
       }
