@@ -381,7 +381,7 @@ window.State = (function () {
     state._gloryByCaptain = !!state._gloryByCaptain
     state._gloryWanted = Math.max(0, Math.min(100, Math.floor(finite(state._gloryWanted, 0))))
     state._inPrison = !!state._inPrison
-    state._prisonPoints = Math.max(0, Math.min(300, Math.floor(finite(state._prisonPoints, 0))))
+    state._prisonPoints = Math.max(0, Math.min(5000, Math.floor(finite(state._prisonPoints, 0))))
     state._prisonPardon = !!state._prisonPardon
     state._prisonPardonSetting = state._prisonPardonSetting !== false
     state._prisonEscapeFails = Math.max(0, Math.min(3, Math.floor(finite(state._prisonEscapeFails, 0))))
