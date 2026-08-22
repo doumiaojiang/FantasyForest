@@ -212,10 +212,11 @@ window.AmbushSystem = {
       const enemyId = pool[idx]
       const enemy = DATA.monster(enemyId)
       const attack = enemy.attacks.find(a => a.roll === z) || enemy.attacks[0]
-      // 女性角色：Z4-6 操菊穴的攻击改为操小穴（Z1-3 保持菊穴，与战斗一致）
-      let effAttack = attack
-      let attackPart = /菊穴/.test(attack.desc) ? 'anal' : /小穴/.test(attack.desc) ? 'vagina' : null
-      if (State.get().gender !== 'male' && attackPart === 'anal' && z >= 4) {
+      // 贞操装置：小穴/撸管/寸止任务强制改为肛交；否则女性 Z4-6 操菊穴改为操小穴
+      const chRes = ChastitySystem.resolveAttack(attack)
+      let effAttack = chRes.attack
+      let attackPart = chRes.part
+      if (!chRes.chastity && State.get().gender !== 'male' && attackPart === 'anal' && z >= 4) {
         effAttack = { ...attack, desc: attack.desc.replace(/菊穴/g, '小穴'), name: attack.name }
         attackPart = 'vagina'
       }

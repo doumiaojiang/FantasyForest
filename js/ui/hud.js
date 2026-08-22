@@ -71,10 +71,10 @@ function render (state) {
       ? (ItemLib.weapon(state.inventory.weapon)?.name || state.inventory.weapon)
       : '赤手空拳'
 
-    // 饰品（可穿多件）+ 监狱贞操装备
+    // 饰品（可穿多件）+ 贞操装置
     const accs = state.inventory.accessories || []
     const accNames = accs.map(id => (ItemLib.accessory(id)?.name || id))
-    if (state._prisonChastity) accNames.unshift('🔒 监狱专用贞操带')
+    if (ChastitySystem.isWorn()) accNames.unshift('🔒 贞操装置')
     accessoryEl.textContent = accNames.length ? accNames.join('、') : '无'
 
     // 物品框（消耗品 + 妓院许可证）
@@ -108,12 +108,14 @@ function render (state) {
 
     // 佣兵（主角下方）
     if (mercenaryEl) {
-      mercenaryEl.classList.remove('hud-hidden')
       if (!state._mercenary) {
-        mercenaryEl.innerHTML = `<span class="mercenary-avatar" style="opacity:.35">⚔️</span><span class="mercenary-meta"><small>MERCENARY</small><b style="color:var(--text-dim)">无</b></span>`
+        mercenaryEl.classList.add('hud-hidden')
+        mercenaryEl.innerHTML = ''
       } else if (state._mercenary.dead) {
+        mercenaryEl.classList.remove('hud-hidden')
         mercenaryEl.innerHTML = `<span class="mercenary-avatar" style="opacity:.45">${state._mercenary.icon}</span><span class="mercenary-meta"><small>MERCENARY</small><b style="color:var(--danger)">${state._mercenary.name}（已阵亡）</b><em style="color:var(--danger)">💔 可到商店花 50G 复活</em></span>`
       } else {
+        mercenaryEl.classList.remove('hud-hidden')
         const lust = state._mercenary.lust || 0
         const lustFull = lust >= 100
         const lustLabel = lustFull ? '发情中' : `${lust}%`

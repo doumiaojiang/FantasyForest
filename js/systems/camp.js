@@ -37,6 +37,32 @@ window.CampSystem = (function () {
     if (float) float.classList.add('hidden')
   }
 
+  /** 根据营地在当前窗口中的实际位置分配高度，避免关键按钮落到首屏外。 */
+  function fitCampViewport () {
+    const panel = document.getElementById('camp-panel')
+    const gameBody = panel && panel.closest('.game-body')
+    const inner = panel && panel.querySelector('.camp-panel-inner')
+    const battleArea = panel && panel.nextElementSibling
+    if (!gameBody || !inner || panel.classList.contains('panel-hidden') || window.innerWidth <= 700) {
+      if (gameBody) {
+        gameBody.style.removeProperty('--camp-inner-height')
+        gameBody.style.removeProperty('--camp-side-height')
+      }
+      return
+    }
+    const safeBottom = 12
+    const innerTop = inner.getBoundingClientRect().top
+    const sideTop = battleArea ? battleArea.getBoundingClientRect().top : innerTop
+    gameBody.style.setProperty('--camp-inner-height', `${Math.max(260, window.innerHeight - innerTop - safeBottom)}px`)
+    gameBody.style.setProperty('--camp-side-height', `${Math.max(260, window.innerHeight - sideTop - safeBottom)}px`)
+  }
+
+  let campResizeFrame = 0
+  window.addEventListener('resize', () => {
+    cancelAnimationFrame(campResizeFrame)
+    campResizeFrame = requestAnimationFrame(fitCampViewport)
+  })
+
   /** 营地页面渲染：写入页面容器而非弹窗层 */
   function campShow (options) {
     const { title, body, actions = [], className = '' } = options
@@ -59,6 +85,11 @@ window.CampSystem = (function () {
         const a = actions[idx]
         if (a && a.handler) a.handler()
       })
+    })
+    // 连续两帧测量，兼容读档时 HUD 与营地在同一轮更新的情况。
+    requestAnimationFrame(() => {
+      fitCampViewport()
+      requestAnimationFrame(fitCampViewport)
     })
   }
 
@@ -261,7 +292,7 @@ window.CampSystem = (function () {
   /** 卫兵肛交任务 */
   async function guardAnal () {
     const state = State.get()
-    const holeText = state.gender !== 'male' ? '小穴' : '菊穴'
+    const holeText = ChastitySystem.orifice(4)
     if (typeof BattleUI !== 'undefined' && BattleUI.showTaskDialog) {
       const failed = await BattleUI.showTaskDialog({
         enemyName: '🛡️ 卫兵',
@@ -355,7 +386,7 @@ window.CampSystem = (function () {
       body: `
         <div class="toilet-reveal"><span aria-hidden="true">🍑</span><small>SECRET FOUND · 隐藏区域</small><h3>墙后原来是一处荣耀洞</h3><p>你推开最里面的隔间，一股湿热气息迎面而来。墙上的圆洞后，有人已经等候多时。</p></div>
         <div class="toilet-reveal-info"><span><b>${GLORY_FEE}G</b><small>首次进入费用</small></span><span><b>${SERVICE_SECONDS}s</b><small>基础服务时间</small></span><span><b>💰</b><small>完成服务赚钱</small></span></div>
-        <p class="camp-muted">可以用嘴或屁股完成服务${State.get().gender !== 'male' ? '（也可以用小穴）' : ''}。金币不足时能够赊账，但还清之前无法离开。</p>`,
+        <p class="camp-muted">可以用嘴或屁股完成服务${State.get().gender !== 'male' && !ChastitySystem.isWorn() ? '（也可以用小穴）' : ''}。金币不足时能够赊账，但还清之前无法离开。</p>`,
       actions: [
         { label: '🍑 进入荣耀洞', cls: 'btn-primary', handler: () => { enterGlory() } },
         { label: '返回厕所', handler: () => { renderToilet() } },
@@ -449,14 +480,15 @@ window.CampSystem = (function () {
         : debt > 0
           ? `<div class="glory-notice"><b>💸 还欠营地 ${debt}G</b><span>你卖身挣的钱会先被扣去填债，填满前别想溜。</span></div>`
           : '<div class="glory-notice glory-notice-safe"><b>✓ 自由接客</b><span>现在想走就走，想干几单都行。</span></div>'
-      // 女性角色额外提供小穴洞（男性只有嘴和屁股）
-      const vaginaBtn = state.gender !== 'male'
+      // 女性角色额外提供小穴洞（男性只有嘴和屁股）；贞操装置锁死小穴，只留嘴和屁股
+      const canUseVagina = state.gender !== 'male' && !ChastitySystem.isWorn()
+      const vaginaBtn = canUseVagina
         ? `<button class="glory-hole-btn" data-hole="vagina"><i>🌸</i><span><b>把小穴凑过去</b><small>张开双腿任客人使用</small></span></button>`
         : ''
       // 白嫖时：客人随机指定一个洞（指名），玩家不能选
       let namedHole = ''
       if (isFree) {
-        const pool = state.gender !== 'male' ? ['oral', 'anal', 'vagina'] : ['oral', 'anal']
+        const pool = canUseVagina ? ['oral', 'anal', 'vagina'] : ['oral', 'anal']
         const hole = pool[Math.floor(Math.random() * pool.length)]
         const holeInfo = {
           oral: { icon: '👄', name: '嘴穴', tip: '把嘴凑过去，任由客人操弄你的嘴' },
@@ -1350,7 +1382,9 @@ window.CampSystem = (function () {
   async function blacksmithService () {
     const state = State.get()
     const isFemale = state.gender !== 'male'
-    const sexDesc = isFemale ? '你躺下来张开腿，让铁匠用粗鸡巴狠狠操进你的小穴' : '你趴跪在铁砧边，撅起屁股让铁匠从背后操进你的菊穴'
+    const sexDesc = ChastitySystem.isWorn()
+      ? '你趴跪在铁砧边，撅起屁股让铁匠从背后操进你的菊穴'
+      : isFemale ? '你躺下来张开腿，让铁匠用粗鸡巴狠狠操进你的小穴' : '你趴跪在铁砧边，撅起屁股让铁匠从背后操进你的菊穴'
     let failed = false
     if (typeof BattleUI !== 'undefined' && BattleUI.showTaskDialog) {
       const steps = [
@@ -1456,7 +1490,9 @@ window.CampSystem = (function () {
   async function blacksmithContractService () {
     const state = State.get()
     const isFemale = state.gender !== 'male'
-    const sexDesc = isFemale ? '你躺下来张开腿，让铁匠用粗鸡巴狠狠操进你的小穴' : '你趴跪在铁砧边，撅起屁股让铁匠从背后操进你的菊穴'
+    const sexDesc = ChastitySystem.isWorn()
+      ? '你趴跪在铁砧边，撅起屁股让铁匠从背后操进你的菊穴'
+      : isFemale ? '你躺下来张开腿，让铁匠用粗鸡巴狠狠操进你的小穴' : '你趴跪在铁砧边，撅起屁股让铁匠从背后操进你的菊穴'
     let failed = false
     if (typeof BattleUI !== 'undefined' && BattleUI.showTaskDialog) {
       const steps = [
@@ -2067,7 +2103,7 @@ window.CampSystem = (function () {
       return
     }
     const isFemale = state.gender !== 'male'
-    const sexBtn = isFemale
+    const sexBtn = isFemale && !ChastitySystem.isWorn()
       ? `<button class="camp-opt" data-serve="sex"><i>🌸</i><span><b>性交服务</b><small>主动骑上去，用小穴好好伺候她</small></span><em>欲 -30</em></button>`
       : ''
     campShow({
@@ -2731,10 +2767,18 @@ window.CampSystem = (function () {
     let task = customer.tasks[z]
     if (!task) { state._prostitutePendingTask = null; EventBus.emit('state:changed', state); prostitute(); return }
     // 性别适配任务文本：
+    //  - 贞操装置：小穴一律改回菊穴（肛交）
     //  - 女性：Z=1-3 操菊穴，Z=4-6 改操小穴（阴道）
     //  - 男性：一律操菊穴（任务里写死的小穴改回菊穴）
     const taskFullText = task.desc + (task.steps || []).map(s => s.desc).join('')
-    if (state.gender === 'male') {
+    if (ChastitySystem.isWorn()) {
+      const fix = s => String(s || '').replace(/小穴/g, '菊穴')
+      task = {
+        ...task,
+        desc: fix(task.desc),
+        steps: (task.steps || []).map(st => ({ ...st, desc: fix(st.desc) })),
+      }
+    } else if (state.gender === 'male') {
       if (/小穴/.test(taskFullText)) {
         const fix = s => String(s || '').replace(/小穴/g, '菊穴')
         task = {
@@ -2891,7 +2935,7 @@ window.CampSystem = (function () {
     { id: 'collar', name: '项圈与牵绳', price: 150, icon: '🐾', desc: '怪物把你当奴隶，所有插入任务以 120 BPM 完成，等级翻倍' },
     { id: 'gag', name: '口塞', price: 100, icon: '⛓️', desc: '插入任务以 160 BPM 完成，金币翻倍；有项圈则 180 BPM，金币等级都翻倍' },
     { id: 'buttplug', name: '肛塞', price: 50, icon: '🔴', desc: '没有实际效果，但怪物超爱，还能预先扩张屁股' },
-    { id: 'chastity', name: '贞操笼', price: 200, icon: '🔒', desc: '提醒怪物你是他们的财产，「完美奴隶」模式的必备品' },
+    { id: 'chastity', name: '贞操笼', price: 200, icon: '🔒', category: 'chastity', desc: '贞操装置：锁死小穴。穿戴后小穴/撸管/寸止任务一律改为肛交' },
   ]
 
   /** 妓女用品供应商 */

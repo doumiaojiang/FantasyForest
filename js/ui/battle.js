@@ -329,11 +329,11 @@ window.BattleUI = (function () {
 
     const enemy = DATA.monster(_enemy.id)
     const attack = enemy.attacks.find(a => a.roll === roll) || { name: '普通攻击', desc: '攻击了你', dmg: 0 }
-    // 女性角色：Z4-6 操菊穴的攻击改为操小穴（Z1-3 保持菊穴，与妓女打工一致）
-    const gender = State.get().gender
-    let effAttack = attack
-    let attackPart = /菊穴/.test(attack.desc) ? 'anal' : /小穴/.test(attack.desc) ? 'vagina' : null
-    if (gender !== 'male' && attackPart === 'anal' && roll >= 4) {
+    // 贞操装置：小穴/撸管/寸止任务强制改为肛交；否则女性角色 Z4-6 操菊穴改为操小穴
+    const chRes = ChastitySystem.resolveAttack(attack)
+    let effAttack = chRes.attack
+    let attackPart = chRes.part
+    if (!chRes.chastity && State.get().gender !== 'male' && attackPart === 'anal' && roll >= 4) {
       effAttack = { ...attack, desc: attack.desc.replace(/菊穴/g, '小穴'), name: attack.name }
       attackPart = 'vagina'
     }
@@ -354,7 +354,7 @@ window.BattleUI = (function () {
         const failed = await showTaskDialog({
           enemyName: `哥布林 ${i}/${gobCount}`,
           attackName: attack.name,
-          desc: `第 ${i} 只哥布林深插你的${State.get().gender !== 'male' && roll >= 4 ? '小穴' : '菊穴'}，120 BPM`,
+          desc: `第 ${i} 只哥布林深插你的${ChastitySystem.orifice(roll)}，120 BPM`,
           bpm,
           seconds: secondsPerGob,
           dmg: attack.dmg,   // 显示总伤害，与最终结算一致
@@ -384,7 +384,7 @@ window.BattleUI = (function () {
         const failed = await showTaskDialog({
           enemyName: `哥布林轮换 ${i}/${roundCount}`,
           attackName: attack.name,
-          desc: `哥布林${g1} 浅插${State.get().gender !== 'male' && roll >= 4 ? '小穴' : '菊穴'}，哥布林${g2} 口交，120 BPM`,
+          desc: `哥布林${g1} 浅插${ChastitySystem.orifice(roll)}，哥布林${g2} 口交，120 BPM`,
           bpm,
           seconds: secondsPerRound,
           dmg: attack.dmg,   // 显示总伤害，与最终结算一致
@@ -412,7 +412,7 @@ window.BattleUI = (function () {
         const failed = await showTaskDialog({
           enemyName: `${enemy.name} ${i}/${repeatCount}`,
           attackName: attack.name,
-          desc: `第 ${i} 只哥布林：${State.get().gender !== 'male' && roll >= 4 ? attack.desc.replace(/菊穴/g, '小穴') : attack.desc}`,
+          desc: `第 ${i} 只哥布林：${ChastitySystem.convertDesc(attack.desc, roll)}`,
           bpm: attack.taskBpm || 60,
           seconds: randSeconds,
           dmg: attack.dmg,   // 显示总伤害，与最终结算一致
@@ -774,11 +774,11 @@ window.BattleUI = (function () {
     // 掷 Z 决定被召唤敌人的攻击
     const z = Dice.rollEnemy()
     const attack = summoned.attacks.find(a => a.roll === z) || summoned.attacks[0] || { name: '攻击', desc: '攻击了你', dmg: 0 }
-    // 女性角色：Z4-6 操菊穴的攻击改为操小穴（Z1-3 保持菊穴，与妓女打工一致）
-    const gender = State.get().gender
-    let effAttack = attack
-    let attackPart = /菊穴/.test(attack.desc) ? 'anal' : /小穴/.test(attack.desc) ? 'vagina' : null
-    if (gender !== 'male' && attackPart === 'anal' && z >= 4) {
+    // 贞操装置：小穴/撸管/寸止任务强制改为肛交；否则女性角色 Z4-6 操菊穴改为操小穴
+    const chRes = ChastitySystem.resolveAttack(attack)
+    let effAttack = chRes.attack
+    let attackPart = chRes.part
+    if (!chRes.chastity && State.get().gender !== 'male' && attackPart === 'anal' && z >= 4) {
       effAttack = { ...attack, desc: attack.desc.replace(/菊穴/g, '小穴'), name: attack.name }
       attackPart = 'vagina'
     }
@@ -1353,7 +1353,7 @@ window.BattleUI = (function () {
   function showWerewolfFinal () {
     const state = State.get()
     const z = Dice.rollZ()
-    const hole = (state.gender !== 'male' && z >= 4) ? '小穴' : '菊穴'
+    const hole = ChastitySystem.orifice(z)
     EventBus.emit('ui:log', { text: `🌕 太阳升起，狼人变回了人形……（掷 Z=${z}，他操你的${hole}）`, type: 'dim' })
     Dialog.show({
       title: '🌕 临终遗愿',
@@ -1378,7 +1378,7 @@ window.BattleUI = (function () {
   /** 狼人临终 45 秒任务，完成后承受毒精液伤害 */
   async function doWerewolfTask (z) {
     const state = State.get()
-    const hole = (state.gender !== 'male' && z >= 4) ? '小穴' : '菊穴'
+    const hole = ChastitySystem.orifice(z)
     try {
       const failed = await showTaskDialog({
         enemyName: '🌕 人形狼人',
@@ -1414,7 +1414,7 @@ window.BattleUI = (function () {
   function showTentacleEmbedded () {
     const state = State.get()
     const z = Dice.rollZ()
-    const hole = (state.gender !== 'male' && z >= 4) ? '小穴' : '菊穴'
+    const hole = ChastitySystem.orifice(z)
     EventBus.emit('ui:log', { text: `🐙 你在被干时砍断了触手，断掉的那截弹进了你的${hole}里！（掷 Z=${z}）`, type: 'danger' })
     Dialog.show({
       title: '🐙 断触手',

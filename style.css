@@ -43,6 +43,7 @@
   --radius: 12px;
   --radius-lg: 16px;
   --shadow: 0 6px 24px rgba(0, 0, 0, .4);
+  --page-width: 980px;
 
   /* 兼容别名（JS 内联样式使用旧命名） */
   --danger: #ff6b6b;
@@ -74,7 +75,7 @@ body {
   overflow-x: hidden;
 }
 
-#app { max-width: 1080px; margin: 0 auto; padding: 16px; width: 100%; min-width: 0; }
+#app { max-width: calc(var(--page-width) + 32px); margin: 0 auto; padding: 16px; width: 100%; min-width: 0; }
 
 /* 工具类 */
 .hidden { display: none !important; }
@@ -99,18 +100,44 @@ body {
   box-shadow: none;
   animation: none;
 }
-@media (min-width: 900px) {
-  .camp-grid { grid-template-columns: repeat(3, 1fr); }
-}
 .camp-panel .camp-panel-inner .modal-title { margin: 0 0 12px; color: #f3e4d6; font-size: 1.05rem; }
 .camp-panel .camp-panel-inner .modal-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 14px; }
 
 /* 桌面端营地保持底部操作可见，较长内容只在正文区域滚动。 */
 @media (min-width: 701px) {
+  /* 营地采用主内容 + 旅途记录侧栏，避免日志被排到整页最下方。 */
+  #screen-game:has(.camp-panel:not(.panel-hidden)) #hud {
+    max-width: var(--page-width);
+  }
+  .game-body:has(> .camp-panel:not(.panel-hidden)) {
+    grid-template-columns: minmax(0, 1.7fr) minmax(220px, .85fr);
+    align-items: start;
+    max-width: var(--page-width);
+  }
+  .game-body > .camp-panel:not(.panel-hidden) {
+    grid-column: 1;
+    grid-row: 1;
+  }
+  .game-body > .camp-panel:not(.panel-hidden) + .battle-area {
+    position: sticky;
+    top: 54px;
+    grid-column: 2;
+    grid-row: 1;
+    align-self: start;
+    height: var(--camp-side-height, calc(100dvh - 280px));
+  }
+  .game-body > .camp-panel:not(.panel-hidden) + .battle-area #log-panel {
+    height: 100%;
+    min-height: 0;
+  }
+  .game-body > .camp-panel:not(.panel-hidden) + .battle-area #log-box {
+    min-height: 0;
+    max-height: none;
+  }
   .camp-panel .camp-panel-inner.modal-box {
     display: flex;
     flex-direction: column;
-    max-height: calc(100dvh - 160px);
+    max-height: var(--camp-inner-height, calc(100dvh - 280px));
     min-height: 0;
     overflow: hidden;
   }
@@ -190,19 +217,15 @@ body {
    06. 标题界面
    ========================================================= */
 #screen-title {
-  position: relative;
-  min-height: calc(100dvh - 32px);
-  justify-content: center;
-  overflow: hidden;
-  isolation: isolate;
-  padding: clamp(24px, 5vh, 58px) 0 22px;
+  position: static;
+  display: block;
+  min-height: 0;
+  overflow: visible;
+  padding: 0;
 }
 #screen-title::before,
 #screen-title::after {
-  content: '';
-  position: absolute;
-  z-index: -2;
-  pointer-events: none;
+  content: none;
 }
 #screen-title::before {
   inset: -16px calc(50% - 50vw);
@@ -223,7 +246,7 @@ body {
   transform: translateX(-50%);
 }
 
-.title-ambient { position: absolute; inset: 0; z-index: -1; pointer-events: none; }
+.title-ambient { display: none; }
 .title-wisp {
   position: absolute;
   width: 230px;
@@ -242,18 +265,49 @@ body {
 @keyframes titleFloat { 50% { translate: 0 -9px; opacity: .55; } }
 
 .title-stage {
+  position: relative;
+  overflow: hidden;
   width: 100%;
-  max-width: 980px;
+  max-width: var(--page-width);
   display: grid;
   grid-template-columns: minmax(0, 1.08fr) minmax(340px, .82fr);
   align-items: center;
-  gap: clamp(38px, 7vw, 82px);
+  gap: clamp(30px, 5vw, 58px);
+  padding: clamp(24px, 3.2vw, 38px);
+  border: 1px solid rgba(211, 169, 255, .16);
+  border-radius: 30px;
+  background:
+    radial-gradient(circle at 12% 18%, rgba(80, 174, 119, .11), transparent 30%),
+    radial-gradient(circle at 88% 22%, rgba(176, 107, 255, .14), transparent 31%),
+    linear-gradient(145deg, rgba(30, 29, 48, .82), rgba(16, 18, 29, .9));
+  box-shadow: 0 34px 90px rgba(0, 0, 0, .42), inset 0 1px rgba(255,255,255,.035);
+  margin: 0 auto;
 }
-.title-hero { min-width: 0; }
+.title-stage::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background:
+    linear-gradient(180deg, transparent 58%, rgba(5, 12, 13, .34)),
+    repeating-linear-gradient(94deg, transparent 0 74px, rgba(105, 171, 130, .025) 75px 78px, transparent 79px 112px);
+}
+.title-stage::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 8%;
+  right: 8%;
+  height: 1px;
+  pointer-events: none;
+  background: linear-gradient(90deg, transparent, rgba(255, 209, 102, .38), rgba(211,169,255,.32), transparent);
+}
+.title-hero { position: relative; z-index: 1; min-width: 0; }
 .title-eyebrow { display: flex; align-items: center; gap: 10px; color: var(--gold); font-size: .66rem; letter-spacing: .19em; }
 .title-eyebrow i { width: 26px; height: 1px; background: linear-gradient(90deg, transparent, var(--gold)); }
 .title-eyebrow i:last-child { background: linear-gradient(90deg, var(--gold), transparent); }
 .title-emblem {
+  position: relative;
   width: 58px;
   height: 58px;
   display: grid;
@@ -267,6 +321,7 @@ body {
   font-family: Georgia, serif;
   font-size: 2rem;
 }
+.title-emblem::before { content: ''; position: absolute; inset: -7px; border: 1px solid rgba(211,169,255,.12); border-radius: 50%; box-shadow: 0 0 28px rgba(176,107,255,.1); }
 .title-emblem span { transform: translate(1px, -1px); }
 .game-title {
   font-family: "Songti SC", "STSong", "Noto Serif SC", serif;
@@ -283,7 +338,7 @@ body {
 .game-subtitle { margin-top: 8px; color: var(--text-dim); letter-spacing: .62em; font-size: .82rem; }
 .title-tagline { margin-top: 16px; color: #c8bfd9; font-family: "Songti SC", "STSong", serif; font-size: 1rem; letter-spacing: .04em; }
 
-.title-prologue { position: relative; margin-top: 32px; padding: 19px 22px 18px 25px; border-left: 1px solid rgba(255, 209, 102, .6); background: linear-gradient(90deg, rgba(255, 209, 102, .055), transparent 85%); }
+.title-prologue { position: relative; margin-top: 28px; padding: 18px 20px 17px 23px; border: 1px solid rgba(255, 209, 102, .1); border-left: 2px solid rgba(255, 209, 102, .62); border-radius: 0 14px 14px 0; background: linear-gradient(100deg, rgba(255, 209, 102, .065), rgba(12,18,19,.25) 74%, transparent); }
 .title-prologue::before { content: ''; position: absolute; top: 0; left: -3px; width: 5px; height: 5px; border-radius: 50%; background: var(--gold); box-shadow: 0 0 12px var(--gold); }
 .title-prologue-label { color: var(--gold); font-size: .59rem; letter-spacing: .19em; }
 .title-prologue h2 { margin: 4px 0 7px; color: #f4edfc; font-family: "Songti SC", "STSong", serif; font-size: 1.27rem; letter-spacing: .05em; }
@@ -296,14 +351,16 @@ body {
   position: relative;
   overflow: hidden;
   padding: 28px;
-  border: 1px solid rgba(211, 169, 255, .25);
+  border: 1px solid rgba(211, 169, 255, .3);
   border-radius: 22px;
   background:
-    linear-gradient(145deg, rgba(176, 107, 255, .1), transparent 46%),
-    rgba(31, 28, 48, .84);
-  box-shadow: 0 28px 70px rgba(0, 0, 0, .38), inset 0 1px 0 rgba(255,255,255,.035);
+    radial-gradient(circle at 92% 7%, rgba(255,209,102,.08), transparent 26%),
+    linear-gradient(145deg, rgba(176, 107, 255, .13), transparent 48%),
+    rgba(25, 23, 40, .9);
+  box-shadow: 0 24px 58px rgba(0, 0, 0, .4), inset 0 1px 0 rgba(255,255,255,.045), 0 0 0 5px rgba(176,107,255,.025);
   backdrop-filter: blur(10px);
 }
+.title-menu::before { content: ''; position: absolute; top: 0; left: 20px; right: 20px; height: 1px; background: linear-gradient(90deg, transparent, rgba(211,169,255,.48), transparent); }
 .title-menu::after { content: '☾'; position: absolute; right: -12px; bottom: -45px; color: rgba(211, 169, 255, .035); font: 170px/1 Georgia, serif; pointer-events: none; }
 .title-menu-heading { position: relative; z-index: 1; }
 .title-menu-heading > span { color: var(--gold); font-size: .57rem; letter-spacing: .2em; }
@@ -311,6 +368,8 @@ body {
 .title-menu-heading p { color: var(--text-dim); font-size: .78rem; line-height: 1.6; }
 .title-actions { position: relative; z-index: 1; display: grid; gap: 9px; margin-top: 20px; }
 .title-btn-main {
+  position: relative;
+  overflow: hidden;
   width: 100%;
   min-height: 61px;
   display: grid;
@@ -320,7 +379,11 @@ body {
   border-radius: 12px;
   text-align: left;
   box-shadow: 0 8px 24px rgba(0, 0, 0, .18);
+  transition: transform .16s ease, border-color .16s ease, box-shadow .16s ease, filter .16s ease;
 }
+.title-btn-main::after { content: ''; position: absolute; top: -80%; left: -34%; width: 30%; height: 260%; background: linear-gradient(90deg, transparent, rgba(255,255,255,.14), transparent); transform: rotate(20deg); transition: left .42s ease; pointer-events: none; }
+.title-btn-main:hover, .title-btn-main:focus-visible { transform: translateY(-2px); box-shadow: 0 12px 30px rgba(0,0,0,.3), 0 0 18px rgba(176,107,255,.12); outline: none; }
+.title-btn-main:hover::after, .title-btn-main:focus-visible::after { left: 108%; }
 .title-btn-main > span { color: var(--gold); font-size: 1.1rem; }
 .title-btn-main b { justify-self: start; font-size: .94rem; letter-spacing: .07em; }
 .title-btn-main i { color: rgba(255,255,255,.65); font-size: .66rem; font-style: normal; font-weight: 400; }
@@ -330,11 +393,11 @@ body {
 .title-btn-changelog { border-color: rgba(255, 209, 102, .17); }
 .title-btn-changelog > span { color: var(--gold); }
 .title-features { position: relative; z-index: 1; display: grid; grid-template-columns: repeat(3, 1fr); gap: 5px; margin-top: 17px; }
-.title-features span { display: flex; flex-direction: column; align-items: center; gap: 3px; color: var(--text-dim); font-size: .61rem; }
+.title-features span { display: flex; flex-direction: column; align-items: center; gap: 3px; padding: 7px 3px; border: 1px solid rgba(255,255,255,.055); border-radius: 9px; background: rgba(7,9,16,.22); color: var(--text-dim); font-size: .61rem; }
 .title-features b { font-size: .9rem; }
 .title-menu-hint { position: relative; z-index: 1; margin-top: 16px; padding-top: 13px; border-top: 1px solid rgba(255,255,255,.065); color: #756b8b; font-size: .63rem; line-height: 1.55; text-align: center; }
 
-.title-footer { width: 100%; max-width: 980px; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px 18px; margin-top: clamp(24px, 4vh, 42px); color: #6f6683; font-size: .64rem; }
+.title-footer { width: 100%; max-width: var(--page-width); display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px 18px; margin: clamp(18px, 3vh, 28px) auto 0; color: #6f6683; font-size: .64rem; }
 .title-creator-note { max-width: 600px; }
 .title-creator-note summary { color: #887d9e; cursor: pointer; letter-spacing: .08em; }
 .title-creator-note summary:hover { color: var(--accent-bright); }
@@ -588,7 +651,7 @@ body:has(.modal-box.boss-ending-modal) #topbar {
 }
 .settings-village-note { margin: 0; padding: 8px 10px; border: 1px solid rgba(107,255,155,.15); border-radius: 9px; background: rgba(60,147,91,.07); color: #9ec7ad; font-size: .68rem; line-height: 1.5; }
 .topbar-inner {
-  max-width: 1080px;
+  max-width: var(--page-width);
   margin: 0 auto;
   padding: 4px 16px;
   display: flex;
@@ -737,6 +800,7 @@ body:has(.modal-box.boss-ending-modal) #topbar {
   background: rgba(122, 172, 120, .07);
   border: 1px solid rgba(122, 172, 120, .22);
 }
+.hud-mercenary.hud-hidden { display: none; }
 .hud-mercenary .mercenary-avatar { font-size: 1.25rem; font-style: normal; }
 .hud-mercenary .mercenary-meta { min-width: 0; display: grid; gap: 1px; }
 .hud-mercenary .mercenary-meta small { color: #8fae8e; font-size: .5rem; letter-spacing: .14em; }
@@ -1953,8 +2017,7 @@ body:has(.modal-box.boss-ending-modal) #topbar {
 }
 
 @media (max-width: 700px) {
-  #screen-title { justify-content: flex-start; }
-  .title-stage { max-width: 560px; grid-template-columns: minmax(0, 1fr); gap: 22px; }
+  .title-stage { max-width: 560px; grid-template-columns: minmax(0, 1fr); gap: 22px; padding: 22px; border-radius: 23px; }
   .title-hero { text-align: center; }
   .title-eyebrow { justify-content: center; }
   .title-emblem { margin: 18px auto 4px; }
@@ -1969,14 +2032,14 @@ body:has(.modal-box.boss-ending-modal) #topbar {
 
   .btn { padding: 10px 14px; }
 
-  #screen-title { min-height: calc(100dvh - 16px); padding: 15px 0 10px; }
+  #screen-title { min-height: 0; padding: 0; }
   .title-eyebrow { gap: 7px; font-size: .53rem; letter-spacing: .12em; }
   .title-eyebrow i { width: 17px; }
   .title-emblem { width: 43px; height: 43px; margin-top: 12px; font-size: 1.5rem; }
   .game-title { font-size: clamp(2.55rem, 14vw, 3.35rem); letter-spacing: .08em; }
   .game-subtitle { margin-top: 5px; font-size: .65rem; letter-spacing: .44em; }
   .title-tagline { margin-top: 10px; padding: 0 12px; font-size: .77rem; line-height: 1.5; }
-  .title-stage { gap: 14px; }
+  .title-stage { gap: 14px; padding: 14px 12px; border-radius: 18px; }
   .title-prologue { margin-top: 15px; padding: 11px 13px 11px 15px; }
   .title-prologue-label { font-size: .5rem; }
   .title-prologue h2 { margin-block: 2px 4px; font-size: 1rem; }

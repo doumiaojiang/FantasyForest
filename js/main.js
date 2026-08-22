@@ -1175,9 +1175,9 @@
     const roll = Math.floor(Math.random() * 100)
     if (roll >= lust) return
     EventBus.emit('ui:log', { text: `🔥 ${merc.icon} ${merc.name} 欲火中烧，从背后一把抱住了你（发情 ${lust}%，触发了 ${roll}%）！`, type: 'danger' })
-    // 随机选服务类型：口交 / 肛交 / 性交（女性才能性交）
-    const isFemale = state.gender !== 'male'
-    const pool = isFemale ? ['oral', 'anal', 'sex'] : ['oral', 'anal']
+    // 随机选服务类型：口交 / 肛交 / 性交（女性、且未佩戴贞操装置才能性交）
+    const canSex = state.gender !== 'male' && !ChastitySystem.isWorn()
+    const pool = canSex ? ['oral', 'anal', 'sex'] : ['oral', 'anal']
     const type = pool[Math.floor(Math.random() * pool.length)]
     await forcedMercenaryService(type, merc)
   }
