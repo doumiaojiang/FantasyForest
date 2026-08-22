@@ -130,8 +130,10 @@ window.NodeEvents = {
         return
 
       case TILE.CHECKPOINT:
+        const tp = typeof TeleportSystem !== 'undefined' ? TeleportSystem.byPos(state.position.x, state.position.y) : null
+        if (tp) TeleportSystem.activate(tp.id)
         state.hp = state.maxHp
-        EventBus.emit('ui:log', { text: '检查点激活，HP 回满。', type: 'good' })
+        EventBus.emit('ui:log', { text: tp ? `🌀 ${tp.name}激活，HP 回满。` : '🌀 传送阵激活，HP 回满。', type: 'good' })
         State.save()
         EventBus.emit('state:changed', state)
         break

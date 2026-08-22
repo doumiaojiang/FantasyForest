@@ -2443,6 +2443,7 @@ body:has(.age-gate:not(.age-gate-hidden)) { overflow: hidden; }
 .camp-opt-potion em { background: rgba(87,181,128,.14); color: #7fd8a0; }
 .camp-opt-blacksmith em { background: rgba(140,150,160,.18); color: #c8d0d8; }
 .camp-opt-prison em { background: rgba(180,80,80,.16); color: #e8a0a0; }
+.camp-opt-teleport em { background: rgba(96,140,255,.15); color: #9db8ff; }
 .camp-opt:hover, .camp-opt:focus-visible { transform: translateY(-2px); border-color: rgba(239,155,69,.55); background: rgba(70, 42, 25, .46); outline: none; }
 .camp-footnote, .camp-muted { margin-top: 10px; color: #8f8987; font-size: .67rem; line-height: 1.5; text-align: center; }
 
@@ -2692,6 +2693,25 @@ body:has(.age-gate:not(.age-gate-hidden)) { overflow: hidden; }
 .modal-box.blacksmith-modal { border-color: rgba(160, 160, 165, .35); background: linear-gradient(155deg, rgba(45, 45, 50, .98), rgba(30, 30, 35, .99) 55%, rgba(55, 35, 25, .97)); box-shadow: 0 24px 70px #000c, inset 0 1px rgba(255, 180, 80, .08); }
 .potion-modal { max-width: 590px; }
 .modal-box.potion-modal { border-color: rgba(86, 190, 134, .32); background: linear-gradient(155deg, rgba(24, 41, 36, .98), rgba(16, 19, 28, .99) 55%, rgba(30, 45, 36, .97)); box-shadow: 0 24px 70px #000c, inset 0 1px rgba(127, 216, 160, .08); }
+.teleport-modal { max-width: 590px; }
+.modal-box.teleport-modal { border-color: rgba(120, 160, 255, .35); background: linear-gradient(155deg, rgba(20, 26, 44, .98), rgba(14, 16, 28, .99) 55%, rgba(30, 32, 52, .97)); box-shadow: 0 24px 70px #000c, inset 0 1px rgba(140, 175, 255, .1); }
+.teleport-hero { display: grid; grid-template-columns: 62px 1fr; align-items: center; gap: 13px; padding: 14px; border: 1px solid rgba(120,160,255,.25); border-radius: 12px; background: radial-gradient(circle at 10% 75%, rgba(90,120,255,.22), transparent 30%), linear-gradient(125deg, rgba(30,40,80,.35), rgba(20,24,40,.4)); }
+.teleport-hero i { font-size: 2.2rem; filter: drop-shadow(0 5px 12px rgba(120,160,255,.5)); animation: tp-pulse 2.4s ease-in-out infinite; }
+@keyframes tp-pulse { 0%,100% { transform: scale(1); opacity: 1; } 50% { transform: scale(1.12); opacity: .75; } }
+.teleport-hero small { color: #9db8ff; font-size: .56rem; font-weight: 800; letter-spacing: .14em; }
+.teleport-hero h3 { margin: 4px 0; color: #e8eeff; font-size: .9rem; }
+.teleport-hero p { color: #9aa3c8; font-size: .65rem; line-height: 1.5; }
+.teleport-current { display: flex; align-items: center; gap: 10px; margin: 12px 0 6px; padding: 10px 12px; border: 1px solid rgba(120,160,255,.18); border-radius: 10px; background: rgba(120,160,255,.06); }
+.teleport-current i { font-size: 1.4rem; }
+.teleport-current small { display: block; color: #6a74a0; font-size: .6rem; }
+.teleport-current b { color: #cdd9ff; font-size: .85rem; }
+.teleport-list { display: grid; gap: 8px; margin-top: 8px; }
+.teleport-opt { display: grid; grid-template-columns: 34px 1fr auto; align-items: center; gap: 10px; width: 100%; padding: 10px 12px; text-align: left; border: 1px solid rgba(120,160,255,.2); border-radius: 10px; background: rgba(120,160,255,.07); cursor: pointer; transition: border-color .15s, background .15s; }
+.teleport-opt:hover { border-color: rgba(140,175,255,.45); background: rgba(120,160,255,.13); }
+.teleport-opt i { font-size: 1.2rem; }
+.teleport-opt b { color: #e6ecff; font-size: .85rem; display: block; }
+.teleport-opt small { color: #7a84ad; font-size: .65rem; }
+.teleport-opt em { font-style: normal; font-size: .68rem; color: #9db8ff; background: rgba(96,140,255,.15); padding: 3px 8px; border-radius: 99px; }
 .tavern-hero { display: grid; grid-template-columns: 62px 1fr; align-items: center; gap: 13px; padding: 14px; border: 1px solid rgba(228,171,82,.2); border-radius: 12px; background: radial-gradient(circle at 10% 75%, rgba(242,154,58,.2), transparent 28%), linear-gradient(125deg, rgba(104,47,34,.26), rgba(25,39,32,.38)); }
 .tavern-lamp { width: 58px; height: 58px; display: grid; place-items: center; border-radius: 50%; background: radial-gradient(circle, rgba(255,196,86,.22), transparent 68%); font-size: 1.9rem; filter: drop-shadow(0 5px 10px rgba(255,157,49,.35)); }
 .tavern-hero small { color: #e1aa5c; font-size: .56rem; font-weight: 800; letter-spacing: .14em; }

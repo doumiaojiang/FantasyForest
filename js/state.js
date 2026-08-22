@@ -90,6 +90,7 @@ window.State = (function () {
       _prisonLife: false,               // 永久监禁（越狱失败3次）
       _prisonChastity: false,           // 是否佩戴监狱专用贞操带/贞操锁（false/true）
       _wanted: false,                   // 越狱后是否处于通缉状态（守卫/队长会查你）
+      _teleports: ['camp'],             // 已激活的传送阵 id 列表（营地始终激活）
       _freeMeatBrand: false,            // 大腿上"免费肉便器"烙印（铁匠解锁后永久）
       _blacksmithContract: false,       // 与铁匠签的契约：每次进铺子要先服务
       _gloryDiscovered: false,          // 是否已发现荣耀洞（调查隔间后）
@@ -390,6 +391,12 @@ window.State = (function () {
     state._prisonLife = !!state._prisonLife
     state._prisonChastity = !!state._prisonChastity
     state._wanted = !!state._wanted
+    if (typeof window.TELEPORTS !== 'undefined' && Array.isArray(state._teleports)) {
+      state._teleports = state._teleports.filter(id => TELEPORTS.some(t => t.id === id))
+      if (!state._teleports.includes('camp')) state._teleports.unshift('camp')
+    } else {
+      state._teleports = ['camp']
+    }
     state._freeMeatBrand = !!state._freeMeatBrand
     state._blacksmithContract = !!state._blacksmithContract
     if (state._gloryDiscovered === undefined) state._gloryDiscovered = !!state._gloryDiscovered

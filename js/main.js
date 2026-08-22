@@ -1271,10 +1271,15 @@
       }
     }
 
-    // 步数耗尽或撞墙 → 触发当前格子事件（检查点/宝藏已在经过时触发）
+    // 步数耗尽或撞墙 → 触发当前格子事件（传送阵/宝藏已在经过时触发）
     _isWalking = false
     const state = State.get()
     const finalTile = MapLib.get(state.position.x, state.position.y)
+    // 站在传送阵上：询问是否传送
+    if (finalTile && finalTile.type === TILE.CHECKPOINT && typeof TeleportSystem !== 'undefined') {
+      TeleportSystem.ask()
+      return
+    }
     if (finalTile && finalTile.type !== TILE.CHECKPOINT && finalTile.type !== TILE.EMPTY && finalTile.type !== TILE.START && finalTile.type !== TILE.TREASURE && finalTile.type !== TILE.AMBUSH) {
       NodeEvents.trigger(finalTile, state.position.x, state.position.y)
       return  // 事件接管流程，结束后通过 game:readyToMove 恢复
@@ -1305,10 +1310,12 @@
     EventBus.emit('ui:mapUpdate', {})
     EventBus.emit('state:changed', state)
 
-    // 检查点经过即触发
+    // 传送阵经过即触发：激活 + 回满 HP + 存档
     if (tile.type === TILE.CHECKPOINT) {
+      const tp = typeof TeleportSystem !== 'undefined' ? TeleportSystem.byPos(target.x, target.y) : null
+      if (tp) TeleportSystem.activate(tp.id)
       state.hp = state.maxHp
-      EventBus.emit('ui:log', { text: '🔥 经过检查点，HP 回满。', type: 'good' })
+      EventBus.emit('ui:log', { text: tp ? `🌀 路过${tp.name}，HP 回满。` : '🌀 经过传送阵，HP 回满。', type: 'good' })
       State.save()
       EventBus.emit('state:changed', state)
     }

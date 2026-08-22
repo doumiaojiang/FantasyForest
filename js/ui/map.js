@@ -13,7 +13,7 @@ window.MapUI = (function () {
   const TYPE_NAMES = {
     [TILE.EMPTY]: '道路',
     [TILE.START]: '村庄',
-    [TILE.CHECKPOINT]: '检查点',
+    [TILE.CHECKPOINT]: '传送阵',
     [TILE.MONSTER]: '战斗',
     [TILE.BOSS]: '最终首领',
     [TILE.TRAP]: '陷阱',

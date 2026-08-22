@@ -148,6 +148,7 @@ window.CampSystem = (function () {
           <button class="camp-opt camp-opt-glory" data-opt="glory"><i>🚻</i><span><b>公共厕所</b><small>${toiletHint}</small></span><em>${toiletStatus}</em></button>
           <button class="camp-opt camp-opt-prison" data-opt="prison"><i>⛓️</i><span><b>监狱</b><small>无证卖淫的归宿</small></span><em>${state._inPrison ? '在押' : '戒备'}</em></button>
           <button class="camp-opt camp-opt-deer" data-opt="deer"><i>🦌</i><span><b>篝火旁的鹿</b><small>旅人的初次见面礼</small></span><em>${deerStatus}</em></button>
+          <button class="camp-opt camp-opt-teleport" data-opt="teleport"><i>🌀</i><span><b>传送阵</b><small>点亮过的传送阵可互相传送</small></span><em>${(state._teleports || []).length}/${TELEPORTS.length}</em></button>
         </div>
         <p class="camp-footnote">营地不会消耗回合；离开后从当前格继续探索。</p>`,
       actions: [{ label: state._prostituteLicensed ? '⚠️ 离开营地，接受卫兵盘问' : '← 离开营地，继续冒险', cls: state._prostituteLicensed ? 'btn-danger' : 'btn-primary', handler: leaveCamp }],
@@ -163,6 +164,7 @@ window.CampSystem = (function () {
         else if (opt === 'tavern') tavern()
         else if (opt === 'prison') prisonDoor()
         else if (opt === 'deer') deer()
+        else if (opt === 'teleport') campTeleport()
       }
     })
   }
@@ -395,6 +397,29 @@ window.CampSystem = (function () {
     if (float) float.classList.remove('hidden')
     EventBus.emit('state:changed', state)
     GameFlow.afterEvent()
+  }
+
+  /** 营地传送阵：选择已激活的传送阵（城镇传送阵始终可用） */
+  function campTeleport () {
+    const state = State.get()
+    const activated = (state._teleports || [])
+    const options = TELEPORTS.filter(t => t.id !== 'camp' && activated.includes(t.id))
+    campShow({
+      title: '🌀 传送阵 · 雾灯镇', className: 'camp-teleport-modal',
+      body: `<div class="camp-character"><i>🌀</i><div><b>"传送回路正在运转。"</b><p>营地脚下的传送阵嗡嗡作响，已点亮 <b>${activated.length}/${TELEPORTS.length}</b> 处。选择一处传送，HP 回满，不消耗回合。</p></div></div>
+        ${options.length
+          ? `<div class="camp-grid">${options.map(t => `<button class="camp-opt camp-opt-teleport" data-tp="${t.id}"><i>✨</i><span><b>${t.name}</b><small>森林深处 · 已点亮</small></span><em>传送</em></button>`).join('')}</div>`
+          : '<p class="camp-muted">还没有激活其他传送阵——去森林里找到它们，路过即可点亮。</p>'}`,
+      actions: [{ label: '返回营地', handler: () => { open() } }],
+    })
+    document.querySelectorAll('[data-tp]').forEach(btn => {
+      btn.onclick = () => {
+        const id = btn.dataset.tp
+        state.phase = 'idle'
+        campClose()
+        TeleportSystem.teleport(id)
+      }
+    })
   }
 
   function gloryHole () {
