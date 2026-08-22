@@ -212,17 +212,26 @@ window.CampSystem = (function () {
       return
     }
 
-    // 通缉犯（越狱在逃）：卫兵认出你腿间的监狱贞操锁，检查贞操装置
+    // 通缉犯（越狱在逃）：卫兵认出你是逃犯
     if (state._wanted) {
-      guardMsg('🛡️ 卫兵拦住你', `<div class="glory-section"><h3><span>“站住——监狱的锁？你是从深喉监狱逃出来的！”</span><small>卫兵一眼认出你腿间的贞操锁，挡在你面前</small></h3>
-        <p class="camp-muted">“想让我闭嘴？要么交 <b>150G</b> 封口费，要么跪下来用<b>嘴和屁股</b>把老子伺候舒坦了——锁都锁了，小穴你就别想了。”</p></div>`,
+      const lockClue = state._prisonChastity
+        ? '“站住——监狱的锁？你是从深喉监狱逃出来的！”'
+        : '“站住——你就是那个越狱的逃犯！”'
+      const lockClueSmall = state._prisonChastity
+        ? '卫兵一眼认出你腿间的贞操锁，挡在你面前'
+        : '卫兵对照通缉令，一眼认出你就是越狱的逃犯'
+      const serviceTip = state._prisonChastity
+        ? '要么跪下来用<b>嘴和屁股</b>把老子伺候舒坦了——锁都锁了，小穴你就别想了。'
+        : '要么跪下来把老子伺候舒坦了——销案底的事，找队长去。'
+      guardMsg('🛡️ 卫兵拦住你', `<div class="glory-section"><h3><span>${lockClue}</span><small>${lockClueSmall}</small></h3>
+        <p class="camp-muted">“想让我闭嘴？要么交 <b>150G</b> 封口费，${serviceTip}”</p></div>`,
         [
           ...(state.gold >= 150 ? [{ label: '💸 交 150G 封口费', cls: 'btn-primary', handler: () => {
             state.gold -= 150
             EventBus.emit('ui:log', { text: '💸 交了 150G 封口费，卫兵让开道放你出城。', type: 'danger' })
             EventBus.emit('state:changed', state); Dialog.close(); doLeaveCamp()
           } }] : []),
-          { label: '👄🍑 服务卫兵', cls: 'btn-danger', handler: () => { Dialog.close(); guardPrisonChastityService() } },
+          { label: state._prisonChastity ? '👄🍑 服务卫兵' : '👄 服务卫兵', cls: 'btn-danger', handler: () => { Dialog.close(); guardPrisonChastityService() } },
         ])
       return
     }
@@ -282,14 +291,19 @@ window.CampSystem = (function () {
     }
   }
 
-  /** 佩戴监狱贞操锁出城：卫兵检查，用嘴和屁股伺候（小穴被锁） */
+  /** 通缉犯出城被卫兵抓：用身体伺候（佩戴贞操锁则只能嘴和屁股） */
   async function guardPrisonChastityService () {
     const state = State.get()
+    const holeDesc = ChastitySystem.isWorn()
+      ? '卫兵把你按在城门边，从背后狠狠操进你的菊穴（贞操锁下只能走后门）'
+      : state.gender !== 'male'
+        ? '卫兵把你按在城门边，抬起你的腿，狠狠操进你的小穴'
+        : '卫兵把你按在城门边，从背后狠狠操进你的菊穴'
     let failed = false
     if (typeof BattleUI !== 'undefined' && BattleUI.showTaskDialog) {
       const steps = [
         { desc: '你跪在卫兵腿间，含住他的粗鸡巴卖力口交，一次次深喉吞到底', bpm: 0, seconds: 30 },
-        { desc: '卫兵把你按在城门边，从背后狠狠操进你的菊穴（贞操锁下只能走后门）', bpm: 90, seconds: 30 },
+        { desc: holeDesc, bpm: 90, seconds: 30 },
       ]
       for (let i = 0; i < steps.length; i++) {
         const f = await BattleUI.showTaskDialog({
@@ -1622,7 +1636,6 @@ window.CampSystem = (function () {
     // 服务完成：签订契约 + 解锁
     state.gold -= 500
     state._prisonChastity = false
-    state._wanted = false   // 锁已取下，不再被认作逃犯
     state._freeMeatBrand = true
     state._blacksmithContract = true   // 永久契约：以后每次进铺子都要先服务
     if (StatusSystem.has('chastity')) StatusSystem.remove('chastity')
@@ -1631,7 +1644,7 @@ window.CampSystem = (function () {
     Dialog.show({
       title: '🔓 契约签订 · 解锁完成', className: 'camp-tavern-modal',
       body: `<div class="camp-character"><i>🔨</i><div><b>“成了。锁开了，契约也签了。”</b><p>铁匠拍拍你的屁股："记住，往后每次进我这铺子，都得先伺候我一顿——这是你自己签的。"</p></div></div>
-        <p class="camp-footnote">你的大腿上烙下了<b>免费肉便器</b>，监狱贞操装备已取下。</p>`,
+        <p class="camp-footnote">你的大腿上烙下了<b>免费肉便器</b>，监狱贞操装备已取下。<br>不过——越狱的通缉可没消：<b>只有守卫队队长能销案底</b>。</p>`,
       actions: [
         { label: '进店', cls: 'btn-primary', handler: () => { Dialog.close(); blacksmithShop() } },
       ],
@@ -1748,9 +1761,15 @@ window.CampSystem = (function () {
   /** 通缉犯见队长：越狱在逃，被队长当场认出来要惩罚 */
   function captainWanted () {
     const state = State.get()
+    const lockLine = state._prisonChastity
+      ? '“站住。你腿间那把锁——监狱的货。”<br>队长眯起眼睛，猛地拍桌而起："越狱？敢在我的地盘上逃？"'
+      : '“站住。通缉令上那个越狱的，是你吧？”<br>队长眯起眼睛，猛地拍桌而起："我亲手画押的越狱犯，敢大摇大摆来见我？"'
+    const settleLine = state._prisonChastity
+      ? '他盯着你："两个选择：交 <b>300G</b> 我替你压下去，或者跪下来把老子伺候舒坦了。否则——我现在就把你押回深喉监狱。"'
+      : '他盯着你："两个选择：交 <b>300G</b> 我替你销案底，或者跪下来把老子伺候舒坦了。否则——我现在就重新把你收监。"'
     campShow({
       title: '🛡️ 守卫队队长 · 通缉', className: 'camp-tavern-modal captain-wanted-modal',
-      body: `<div class="camp-character"><i>🛡️</i><div><b>“站住。你腿间那把锁——监狱的货。”</b><p>队长眯起眼睛，猛地拍桌而起："越狱？敢在我的地盘上逃？"<br>他盯着你："两个选择：交 <b>300G</b> 我替你压下去，或者跪下来把老子伺候舒坦了。否则——我现在就把你押回深喉监狱。"</p></div></div>`,
+      body: `<div class="camp-character"><i>🛡️</i><div><b>${lockLine}</b><p>${settleLine}</p></div></div>`,
       actions: [
         ...(state.gold >= 300 ? [{ label: '💸 交 300G 销案底', cls: 'btn-primary', handler: () => {
           state.gold -= 300
