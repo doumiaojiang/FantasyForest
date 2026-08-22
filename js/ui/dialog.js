@@ -173,22 +173,36 @@ window.Dialog = (function () {
     const shopRaw = tile && tile.raw
     const isPotioneer = shopRaw === '道具商'
     const isBlacksmith = shopRaw === '铁匠铺'
+    const ownedEquipment = state.ownedEquipment || []
+    const hasMasterPrerequisites = ['sharp_rock', 'rusty_knife', 'basic_sword'].every(id => ownedEquipment.includes(id))
+    const itemIcons = {
+      ale: '🍺', antidote: '🧪', bandaid: '🩹', barrier_spell: '🔮', green_herb: '🌿', orb_of_power: '🔵', awakening: '☀️', special_cream: '🧴',
+      butt_plug: '🔴', big_butt_plug: '🟣', vibrator_egg: '🥚', vibrating_dildo: '💗',
+      sharp_rock: '🪨', rusty_knife: '🗡️', basic_sword: '⚔️', master_sword: '✨',
+      sacrificial_necklace: '📿', health_bracelet: '💚', ring_of_love: '💍', seal_of_resilience: '🛡️',
+    }
     let html = '<div class="shop-grid">'
 
     const renderItem = (item) => {
-      const price = isHalf ? Math.floor(item.price / 2) : item.price
+      const regularPrice = isHalf ? Math.floor(item.price / 2) : item.price
+      let price = regularPrice
+      if (state._freeUpgrade && item.type === 'weapon' && item.id !== 'master_sword') price = 0
+      if (state._freeUpgrade && item.id === 'master_sword' && hasMasterPrerequisites) price = Math.max(0, regularPrice - 500)
       const owned = item.type === 'consumable' ? (state.inventory.consumables[item.id] || 0)
-        : (state.ownedEquipment || []).includes(item.id) ? 1 : 0
+        : ownedEquipment.includes(item.id) ? 1 : 0
       const equipped = item.type === 'weapon' ? (state.inventory.weapon === item.id)
         : item.type === 'accessory' ? ((state.inventory.accessories || []).includes(item.id))
         : false
       const stockCount = stock[item.id]
       const canBuy = item.type === 'consumable' ? (stockCount > 0) : (owned === 0)
+      const locked = item.id === 'master_sword' && !owned && !hasMasterPrerequisites
+      const unaffordable = !owned && canBuy && !locked && state.gold < price
+      const unavailable = (!owned && !canBuy) || locked || unaffordable
 
       let buttonHtml = ''
       if (item.type === 'consumable') {
         buttonHtml = canBuy
-          ? `<button class="btn btn-primary btn-buy shop-btn" data-id="${item.id}">购买</button>`
+          ? `<button class="btn btn-primary btn-buy shop-btn" data-id="${item.id}" ${unaffordable ? 'disabled' : ''}>${unaffordable ? '金币不足' : '购买'}</button>`
           : `<span class="shop-item-status is-danger">售罄</span>`
       } else if (equipped) {
         // 武器：状态标签已显示“使用中”，按钮置灰；饰品显示“取下”
@@ -199,13 +213,15 @@ window.Dialog = (function () {
         // 已购但未装备：可重新装备
         buttonHtml = `<button class="btn btn-success btn-equip shop-btn" data-id="${item.id}">装备</button>`
       } else {
-        buttonHtml = `<button class="btn btn-primary btn-buy shop-btn" data-id="${item.id}">购买</button>`
+        buttonHtml = `<button class="btn btn-primary btn-buy shop-btn" data-id="${item.id}" ${locked || unaffordable ? 'disabled' : ''}>${locked ? '尚未解锁' : unaffordable ? '金币不足' : '购买'}</button>`
       }
 
       return `
-        <div class="shop-item">
-          <div class="shop-item-head"><b>${item.name}</b> ${isHalf ? `<s>${item.price}G</s>` : ''} <span class="shop-price">${price}G</span></div>
-          <div class="shop-item-desc">${item.desc}</div>
+        <article class="shop-item${unavailable ? ' is-unavailable' : ''}${equipped || owned ? ' is-owned' : ''}">
+          <div class="shop-item-main"><span class="shop-item-icon">${itemIcons[item.id] || (item.type === 'weapon' ? '⚔️' : item.type === 'accessory' ? '📿' : '🎒')}</span><div>
+            <div class="shop-item-head"><b>${item.name}</b> ${(isHalf || price !== regularPrice) && price > 0 ? `<s>${item.price}G</s>` : ''} <span class="shop-price">${price === 0 ? '免费' : `${price}G`}</span></div>
+            <div class="shop-item-desc">${item.desc}</div>
+          </div></div>
           ${item.type === 'consumable'
             ? `<div class="shop-item-meta">
                 <span>🎒 已有 <b>${owned}</b></span>
@@ -213,8 +229,9 @@ window.Dialog = (function () {
               </div>`
             : equipped ? `<div class="shop-item-status is-ok">${item.type === 'accessory' ? '穿戴中' : '使用中'}</div>`
               : owned ? `<div class="shop-item-status is-ok">已拥有</div>` : ''}
+          ${locked ? '<div class="shop-item-lock">🔒 需要先拥有尖石、锈刀和基础剑</div>' : ''}
           ${buttonHtml}
-        </div>`
+        </article>`
     }
 
     // 消耗品（排除商店不出售的特殊物品：升级材料、小鹿树枝、卫兵免检查卷；女性专用塞入物男性不可见）
@@ -235,27 +252,30 @@ window.Dialog = (function () {
     // 全裸时显示"买回衣服"选项
     let clothesBtn = ''
     if (StatusSystem.has('naked')) {
+      const canBuyClothes = state.gold >= 200
       clothesBtn = `
-        <div class="shop-alert shop-alert--danger">
+        <div class="shop-alert shop-alert--danger${canBuyClothes ? '' : ' is-unavailable'}">
           <div class="shop-alert-title">👙 你正处于全裸状态！</div>
-          <button class="btn btn-danger" id="btn-buy-clothes">👕 买回衣服（200G）</button>
+          <button class="btn btn-danger" id="btn-buy-clothes" ${canBuyClothes ? '' : 'disabled'}>👕 ${canBuyClothes ? '买回衣服（200G）' : '金币不足（需要 200G）'}</button>
         </div>`
     }
 
     // 佣兵死亡时显示"复活"选项
     let mercBtn = ''
     if (state._mercenary && state._mercenary.dead) {
+      const canRevive = state.gold >= 50
       mercBtn = `
-        <div class="shop-alert shop-alert--success">
+        <div class="shop-alert shop-alert--success${canRevive ? '' : ' is-unavailable'}">
           <div class="shop-alert-title">💀 ${state._mercenary.icon} ${state._mercenary.name} 战死了！</div>
-          <button class="btn btn-primary" id="btn-revive-merc">💚 复活佣兵（50G）</button>
+          <button class="btn btn-primary" id="btn-revive-merc" ${canRevive ? '' : 'disabled'}>💚 ${canRevive ? '复活佣兵（50G）' : '金币不足（需要 50G）'}</button>
         </div>`
     }
 
     const shopTitle = isPotioneer ? '🧪 道具商' : isBlacksmith ? '🔨 铁匠铺' : '🏪 旅行商店'
     Dialog.show({
       title: `${shopTitle} ${isHalf ? '(半价优惠)' : ''}`,
-      body: `<div class="shop-gold">金币: <b>${state.gold}G</b></div>${clothesBtn}${mercBtn}${html}`,
+      className: `shop-modal ${isBlacksmith ? 'shop-modal-blacksmith' : isPotioneer ? 'shop-modal-potion' : 'shop-modal-travel'}`,
+      body: `<section class="shop-hero"><span>${isBlacksmith ? '🔨' : isPotioneer ? '🧪' : '🏪'}</span><div><small>${isBlacksmith ? 'FORGE & ARMORY' : isPotioneer ? 'FOREST APOTHECARY' : 'TRAVELING GOODS'}</small><b>${isBlacksmith ? '为下一场战斗换件趁手装备。' : isPotioneer ? '药剂、咒术与旅途补给。' : '森林里能买到的东西都在这里。'}</b></div><strong>💎 ${state.gold}G</strong></section>${isHalf ? '<div class="shop-sale">🏷️ 普通难度停格优惠 · 本店商品半价</div>' : ''}${clothesBtn}${mercBtn}${html}`,
       actions: [
         { label: '离开商店', handler: () => { close(); ShopSystem.close() } },
       ],

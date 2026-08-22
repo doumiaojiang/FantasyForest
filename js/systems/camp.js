@@ -3168,7 +3168,7 @@ window.CampSystem = (function () {
           const has = owned[g.id]
           const price = Math.ceil(g.price * (1 - disc))
           const canBuy = state.gold >= price
-          return `<button class="merchant-item${has ? ' is-owned' : ''}${!has && !canBuy ? ' is-unaffordable' : ''}" data-goods="${g.id}" ${has ? 'disabled' : ''}>
+          return `<button class="merchant-item${has ? ' is-owned' : ''}${!has && !canBuy ? ' is-unaffordable' : ''}" data-goods="${g.id}" ${has || !canBuy ? 'disabled' : ''}>
             <span class="merchant-item-icon">${g.icon}</span><span class="merchant-item-info"><b>${g.name}</b><small>${g.desc}</small></span>
             <span class="merchant-item-price">${has ? '✓ 已拥有' : `<b>${price}G</b>${disc > 0 ? `<s>${g.price}G</s>` : ''}`}</span>
           </button>`
@@ -3337,13 +3337,16 @@ window.CampSystem = (function () {
     const state = State.get()
     campShow({
       title: '🍷 吧台酒单', className: 'glory-modal',
-      body: `<div class="glory-section"><h3><span>想喝点什么？</span><small>喝完有劲，但也有代价</small></h3>
-        <div class="drink-list">${DRINKS.map(d => `
-          <button class="drink-option" data-drink="${d.id}">
+      body: `<div class="drink-wallet"><span>🍷 雾灯酒馆 · 吧台酒单</span><strong>💎 ${state.gold}G</strong></div><div class="glory-section"><h3><span>想喝点什么？</span><small>喝完有劲，但也有代价</small></h3>
+        <div class="drink-list">${DRINKS.map(d => {
+          const canBuy = state.gold >= d.price
+          return `
+          <button class="drink-option${canBuy ? '' : ' is-unaffordable'}" data-drink="${d.id}" ${canBuy ? '' : 'disabled'}>
             <span class="drink-emoji">${d.id === 'beer' ? '🍺' : d.id === 'liquor' ? '🥃' : '🍷'}</span>
             <span class="drink-info"><b>${d.name}</b><small>${d.desc}</small></span>
-            <span class="drink-price">${d.price}G</span>
-          </button>`).join('')}</div></div>`,
+            <span class="drink-price">${canBuy ? `${d.price}G` : '金币不足'}</span>
+          </button>`
+        }).join('')}</div></div>`,
       actions: [{ label: '返回老板娘', handler: () => { Dialog.close(); tavernBarkeep() } }],
     })
     document.querySelectorAll('[data-drink]').forEach(btn => {
