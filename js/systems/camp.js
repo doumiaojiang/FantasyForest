@@ -1788,33 +1788,45 @@ window.CampSystem = (function () {
     })
   }
 
-  /** 通缉求情：口交 30 秒，完成销案底，失败押回监狱 */
+  /** 通缉求情：口交 1 分钟 + 深喉 10 次 + 肛交/性交 1 分钟，完成销案底，失败押回监狱 */
   async function captainWantedService () {
     const state = State.get()
+    const holeDesc = ChastitySystem.isWorn()
+      ? '队长把你按在桌上，从背后狠狠操进你的菊穴（贞操锁下只能走后门）'
+      : state.gender !== 'male'
+        ? '队长把你按在桌上，抬起你的腿，狠狠操进你的小穴'
+        : '队长把你按在桌上，从背后狠狠操进你的菊穴'
     let failed = false
     if (typeof BattleUI !== 'undefined' && BattleUI.showTaskDialog) {
-      const f = await BattleUI.showTaskDialog({
-        enemyName: '🛡️ 守卫队队长',
-        attackName: '跪着口交销案',
-        desc: '你跪在队长胯下，卖力地为他口交 30 秒，含着鸡巴含到嗓子眼，乞求他把通缉名单上的名字划掉',
-        bpm: 0,
-        seconds: 30,
-        dmg: 0,
-        noDamage: true,
-        dildoName: '队长那根粗壮的鸡巴',
-      })
-      failed = f
+      const steps = [
+        { desc: '你跪在队长胯下，卖力地为他口交 1 分钟，含着鸡巴含到嗓子眼', bpm: 0, seconds: 60 },
+        { desc: '保持深喉 30 秒，鸡巴顶在嗓子眼里不许动', bpm: 0, seconds: 30 },
+        { desc: `${holeDesc}，90 BPM 持续 1 分钟，被他操得浪叫连连`, bpm: 90, seconds: 60 },
+      ]
+      for (let i = 0; i < steps.length; i++) {
+        const f = await BattleUI.showTaskDialog({
+          enemyName: `🛡️ 守卫队队长（第 ${i + 1}/3 段）`,
+          attackName: '跪着求情销案',
+          desc: steps[i].desc,
+          bpm: steps[i].bpm || 0,
+          seconds: steps[i].seconds || 0,
+          dmg: 0,
+          noDamage: true,
+          dildoName: '队长那根粗壮的鸡巴',
+        })
+        if (f) { failed = true; break }
+      }
     } else {
-      failed = !confirm('给队长口交 30 秒销案底。')
+      failed = !confirm('给队长服务：口交 1 分钟 + 深喉 10 次 + 肛交/性交 1 分钟销案底。')
     }
     if (failed) {
-      EventBus.emit('ui:log', { text: '⛓️ 你口交到一半，队长嫌你敷衍——直接把你押回了深喉监狱！', type: 'danger' })
+      EventBus.emit('ui:log', { text: '⛓️ 你伺候到一半，队长嫌你敷衍——直接把你押回了深喉监狱！', type: 'danger' })
       state._prisonEscapePenalty = (state._prisonEscapePenalty || 0) + 150
       enterPrison()
       return
     }
     state._wanted = false
-    EventBus.emit('ui:log', { text: '🛡️ 队长被你伺候舒服了，挥挥手："行，名字划了。别让我再看见这把锁。"', type: 'good' })
+    EventBus.emit('ui:log', { text: '🛡️ 队长被你伺候舒服了，挥挥手："行，名字划了。别让我再看见你这张脸。"', type: 'good' })
     EventBus.emit('state:changed', state)
     tavernCaptain()
   }
