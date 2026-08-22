@@ -194,6 +194,9 @@ window.CampSystem = (function () {
   /** 出城卫兵事件（取得妓女许可证后触发） */
   function guardEncounter () {
     const state = State.get()
+    const guardMsg = (title, body, actions) => {
+      Dialog.show({ title: '🛡️ 城门口 · 卫兵', className: 'glory-modal', body, actions })
+    }
     // 持有出城免检查卷：直接放行并消耗一张
     const guardPassCount = (state.inventory.consumables.guard_pass || 0)
     if (guardPassCount > 0) {
@@ -208,10 +211,30 @@ window.CampSystem = (function () {
       })
       return
     }
-    const roll = Dice.rollZ()
-    const guardMsg = (title, body, actions) => {
-      Dialog.show({ title: '🛡️ 城门口 · 卫兵', className: 'glory-modal', body, actions })
+
+    // 佩戴监狱贞操锁：卫兵认出你是越狱逃犯，检查贞操装置
+    if (state._prisonChastity) {
+      if (state._prisonPardon) {
+        guardMsg('🛡️ 卫兵拦住你', `<div class="glory-section"><h3><span>“……监狱的锁？队长的担保名单里有你。”</span><small>卫兵盯着你腿间的贞操锁，悻悻收回手</small></h3>
+          <p class="camp-muted">“队长打过招呼，放你走吧。不过戴着这玩意儿到处晃，迟早露馅。”</p></div>`,
+          [{ label: '出城', cls: 'btn-primary', handler: () => { Dialog.close(); doLeaveCamp() } }])
+        return
+      }
+      // 无豁免：要封口费，或用嘴和屁股伺候（小穴被锁）
+      guardMsg('🛡️ 卫兵拦住你', `<div class="glory-section"><h3><span>“站住——监狱的锁？你是从深喉监狱逃出来的！”</span><small>卫兵一眼认出你腿间的贞操锁，挡在你面前</small></h3>
+        <p class="camp-muted">“想让我闭嘴？要么交 <b>150G</b> 封口费，要么跪下来用<b>嘴和屁股</b>把老子伺候舒坦了——锁都锁了，小穴你就别想了。”</p></div>`,
+        [
+          ...(state.gold >= 150 ? [{ label: '💸 交 150G 封口费', cls: 'btn-primary', handler: () => {
+            state.gold -= 150
+            EventBus.emit('ui:log', { text: '💸 交了 150G 封口费，卫兵让开道放你出城。', type: 'danger' })
+            EventBus.emit('state:changed', state); Dialog.close(); doLeaveCamp()
+          } }] : []),
+          { label: '👄🍑 服务卫兵', cls: 'btn-danger', handler: () => { Dialog.close(); guardPrisonChastityService() } },
+        ])
+      return
     }
+
+    const roll = Dice.rollZ()
 
     // 卫兵事件概率表（用百分比模拟）
     // 10% 罚款100 / 50% 放行 / 5% 没收衣服 / 15% 口交1分钟 / 15% 肛交1分钟 / 5% 给血药
@@ -264,6 +287,41 @@ window.CampSystem = (function () {
           EventBus.emit('state:changed', state); Dialog.close(); doLeaveCamp()
         } }])
     }
+  }
+
+  /** 佩戴监狱贞操锁出城：卫兵检查，用嘴和屁股伺候（小穴被锁） */
+  async function guardPrisonChastityService () {
+    const state = State.get()
+    let failed = false
+    if (typeof BattleUI !== 'undefined' && BattleUI.showTaskDialog) {
+      const steps = [
+        { desc: '你跪在卫兵腿间，含住他的粗鸡巴卖力口交，一次次深喉吞到底', bpm: 0, seconds: 30 },
+        { desc: '卫兵把你按在城门边，从背后狠狠操进你的菊穴（贞操锁下只能走后门）', bpm: 90, seconds: 30 },
+      ]
+      for (let i = 0; i < steps.length; i++) {
+        const f = await BattleUI.showTaskDialog({
+          enemyName: `🛡️ 卫兵（第 ${i + 1}/2 段）`,
+          attackName: '封口服务',
+          desc: steps[i].desc,
+          bpm: steps[i].bpm || 0,
+          seconds: steps[i].seconds || 0,
+          dmg: 0,
+          noDamage: true,
+          dildoName: '卫兵那根粗壮的鸡巴',
+        })
+        if (f) { failed = true; break }
+      }
+    } else {
+      failed = !confirm('服务卫兵：口交 + 肛交（完成代表伺候完了）。')
+    }
+    if (failed) {
+      EventBus.emit('ui:log', { text: '⛓️ 你伺候到一半停下，卫兵脸色一沉——把你押回了深喉监狱！', type: 'danger' })
+      state._prisonEscapePenalty = (state._prisonEscapePenalty || 0) + 150
+      enterPrison()
+      return
+    }
+    EventBus.emit('ui:log', { text: '💦 卫兵满意地提上裤子，挥手放行："嘴和屁股都不赖，走吧。"', type: 'good' })
+    doLeaveCamp()
   }
 
   /** 卫兵口交任务 */
