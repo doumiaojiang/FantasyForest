@@ -173,7 +173,7 @@ window.Dialog = (function () {
     const shopRaw = tile && tile.raw
     const isPotioneer = shopRaw === '道具商'
     const isBlacksmith = shopRaw === '铁匠铺'
-    let html = '<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">'
+    let html = '<div class="shop-grid">'
 
     const renderItem = (item) => {
       const price = isHalf ? Math.floor(item.price / 2) : item.price
@@ -188,31 +188,31 @@ window.Dialog = (function () {
       let buttonHtml = ''
       if (item.type === 'consumable') {
         buttonHtml = canBuy
-          ? `<button class="btn btn-primary btn-buy" style="margin-top:4px;font-size:.8rem;padding:6px 12px" data-id="${item.id}">购买</button>`
-          : `<span style="color:var(--danger);font-size:.8rem">售罄</span>`
+          ? `<button class="btn btn-primary btn-buy shop-btn" data-id="${item.id}">购买</button>`
+          : `<span class="shop-item-status is-danger">售罄</span>`
       } else if (equipped) {
         // 武器：状态标签已显示“使用中”，按钮置灰；饰品显示“取下”
         buttonHtml = item.type === 'accessory'
-          ? `<button class="btn btn-danger btn-unequip" style="margin-top:4px;font-size:.8rem;padding:6px 12px" data-id="${item.id}">取下</button>`
-          : `<span style="color:var(--ok);font-size:.8rem">装备中</span>`
+          ? `<button class="btn btn-danger btn-unequip shop-btn" data-id="${item.id}">取下</button>`
+          : `<span class="shop-item-status is-ok">装备中</span>`
       } else if (owned) {
         // 已购但未装备：可重新装备
-        buttonHtml = `<button class="btn btn-success btn-equip" style="margin-top:4px;font-size:.8rem;padding:6px 12px" data-id="${item.id}">装备</button>`
+        buttonHtml = `<button class="btn btn-success btn-equip shop-btn" data-id="${item.id}">装备</button>`
       } else {
-        buttonHtml = `<button class="btn btn-primary btn-buy" style="margin-top:4px;font-size:.8rem;padding:6px 12px" data-id="${item.id}">购买</button>`
+        buttonHtml = `<button class="btn btn-primary btn-buy shop-btn" data-id="${item.id}">购买</button>`
       }
 
       return `
-        <div style="background:var(--panel-alt);padding:8px;border-radius:8px;border:1px solid var(--border)">
-          <div><b>${item.name}</b> ${isHalf ? `<s>${item.price}G</s>` : ''} <span style="color:var(--gold)">${price}G</span></div>
-          <div style="font-size:.8rem;color:var(--text-dim)">${item.desc}</div>
+        <div class="shop-item">
+          <div class="shop-item-head"><b>${item.name}</b> ${isHalf ? `<s>${item.price}G</s>` : ''} <span class="shop-price">${price}G</span></div>
+          <div class="shop-item-desc">${item.desc}</div>
           ${item.type === 'consumable'
-            ? `<div style="display:flex;gap:6px;font-size:.72rem;color:var(--text-dim);margin-top:2px">
-                <span>🎒 已有 <b style="color:var(--text)">${owned}</b></span>
-                <span>🛒 可购 <b style="color:${stockCount > 0 ? 'var(--ok)' : 'var(--danger)'}">${stockCount}</b></span>
+            ? `<div class="shop-item-meta">
+                <span>🎒 已有 <b>${owned}</b></span>
+                <span>🛒 可购 <b class="${stockCount > 0 ? 'is-ok' : 'is-danger'}">${stockCount}</b></span>
               </div>`
-            : equipped ? `<div style="color:var(--ok);font-size:.8rem">${item.type === 'accessory' ? '穿戴中' : '使用中'}</div>`
-              : owned ? `<div style="color:var(--ok);font-size:.8rem">已拥有</div>` : ''}
+            : equipped ? `<div class="shop-item-status is-ok">${item.type === 'accessory' ? '穿戴中' : '使用中'}</div>`
+              : owned ? `<div class="shop-item-status is-ok">已拥有</div>` : ''}
           ${buttonHtml}
         </div>`
     }
@@ -226,7 +226,7 @@ window.Dialog = (function () {
     }
     // 装备（铁匠铺专售）
     if (!isPotioneer) {
-      html += '</div><hr style="border-color:var(--border);margin:10px 0"><h4>装备</h4><div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">'
+      html += '</div><hr class="shop-divider"><h4 class="shop-section-title">装备</h4><div class="shop-grid">'
       ITEMS.weapons.forEach(item => { html += renderItem(item) })
       ITEMS.accessories.forEach(item => { html += renderItem(item) })
     }
@@ -236,8 +236,8 @@ window.Dialog = (function () {
     let clothesBtn = ''
     if (StatusSystem.has('naked')) {
       clothesBtn = `
-        <div style="background:rgba(255,107,107,.1);border:1px solid var(--danger);border-radius:8px;padding:10px;margin-bottom:10px;text-align:center">
-          <div style="color:var(--danger);font-size:.9rem;margin-bottom:6px">👙 你正处于全裸状态！</div>
+        <div class="shop-alert shop-alert--danger">
+          <div class="shop-alert-title">👙 你正处于全裸状态！</div>
           <button class="btn btn-danger" id="btn-buy-clothes">👕 买回衣服（200G）</button>
         </div>`
     }
@@ -246,8 +246,8 @@ window.Dialog = (function () {
     let mercBtn = ''
     if (state._mercenary && state._mercenary.dead) {
       mercBtn = `
-        <div style="background:rgba(122,172,120,.1);border:1px solid #6fa873;border-radius:8px;padding:10px;margin-bottom:10px;text-align:center">
-          <div style="color:#d9eccb;font-size:.9rem;margin-bottom:6px">💀 ${state._mercenary.icon} ${state._mercenary.name} 战死了！</div>
+        <div class="shop-alert shop-alert--success">
+          <div class="shop-alert-title">💀 ${state._mercenary.icon} ${state._mercenary.name} 战死了！</div>
           <button class="btn btn-primary" id="btn-revive-merc">💚 复活佣兵（50G）</button>
         </div>`
     }
@@ -255,7 +255,7 @@ window.Dialog = (function () {
     const shopTitle = isPotioneer ? '🧪 道具商' : isBlacksmith ? '🔨 铁匠铺' : '🏪 旅行商店'
     Dialog.show({
       title: `${shopTitle} ${isHalf ? '(半价优惠)' : ''}`,
-      body: `<div style="margin-bottom:8px;color:var(--text-dim)">金币: <b style="color:var(--gold)">${state.gold}G</b></div>${clothesBtn}${mercBtn}${html}`,
+      body: `<div class="shop-gold">金币: <b>${state.gold}G</b></div>${clothesBtn}${mercBtn}${html}`,
       actions: [
         { label: '离开商店', handler: () => { close(); ShopSystem.close() } },
       ],

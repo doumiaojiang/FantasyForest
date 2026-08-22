@@ -88,7 +88,16 @@ body {
 
 /* 营地页面面板 */
 .camp-panel { overflow: visible; grid-column: 1; grid-row: 1; }
-.camp-panel .camp-panel-inner.modal-box { max-width: 100%; box-shadow: none; }
+.camp-panel .camp-panel-inner.modal-box {
+  max-width: 100%;
+  max-height: none;
+  overflow: visible;
+  background: transparent;
+  border: none;
+  padding: 0;
+  box-shadow: none;
+  animation: none;
+}
 .camp-panel .camp-panel-inner .modal-title { margin: 0 0 12px; color: #f3e4d6; font-size: 1.05rem; }
 .camp-panel .camp-panel-inner .modal-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 14px; }
 
@@ -2334,6 +2343,9 @@ body:has(.age-gate:not(.age-gate-hidden)) { overflow: hidden; }
 .camp-opt-glory em { background: rgba(192,116,255,.12); color: #d4a8ff; }
 .camp-opt-tavern em { background: rgba(243,186,83,.14); color: #f5cd7e; }
 .camp-opt-deer em { background: rgba(239,155,69,.13); color: #f0bd82; }
+.camp-opt-potion em { background: rgba(87,181,128,.14); color: #7fd8a0; }
+.camp-opt-blacksmith em { background: rgba(140,150,160,.18); color: #c8d0d8; }
+.camp-opt-prison em { background: rgba(180,80,80,.16); color: #e8a0a0; }
 .camp-opt:hover, .camp-opt:focus-visible { transform: translateY(-2px); border-color: rgba(239,155,69,.55); background: rgba(70, 42, 25, .46); outline: none; }
 .camp-footnote, .camp-muted { margin-top: 10px; color: #8f8987; font-size: .67rem; line-height: 1.5; text-align: center; }
 
@@ -2553,6 +2565,8 @@ body:has(.age-gate:not(.age-gate-hidden)) { overflow: hidden; }
    ========================================================= */
 .camp-tavern-modal { max-width: 590px; }
 .modal-box.camp-tavern-modal { border-color: rgba(212, 151, 68, .34); background: linear-gradient(155deg, rgba(54, 29, 27, .98), rgba(24, 18, 24, .99) 55%, rgba(22, 29, 25, .98)); }
+.blacksmith-modal { max-width: 590px; }
+.modal-box.blacksmith-modal { border-color: rgba(160, 160, 165, .35); background: linear-gradient(155deg, rgba(45, 45, 50, .98), rgba(30, 30, 35, .99) 55%, rgba(55, 35, 25, .97)); box-shadow: 0 24px 70px #000c, inset 0 1px rgba(255, 180, 80, .08); }
 .tavern-hero { display: grid; grid-template-columns: 62px 1fr; align-items: center; gap: 13px; padding: 14px; border: 1px solid rgba(228,171,82,.2); border-radius: 12px; background: radial-gradient(circle at 10% 75%, rgba(242,154,58,.2), transparent 28%), linear-gradient(125deg, rgba(104,47,34,.26), rgba(25,39,32,.38)); }
 .tavern-lamp { width: 58px; height: 58px; display: grid; place-items: center; border-radius: 50%; background: radial-gradient(circle, rgba(255,196,86,.22), transparent 68%); font-size: 1.9rem; filter: drop-shadow(0 5px 10px rgba(255,157,49,.35)); }
 .tavern-hero small { color: #e1aa5c; font-size: .56rem; font-weight: 800; letter-spacing: .14em; }
@@ -2779,3 +2793,33 @@ body:has(.age-gate:not(.age-gate-hidden)) { overflow: hidden; }
 .prison-progress-bar { height: 10px; border-radius: 6px; background: rgba(255,255,255,.07); overflow: hidden; }
 .prison-progress-bar i { display: block; height: 100%; border-radius: 6px; background: linear-gradient(90deg, #b08954, #e8c58a); transition: width .3s ease; }
 .prison-progress em { display: block; margin-top: 5px; color: #8a7a64; font-size: .58rem; font-style: normal; }
+
+/* 商店统一样式 */
+.shop-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.shop-item { background: var(--panel-alt); padding: 8px; border-radius: 8px; border: 1px solid var(--border); display: flex; flex-direction: column; gap: 4px; }
+.shop-item-head { display: flex; align-items: baseline; gap: 6px; flex-wrap: wrap; }
+.shop-item-head b { color: var(--text); }
+.shop-item-head s { color: var(--text-dim); font-size: .78rem; }
+.shop-item-head .shop-price { color: var(--gold); font-weight: 700; }
+.shop-item-desc { font-size: .8rem; color: var(--text-dim); line-height: 1.4; }
+.shop-item-meta { display: flex; gap: 6px; font-size: .72rem; color: var(--text-dim); margin-top: 2px; }
+.shop-item-meta b { font-weight: 700; }
+.shop-item-meta .is-ok { color: var(--ok); }
+.shop-item-meta .is-danger { color: var(--danger); }
+.shop-item-status { font-size: .8rem; }
+.shop-item-status.is-ok { color: var(--ok); }
+.shop-item-status.is-danger { color: var(--danger); }
+.shop-gold { margin-bottom: 8px; color: var(--text-dim); }
+.shop-gold b { color: var(--gold); }
+.shop-divider { border-color: var(--border); margin: 10px 0; }
+.shop-section-title { margin: 0 0 8px; font-size: .9rem; color: var(--text); }
+.shop-alert { border-radius: 8px; padding: 10px; margin-bottom: 10px; text-align: center; }
+.shop-alert--danger { background: rgba(255,107,107,.1); border: 1px solid var(--danger); }
+.shop-alert--success { background: rgba(122,172,120,.1); border: 1px solid #6fa873; }
+.shop-alert-title { font-size: .9rem; margin-bottom: 6px; }
+.shop-alert--danger .shop-alert-title { color: var(--danger); }
+.shop-alert--success .shop-alert-title { color: #d9eccb; }
+.shop-btn { margin-top: 4px; font-size: .8rem; padding: 6px 12px; }
+@media (max-width: 520px) {
+  .shop-grid { grid-template-columns: 1fr; }
+}

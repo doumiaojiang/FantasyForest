@@ -1081,7 +1081,6 @@ window.CampSystem = (function () {
     const state = State.get()
     state._inPrison = false
     state._prisonPoints = 0
-    state._prisonRehab = 0
     state._prisonEscapeFails = 0
     state._prisonEscapePenalty = 0
     state._prisonChastity = false   // 正常出狱：解锁监狱贞操装备
@@ -1333,7 +1332,7 @@ window.CampSystem = (function () {
     // 已签订服务契约（解锁监狱贞操装备时）：每次进铺子都要先服务铁匠
     if (state._blacksmithContract) {
       Dialog.show({
-        title: '🔨 铁匠', className: 'camp-tavern-modal',
+        title: '🔨 铁匠', className: 'blacksmith-modal',
         body: `<div class="camp-character"><i>🔨</i><div><b>“哟，签了契约的母狗来了。”</b><p>铁匠咧嘴一笑，放下锤子："规矩还记得吧？想进我的铺子，先把老子伺候舒坦了。"</p></div></div>
           <p class="camp-footnote">契约（永久）：每次进铁匠铺都要先给他<b>口交</b>，再给他<b>肛交/性交</b>。</p>`,
         actions: [
@@ -1387,7 +1386,7 @@ window.CampSystem = (function () {
   function blacksmithShop () {
     const state = State.get()
     campShow({
-      title: '🔨 铁匠铺', className: 'camp-tavern-modal',
+      title: '🔨 铁匠铺', className: 'blacksmith-modal',
       body: `<div class="camp-character"><i>🔨</i><div><b>“想看点什么？”</b><p>铁匠磨着刀，扫了你一眼："家伙什儿都在架上，自己挑。"</p></div></div>
         <div class="camp-grid">
           <button class="camp-opt" data-bs="buy"><i>🛒</i><span><b>商店</b><small>武器与饰品</small></span><em>进店</em></button>
@@ -1426,7 +1425,7 @@ window.CampSystem = (function () {
     const pool = BLACKSMITH_CHATS
     const pick = pool[Math.floor(Math.random() * pool.length)]
     campShow({
-      title: pick.title, className: 'camp-tavern-modal', body: pick.body,
+      title: pick.title, className: 'blacksmith-modal', body: pick.body,
       actions: [
         { label: '再聊聊', handler: () => { Dialog.close(); blacksmithChat() } },
         { label: '返回铁匠', handler: () => { Dialog.close(); blacksmithShop() } },
@@ -1438,7 +1437,7 @@ window.CampSystem = (function () {
   function blacksmithUnlock () {
     const state = State.get()
     campShow({
-      title: '🔓 解锁监狱贞操装备', className: 'camp-tavern-modal',
+      title: '🔓 解锁监狱贞操装备', className: 'blacksmith-modal',
       body: `<div class="camp-character"><i>🔨</i><div><b>“身上那把锁，我认得。”</b><p>铁匠盯着你腿间的贞操锁："监狱的货。想让我撬开？可以——<b>500G</b>，外加在大腿上烙上这几个字：<b>免费肉便器</b>。"</p></div></div>
         <p class="camp-footnote">但解这个锁是有条件的——你得先跟我<b>签个契约</b>：往后每次进我的铺子，都得先伺候我一顿（口交 + 肛交/性交）。</p>`,
       actions: [
