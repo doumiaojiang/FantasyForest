@@ -212,15 +212,8 @@ window.CampSystem = (function () {
       return
     }
 
-    // 佩戴监狱贞操锁：卫兵认出你是越狱逃犯，检查贞操装置
-    if (state._prisonChastity) {
-      if (state._prisonPardon) {
-        guardMsg('🛡️ 卫兵拦住你', `<div class="glory-section"><h3><span>“……监狱的锁？队长的担保名单里有你。”</span><small>卫兵盯着你腿间的贞操锁，悻悻收回手</small></h3>
-          <p class="camp-muted">“队长打过招呼，放你走吧。不过戴着这玩意儿到处晃，迟早露馅。”</p></div>`,
-          [{ label: '出城', cls: 'btn-primary', handler: () => { Dialog.close(); doLeaveCamp() } }])
-        return
-      }
-      // 无豁免：要封口费，或用嘴和屁股伺候（小穴被锁）
+    // 通缉犯（越狱在逃）：卫兵认出你腿间的监狱贞操锁，检查贞操装置
+    if (state._wanted) {
       guardMsg('🛡️ 卫兵拦住你', `<div class="glory-section"><h3><span>“站住——监狱的锁？你是从深喉监狱逃出来的！”</span><small>卫兵一眼认出你腿间的贞操锁，挡在你面前</small></h3>
         <p class="camp-muted">“想让我闭嘴？要么交 <b>150G</b> 封口费，要么跪下来用<b>嘴和屁股</b>把老子伺候舒坦了——锁都锁了，小穴你就别想了。”</p></div>`,
         [
@@ -763,6 +756,7 @@ window.CampSystem = (function () {
     const state = State.get()
     state._inPrison = true
     state._prisonPoints = 0
+    state._wanted = false   // 已被收监，不再通缉
     state.phase = 'camp'
     EventBus.emit('state:changed', state)
     // 监狱专用贞操带/贞操锁：小穴被锁死（作为装备）
@@ -824,17 +818,19 @@ window.CampSystem = (function () {
     const state = State.get()
     const roll = Math.floor(Math.random() * 100)
     if (roll < 25) {
-      // 成功越狱：出狱但贞操锁不解开
+      // 成功越狱：出狱但贞操锁不解开，且成为通缉犯
       state._inPrison = false
       state._prisonPoints = 0
       state._prisonEscapeFails = 0
       state._prisonEscapePenalty = 0
+      state._wanted = true   // 越狱 = 犯罪，出城会被卫兵查、找队长会被抓
       EventBus.emit('state:changed', state)
       Dialog.show({
         title: '🪓 越狱成功', className: 'prison-modal',
         body: `<div class="prison-intro"><div class="prison-mark" aria-hidden="true">🪓</div>
           <p>你趁着守卫换班的空隙，撬开牢门溜了出去！（掷骰 ${roll}% < 25%）</p>
-          <p>但——那把<b>贞操锁</b>还牢牢锁在你身上，钥匙只有守卫有。<br>你带着锁逃出了监狱。</p></div>`,
+          <p>但——那把<b>贞操锁</b>还牢牢锁在你身上，钥匙只有守卫有。<br>你带着锁逃出了监狱。</p>
+          <p class="prison-guard">不过逃狱是重罪：你现在是<b>通缉犯</b>——出城会被卫兵查，去找守卫队队长也会被当场认出抓回去。</p></div>`,
         actions: [
           { label: '逃回营地', cls: 'btn-primary', handler: () => { Dialog.close(); open() } },
         ],
@@ -1626,6 +1622,7 @@ window.CampSystem = (function () {
     // 服务完成：签订契约 + 解锁
     state.gold -= 500
     state._prisonChastity = false
+    state._wanted = false   // 锁已取下，不再被认作逃犯
     state._freeMeatBrand = true
     state._blacksmithContract = true   // 永久契约：以后每次进铺子都要先服务
     if (StatusSystem.has('chastity')) StatusSystem.remove('chastity')
@@ -1720,6 +1717,11 @@ window.CampSystem = (function () {
   /** 守卫队队长：军官的架子 + 卖妓女许可证（比老板娘多条路子） */
   function tavernCaptain () {
     const state = State.get()
+    // 通缉犯（越狱在逃）：队长一眼认出你腿间的监狱贞操锁
+    if (state._wanted) {
+      captainWanted()
+      return
+    }
     const hasLicense = state._prostituteLicensed
     campShow({
       title: '🛡️ 守卫队队长', className: 'camp-tavern-modal',
@@ -1741,6 +1743,61 @@ window.CampSystem = (function () {
         else if (opt === 'pardon') captainPardon()
       }
     })
+  }
+
+  /** 通缉犯见队长：越狱在逃，被队长当场认出来要惩罚 */
+  function captainWanted () {
+    const state = State.get()
+    campShow({
+      title: '🛡️ 守卫队队长 · 通缉', className: 'camp-tavern-modal captain-wanted-modal',
+      body: `<div class="camp-character"><i>🛡️</i><div><b>“站住。你腿间那把锁——监狱的货。”</b><p>队长眯起眼睛，猛地拍桌而起："越狱？敢在我的地盘上逃？"<br>他盯着你："两个选择：交 <b>300G</b> 我替你压下去，或者跪下来把老子伺候舒坦了。否则——我现在就把你押回深喉监狱。"</p></div></div>`,
+      actions: [
+        ...(state.gold >= 300 ? [{ label: '💸 交 300G 销案底', cls: 'btn-primary', handler: () => {
+          state.gold -= 300
+          state._wanted = false
+          EventBus.emit('ui:log', { text: '💸 交了 300G，队长把你从通缉名单上划掉了（锁还在身上）。', type: 'danger' })
+          EventBus.emit('state:changed', state)
+          tavernCaptain()
+        } }] : []),
+        { label: '🧎 跪下求情', cls: 'btn-danger', handler: () => { captainWantedService() } },
+        { label: '宁死不从', cls: 'btn-danger', handler: () => {
+          EventBus.emit('ui:log', { text: '⛓️ 队长一声令下，卫兵扑上来把你押回了深喉监狱！', type: 'danger' })
+          state._prisonEscapePenalty = (state._prisonEscapePenalty || 0) + 150
+          enterPrison()
+        } },
+      ],
+    })
+  }
+
+  /** 通缉求情：口交 30 秒，完成销案底，失败押回监狱 */
+  async function captainWantedService () {
+    const state = State.get()
+    let failed = false
+    if (typeof BattleUI !== 'undefined' && BattleUI.showTaskDialog) {
+      const f = await BattleUI.showTaskDialog({
+        enemyName: '🛡️ 守卫队队长',
+        attackName: '跪着口交销案',
+        desc: '你跪在队长胯下，卖力地为他口交 30 秒，含着鸡巴含到嗓子眼，乞求他把通缉名单上的名字划掉',
+        bpm: 0,
+        seconds: 30,
+        dmg: 0,
+        noDamage: true,
+        dildoName: '队长那根粗壮的鸡巴',
+      })
+      failed = f
+    } else {
+      failed = !confirm('给队长口交 30 秒销案底。')
+    }
+    if (failed) {
+      EventBus.emit('ui:log', { text: '⛓️ 你口交到一半，队长嫌你敷衍——直接把你押回了深喉监狱！', type: 'danger' })
+      state._prisonEscapePenalty = (state._prisonEscapePenalty || 0) + 150
+      enterPrison()
+      return
+    }
+    state._wanted = false
+    EventBus.emit('ui:log', { text: '🛡️ 队长被你伺候舒服了，挥挥手："行，名字划了。别让我再看见这把锁。"', type: 'good' })
+    EventBus.emit('state:changed', state)
+    tavernCaptain()
   }
 
   /** 队长求情免监狱：单一路线，避免把剧情做成开关设置 */

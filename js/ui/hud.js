@@ -95,8 +95,11 @@ function render (state) {
       }
     }
 
-    // 状态效果
-    statusEl.innerHTML = state.statuses.map(s => {
+    // 状态效果（通缉犯在最前）
+    const wantedChip = state._wanted
+      ? '<span class="status-chip active" title="通缉：越狱在逃，出城会被卫兵查，找队长会被抓">⚠️ 通缉</span>'
+      : ''
+    statusEl.innerHTML = wantedChip + state.statuses.map(s => {
       const def = STATUS_EFFECTS[s.id]
       const icon = def ? def.icon : '❓'
       const name = def ? def.name : s.id
