@@ -194,10 +194,13 @@ window.Dialog = (function () {
         : item.type === 'accessory' ? ((state.inventory.accessories || []).includes(item.id))
         : false
       const stockCount = stock[item.id]
-      const canBuy = item.type === 'consumable' ? (stockCount > 0) : (owned === 0)
-      const locked = item.id === 'master_sword' && !owned && !hasMasterPrerequisites
-      const unaffordable = !owned && canBuy && !locked && state.gold < price
-      const unavailable = (!owned && !canBuy) || locked || unaffordable
+            const canBuy = item.type === 'consumable' ? (stockCount > 0) : (owned === 0)
+            const locked = item.id === 'master_sword' && !owned && !hasMasterPrerequisites
+            // Consumables may be purchased repeatedly. Having one in the bag must not
+            // bypass the gold check; `owned` only blocks repeat purchases for equipment.
+            const purchasableKind = item.type === 'consumable' || !owned
+            const unaffordable = purchasableKind && canBuy && !locked && state.gold < price
+            const unavailable = (purchasableKind && !canBuy) || locked || unaffordable
 
       let buttonHtml = ''
       if (item.type === 'consumable') {

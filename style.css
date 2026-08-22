@@ -2690,6 +2690,8 @@ body:has(.age-gate:not(.age-gate-hidden)) { overflow: hidden; }
 }
 .blacksmith-modal { max-width: 590px; }
 .modal-box.blacksmith-modal { border-color: rgba(160, 160, 165, .35); background: linear-gradient(155deg, rgba(45, 45, 50, .98), rgba(30, 30, 35, .99) 55%, rgba(55, 35, 25, .97)); box-shadow: 0 24px 70px #000c, inset 0 1px rgba(255, 180, 80, .08); }
+.potion-modal { max-width: 590px; }
+.modal-box.potion-modal { border-color: rgba(86, 190, 134, .32); background: linear-gradient(155deg, rgba(24, 41, 36, .98), rgba(16, 19, 28, .99) 55%, rgba(30, 45, 36, .97)); box-shadow: 0 24px 70px #000c, inset 0 1px rgba(127, 216, 160, .08); }
 .tavern-hero { display: grid; grid-template-columns: 62px 1fr; align-items: center; gap: 13px; padding: 14px; border: 1px solid rgba(228,171,82,.2); border-radius: 12px; background: radial-gradient(circle at 10% 75%, rgba(242,154,58,.2), transparent 28%), linear-gradient(125deg, rgba(104,47,34,.26), rgba(25,39,32,.38)); }
 .tavern-lamp { width: 58px; height: 58px; display: grid; place-items: center; border-radius: 50%; background: radial-gradient(circle, rgba(255,196,86,.22), transparent 68%); font-size: 1.9rem; filter: drop-shadow(0 5px 10px rgba(255,157,49,.35)); }
 .tavern-hero small { color: #e1aa5c; font-size: .56rem; font-weight: 800; letter-spacing: .14em; }

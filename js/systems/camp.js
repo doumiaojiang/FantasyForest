@@ -156,9 +156,7 @@ window.CampSystem = (function () {
       btn.onclick = () => {
         const opt = btn.dataset.opt
         if (opt === 'potion') {
-          state._shopReturnToCamp = true
-          EventBus.emit('state:changed', state)
-          ShopSystem.open({ type: TILE.CAMP, raw: '道具商' })
+          potionShop()
         } else if (opt === 'blacksmith') {
           blacksmith()
         } else if (opt === 'glory') gloryHole()
@@ -1527,6 +1525,55 @@ window.CampSystem = (function () {
       EventBus.emit('ui:log', { text: '💦 铁匠泄了火，松开手："下次再跑，可没这么便宜。"', type: 'good' })
     }
     open()
+  }
+
+  /** 道具商主界面：商店 / 聊天 */
+  function potionShop () {
+    const state = State.get()
+    campShow({
+      title: '🧪 道具商', className: 'potion-modal',
+      body: `<div class="camp-character"><i>🧪</i><div><b>“要点什么？都是硬货。”</b><p>道具商掀开皮箱一角，瓶瓶罐罐叮当响："药品、药膏、还有各种塞的玩的——自己挑。"</p></div></div>
+        <div class="camp-grid">
+          <button class="camp-opt" data-ps="buy"><i>🛒</i><span><b>商店</b><small>药品与各种消耗品</small></span><em>进店</em></button>
+          <button class="camp-opt" data-ps="chat"><i>💬</i><span><b>聊天</b><small>听他唠唠进货门道</small></span><em>搭话</em></button>
+        </div>`,
+      actions: [{ label: '返回营地', handler: () => { Dialog.close(); open() } }],
+    })
+    document.querySelectorAll('[data-ps]').forEach(btn => {
+      btn.onclick = () => {
+        const opt = btn.dataset.ps
+        Dialog.close()
+        if (opt === 'buy') potionBuy()
+        else if (opt === 'chat') potionChat()
+      }
+    })
+  }
+
+  /** 进道具商商店 */
+  function potionBuy () {
+    const state = State.get()
+    state._shopReturnToCamp = true
+    EventBus.emit('state:changed', state)
+    ShopSystem.open({ type: TILE.CAMP, raw: '道具商' })
+  }
+
+  /** 道具商聊天：随机循环 */
+  const POTION_CHATS = [
+    { title: '💬 道具商 · 进货', body: `<div class="camp-character"><i>🧪</i><div><b>“我这的货，路子野得很。”</b><p>他拍了拍皮箱："药草、药膏、假阳具……都是从深山里收来的。好使。"</p></div></div>` },
+    { title: '💬 道具商 · 药草', body: `<div class="camp-character"><i>🧪</i><div><b>“森林里的药草，懂的人才知道金贵。”</b><p>他捻了捻干草："受伤了就来找我，比光挨着强。"</p></div></div>` },
+    { title: '💬 道具商 · 塞的', body: `<div class="camp-character"><i>🧪</i><div><b>“塞的玩意儿？我这也卖。”</b><p>他挤了挤眼："肛塞、跳蛋，路上防身又解闷——怪物爱这个。"</p></div></div>` },
+  ]
+  function potionChat () {
+    const state = State.get()
+    const pool = POTION_CHATS
+    const pick = pool[Math.floor(Math.random() * pool.length)]
+    campShow({
+      title: pick.title, className: 'potion-modal', body: pick.body,
+      actions: [
+        { label: '再聊聊', handler: () => { Dialog.close(); potionChat() } },
+        { label: '返回道具商', handler: () => { Dialog.close(); potionShop() } },
+      ],
+    })
   }
 
   /** 铁匠主界面：聊天 / 商店 / 解锁监狱贞操装备 */
