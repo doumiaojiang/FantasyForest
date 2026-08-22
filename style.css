@@ -88,6 +88,7 @@ body {
 
 /* 营地页面面板 */
 .camp-panel { overflow: visible; grid-column: 1; grid-row: 1; }
+.camp-panel:not(.panel-hidden) { grid-column: 1 / -1; }
 .camp-panel .camp-panel-inner.modal-box {
   max-width: 100%;
   max-height: none;
@@ -97,6 +98,9 @@ body {
   padding: 0;
   box-shadow: none;
   animation: none;
+}
+@media (min-width: 900px) {
+  .camp-grid { grid-template-columns: repeat(3, 1fr); }
 }
 .camp-panel .camp-panel-inner .modal-title { margin: 0 0 12px; color: #f3e4d6; font-size: 1.05rem; }
 .camp-panel .camp-panel-inner .modal-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 14px; }
