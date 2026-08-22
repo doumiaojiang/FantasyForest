@@ -1604,60 +1604,33 @@ window.CampSystem = (function () {
     })
   }
 
-  /** 队长求情免监狱：开关设置 + 求情流程 */
+  /** 队长求情免监狱：单一路线，避免把剧情做成开关设置 */
   function captainPardon () {
     const state = State.get()
+    const pardoned = !!state._prisonPardon
     campShow({
-      title: '🕊️ 求情免进监狱', className: 'camp-tavern-modal',
-      body: `<div class="camp-character"><i>🛡️</i><div><b>“哼，想求我别把你扔进深喉监狱？”</b><p>队长翘着二郎腿打量你：“可以——但得看你识不识相。”</p></div></div>
-        <div class="toilet-grid">
-          <button class="toilet-card ${state._prisonPardonSetting ? 'is-discovered' : ''}" data-pardon="on"><i>🔓</i><span><b>求情（开）</b><small>求他 → 羞辱对话 → 给他口交 → 豁免</small></span><em>${state._prisonPardonSetting ? '当前' : '关闭'}</em></button>
-          <button class="toilet-card ${!state._prisonPardonSetting ? 'is-discovered' : ''}" data-pardon="off"><i>🧎</i><span><b>求情（关）</b><small>不口交 · 磕头羞辱对话后豁免</small></span><em>${!state._prisonPardonSetting ? '当前' : '关闭'}</em></button>
-        </div>`,
-      actions: [
-        { label: '返回队长', handler: () => { tavernCaptain() } },
-      ],
+      title: '🕊️ 请求队长庇护', className: 'camp-tavern-modal captain-pardon-modal',
+      body: `<section class="captain-pardon ${pardoned ? 'is-active' : ''}">
+          <div class="captain-pardon-hero">
+            <i>${pardoned ? '🕊️' : '🛡️'}</i>
+            <div><small>GUARD CAPTAIN · 私下交涉</small><b>${pardoned ? '“我的人不会动你——别让我后悔。”' : '“想让我从名单上划掉你的名字？”'}</b><p>${pardoned ? '队长的担保仍然有效。守卫认得你的名字，不会再把你送进监狱。' : '队长放下酒杯，示意你走近些：“可以谈。但我的庇护，从来不是白给的。”'}</p></div>
+          </div>
+          <div class="captain-pardon-terms">
+            <div><i>🕊️</i><span><b>豁免效果</b><small>危险值达到 100 时也不会被送进监狱</small></span></div>
+            <div><i>${pardoned ? '✓' : '⚠️'}</i><span><b>${pardoned ? '当前状态' : '队长的条件'}</b><small>${pardoned ? '守卫队长的担保已经生效' : '跪下请求庇护，并完成 30 秒服务'}</small></span></div>
+          </div>
+          ${pardoned ? '<div class="captain-pardon-seal">✓ 豁免令已生效</div>' : '<p class="captain-pardon-warning">接受后将立即开始计时；中途失败仍会被送进监狱。</p>'}
+        </section>`,
+      actions: pardoned
+        ? [{ label: '返回队长', cls: 'btn-primary', handler: () => { tavernCaptain() } }]
+        : [
+            { label: '🧎 跪下请求庇护', cls: 'btn-danger', handler: () => {
+              EventBus.emit('ui:log', { text: '🧎 你跪到队长面前，低声请求他把你的名字从监狱名单上划掉。', type: 'danger' })
+              pardonBlowjob()
+            } },
+            { label: '暂时算了', handler: () => { tavernCaptain() } },
+          ],
     })
-    document.querySelectorAll('[data-pardon]').forEach(btn => {
-      btn.onclick = () => {
-        state._prisonPardonSetting = btn.dataset.pardon === 'on'
-        EventBus.emit('state:changed', state)
-        Dialog.close()
-        runPardon()
-      }
-    })
-  }
-
-  /** 执行求情流程 */
-  function runPardon () {
-    const state = State.get()
-    if (state._prisonPardonSetting) {
-      // 开：羞辱请求对话 + 口交任务
-      Dialog.show({
-        title: '🕊️ 队长 · 羞辱请求', className: 'camp-tavern-modal',
-        body: `<div class="camp-character"><i>🛡️</i><div><b>“跪下求我。”</b><p>队长把靴子踩在你面前：“求求我，说你是条贱狗，请大人别把你扔进深喉监狱。说得好听，我再考虑要不要你的嘴。”</p></div></div>`,
-        actions: [
-          { label: '🧎 跪下求情', cls: 'btn-danger', handler: () => {
-            Dialog.close()
-            EventBus.emit('ui:log', { text: '🧎 你跪下来磕头："队长大人，我是条贱狗，求您别把我送进深喉监狱……"', type: 'danger' })
-            pardonBlowjob()
-          } },
-        ],
-      })
-    } else {
-      // 关：磕头羞辱对话（不口交）
-      Dialog.show({
-        title: '🕊️ 队长 · 羞辱', className: 'camp-tavern-modal',
-        body: `<div class="camp-character"><i>🛡️</i><div><b>“求我？磕三个响头。”</b><p>队长冷笑：“想让我不送你去深喉监狱，就拿出点诚意来。”</p></div></div>`,
-        actions: [
-          { label: '🧎 磕头求饶', cls: 'btn-danger', handler: () => {
-            Dialog.close()
-            EventBus.emit('ui:log', { text: '🧎 你跪下磕了三个响头，队长满意地哼了一声。', type: 'danger' })
-            grantPardon()
-          } },
-        ],
-      })
-    }
   }
 
   /** 口交求情任务 */

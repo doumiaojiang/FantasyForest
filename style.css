@@ -105,6 +105,36 @@ body {
 .camp-panel .camp-panel-inner .modal-title { margin: 0 0 12px; color: #f3e4d6; font-size: 1.05rem; }
 .camp-panel .camp-panel-inner .modal-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 14px; }
 
+/* 桌面端营地保持底部操作可见，较长内容只在正文区域滚动。 */
+@media (min-width: 701px) {
+  .camp-panel .camp-panel-inner.modal-box {
+    display: flex;
+    flex-direction: column;
+    max-height: calc(100dvh - 160px);
+    min-height: 0;
+    overflow: hidden;
+  }
+  .camp-panel .camp-panel-inner > .modal-title { flex: 0 0 auto; }
+  .camp-panel .camp-panel-inner > .modal-body {
+    flex: 1 1 auto;
+    min-height: 0;
+    margin-bottom: 0;
+    padding-right: 5px;
+    overflow-y: auto;
+    scrollbar-gutter: stable;
+  }
+  .camp-panel .camp-panel-inner > .modal-actions {
+    position: relative;
+    z-index: 2;
+    flex: 0 0 auto;
+    margin-top: 10px;
+    padding-top: 12px;
+    border-top: 1px solid rgba(239, 155, 69, .16);
+    background: linear-gradient(180deg, rgba(31, 28, 48, 0), rgba(31, 28, 48, .92) 28%);
+  }
+  .camp-panel .camp-panel-inner > .modal-actions .btn { min-width: 240px; }
+}
+
 /* =========================================================
    03. 通用布局
    ========================================================= */
@@ -2569,6 +2599,32 @@ body:has(.age-gate:not(.age-gate-hidden)) { overflow: hidden; }
    ========================================================= */
 .camp-tavern-modal { max-width: 590px; }
 .modal-box.camp-tavern-modal { border-color: rgba(212, 151, 68, .34); background: linear-gradient(155deg, rgba(54, 29, 27, .98), rgba(24, 18, 24, .99) 55%, rgba(22, 29, 25, .98)); }
+.captain-pardon { display: grid; gap: 10px; }
+.captain-pardon-hero {
+  display: grid; grid-template-columns: 58px 1fr; align-items: center; gap: 12px; padding: 14px;
+  border: 1px solid rgba(218, 174, 92, .24); border-radius: 12px;
+  background: radial-gradient(circle at 8% 50%, rgba(218, 174, 92, .14), transparent 28%), linear-gradient(135deg, rgba(48, 45, 41, .7), rgba(20, 27, 27, .72));
+}
+.captain-pardon-hero > i { display: grid; place-items: center; width: 54px; height: 54px; border-radius: 50%; background: rgba(218,174,92,.1); font-size: 1.8rem; font-style: normal; }
+.captain-pardon-hero > div { min-width: 0; display: grid; gap: 4px; }
+.captain-pardon-hero small { color: #d3a957; font-size: .55rem; font-weight: 800; letter-spacing: .13em; }
+.captain-pardon-hero b { color: #f3e9d8; font-size: .82rem; line-height: 1.4; }
+.captain-pardon-hero p { color: #a99d91; font-size: .66rem; line-height: 1.55; }
+.captain-pardon-terms { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.captain-pardon-terms > div { min-width: 0; display: grid; grid-template-columns: 32px 1fr; align-items: center; gap: 8px; padding: 10px; border: 1px solid rgba(255,255,255,.08); border-radius: 10px; background: rgba(7,12,12,.34); }
+.captain-pardon-terms i { display: grid; place-items: center; width: 30px; height: 30px; border-radius: 8px; background: rgba(218,174,92,.09); color: #e2bd72; font-size: .9rem; font-style: normal; font-weight: 900; }
+.captain-pardon-terms span { min-width: 0; display: grid; gap: 2px; }
+.captain-pardon-terms b { color: #e8ddce; font-size: .68rem; }
+.captain-pardon-terms small { color: #948a82; font-size: .57rem; line-height: 1.4; }
+.captain-pardon-warning { padding: 8px 10px; border-left: 3px solid rgba(230, 119, 94, .72); border-radius: 6px; background: rgba(167, 61, 43, .1); color: #c7a096; font-size: .62rem; line-height: 1.45; }
+.captain-pardon-seal { padding: 9px 12px; border: 1px solid rgba(86,190,126,.28); border-radius: 9px; background: rgba(54,148,91,.1); color: #86d7a4; font-size: .7rem; font-weight: 800; text-align: center; letter-spacing: .04em; }
+.captain-pardon.is-active .captain-pardon-hero { border-color: rgba(86,190,126,.28); background: radial-gradient(circle at 8% 50%, rgba(74,167,108,.16), transparent 28%), linear-gradient(135deg, rgba(35,50,42,.74), rgba(18,27,27,.72)); }
+.captain-pardon-modal .modal-actions .btn-danger { box-shadow: 0 6px 18px rgba(151, 52, 42, .2); }
+@media (max-width: 520px) {
+  .captain-pardon-hero { grid-template-columns: 44px 1fr; gap: 9px; padding: 11px; }
+  .captain-pardon-hero > i { width: 42px; height: 42px; font-size: 1.4rem; }
+  .captain-pardon-terms { grid-template-columns: 1fr; gap: 6px; }
+}
 .blacksmith-modal { max-width: 590px; }
 .modal-box.blacksmith-modal { border-color: rgba(160, 160, 165, .35); background: linear-gradient(155deg, rgba(45, 45, 50, .98), rgba(30, 30, 35, .99) 55%, rgba(55, 35, 25, .97)); box-shadow: 0 24px 70px #000c, inset 0 1px rgba(255, 180, 80, .08); }
 .tavern-hero { display: grid; grid-template-columns: 62px 1fr; align-items: center; gap: 13px; padding: 14px; border: 1px solid rgba(228,171,82,.2); border-radius: 12px; background: radial-gradient(circle at 10% 75%, rgba(242,154,58,.2), transparent 28%), linear-gradient(125deg, rgba(104,47,34,.26), rgba(25,39,32,.38)); }
