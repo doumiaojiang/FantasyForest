@@ -1369,7 +1369,7 @@ window.CampSystem = (function () {
           <p class="camp-footnote">契约（永久）：每次进铁匠铺都要先给他<b>口交</b>，再给他<b>肛交/性交</b>。</p>`,
         actions: [
           { label: '💦 服务铁匠（进店）', cls: 'btn-primary', handler: () => { Dialog.close(); blacksmithService() } },
-          { label: '🚶 转身就走', handler: () => { Dialog.close(); open() } },
+          { label: '🚶 转身就走', handler: () => { Dialog.close(); blacksmithLeaveAttempt() } },
         ],
       })
       return
@@ -1414,6 +1414,51 @@ window.CampSystem = (function () {
     }
     EventBus.emit('ui:log', { text: '💦 铁匠被你伺候舒服了，擦擦手："行，进来挑吧。"', type: 'good' })
     blacksmithShop()
+  }
+
+  /** 转身就走：5% 几率被铁匠抓住，强操一顿才放人 */
+  async function blacksmithLeaveAttempt () {
+    const state = State.get()
+    const roll = Math.floor(Math.random() * 100) + 1
+    if (roll > 5) {
+      EventBus.emit('ui:log', { text: '🚶 你趁铁匠低头打铁，转身溜出了铺子。', type: 'dim' })
+      open()
+      return
+    }
+    EventBus.emit('ui:log', { text: '👿 你刚转身，铁匠的巨掌就钳住了你的后颈："签了契约还想跑？给老子趴好！"', type: 'danger' })
+    const isFemale = state.gender !== 'male'
+    const holeDesc = ChastitySystem.isWorn()
+      ? '他把你按在铁砧上，从背后狠狠操进你的菊穴'
+      : isFemale ? '他把你按在铁砧上，抬起你的腿，狠狠操进你的小穴' : '他把你按在铁砧上，从背后狠狠操进你的菊穴'
+    let failed = false
+    if (typeof BattleUI !== 'undefined' && BattleUI.showTaskDialog) {
+      const f = await BattleUI.showTaskDialog({
+        enemyName: '🔨 铁匠（怒火）',
+        attackName: '强制惩罚',
+        desc: `${holeDesc}，120 BPM 持续 1 分钟，被他操得浪叫连连`,
+        bpm: 120,
+        seconds: 60,
+        dmg: 0,
+        noDamage: true,
+        dildoName: '铁匠那根粗壮的鸡巴',
+      })
+      failed = f
+    } else {
+      failed = !confirm('铁匠抓住你强操一顿（完成代表挨完了）。')
+    }
+    if (failed) {
+      if (!State.get()._godMode) state.hp = Math.max(0, state.hp - 10)
+      EventBus.emit('ui:log', { text: '🥵 你被铁匠按着操，腿软得跪在地上，挨了 -10 HP。', type: 'danger' })
+      EventBus.emit('state:changed', state)
+      if (state.hp <= 0) {
+        state.phase = 'gameover'
+        EventBus.emit('game:gameover', {})
+        return
+      }
+    } else {
+      EventBus.emit('ui:log', { text: '💦 铁匠泄了火，松开手："下次再跑，可没这么便宜。"', type: 'good' })
+    }
+    open()
   }
 
   /** 铁匠主界面：聊天 / 商店 / 解锁监狱贞操装备 */
