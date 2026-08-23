@@ -811,8 +811,11 @@ window.CampSystem = (function () {
     EventBus.emit('state:changed', state)
     // 监狱专用贞操带/贞操锁：小穴被锁死（作为装备 + 妖缚腰部槽剧情锁）
     state._prisonChastity = true
-    if (typeof RestraintSystem !== 'undefined' && !RestraintSystem.isWorn('waist')) {
-      RestraintSystem.equip('waist', 'prison_chastity', { locked: true, lockType: 'story', difficulty: 5, source: 'prison' })
+    if (typeof RestraintSystem !== 'undefined') {
+      // 记录入狱前的腰部装置（已是监狱锁则不记录），出狱时还原；监狱锁强制戴上
+      const curWaist = RestraintSystem.get('waist')
+      state._prisonWaistPrev = (curWaist && curWaist.id !== 'prison_chastity') ? curWaist : null
+      RestraintSystem.equip('waist', 'prison_chastity', { locked: true, lockType: 'story', difficulty: 5, source: 'prison' }, true)
     }
     if (!StatusSystem.has('chastity')) StatusSystem.apply('chastity', 99999)
     const target = prisonTarget()
@@ -1225,8 +1228,10 @@ window.CampSystem = (function () {
     state._prisonEscapePenalty = 0
     state._prisonChastity = false   // 正常出狱：解锁监狱贞操装备
     if (typeof RestraintSystem !== 'undefined') {
-      const waist = RestraintSystem.get('waist')
-      if (waist && waist.id === 'prison_chastity') RestraintSystem.remove('waist')
+      const prev = state._prisonWaistPrev
+      state._prisonWaistPrev = null
+      if (prev) RestraintSystem.restore('waist', prev)   // 还原入狱前的腰部装置
+      else if (RestraintSystem.get('waist') && RestraintSystem.get('waist').id === 'prison_chastity') RestraintSystem.remove('waist')
     }
     if (StatusSystem.has('chastity')) StatusSystem.remove('chastity')
     EventBus.emit('state:changed', state)
@@ -1648,20 +1653,20 @@ window.CampSystem = (function () {
     })
   }
 
-  /** 铁匠付费开锁：为妖缚装置开锁（金属也能拆，卡死装置收费更高） */
+  /** 铁匠付费开锁：为妖缚装置开锁（金属也能拆，卡死/诅咒收费更高；剧情锁不可拆） */
   function blacksmithUnlockRestraint () {
     const state = State.get()
-    const locked = (typeof RestraintSystem !== 'undefined' ? RestraintSystem.SLOT_ORDER : []).filter(slot => RestraintSystem.isLocked(slot))
+    const locked = (typeof RestraintSystem !== 'undefined' ? RestraintSystem.SLOT_ORDER : []).filter(slot => RestraintSystem.isLocked(slot) && !RestraintSystem.isStory(slot))
     const cards = locked.length
       ? locked.map(slot => {
         const d = RestraintSystem.get(slot)
         const def = RestraintSystem.defOf(d.id)
-        const cost = d.jammed ? RestraintSystem.npcUnlockCost(slot) * 2 : RestraintSystem.npcUnlockCost(slot)
+        const cost = RestraintSystem.npcUnlockCost(slot)
         const canPay = state.gold >= cost
         return `<button class="camp-opt camp-opt-teleport" data-ul="${slot}" ${canPay ? '' : 'disabled'}>
-          <i>${RestraintSystem.SLOT_ICONS[slot]}</i><span><b>${def.name}</b><small>${RestraintSystem.SLOT_NAMES[slot]} · ${d.jammed ? '卡死（双倍收费）' : '上锁'}</small></span><em>${canPay ? `${cost}G` : '钱不够'}</em></button>`
+          <i>${RestraintSystem.SLOT_ICONS[slot]}</i><span><b>${def.name}</b><small>${RestraintSystem.SLOT_NAMES[slot]} · ${d.jammed ? '卡死（双倍）' : RestraintSystem.isCursed(slot) ? '诅咒（三倍）' : '上锁'}</small></span><em>${canPay ? `${cost}G` : '钱不够'}</em></button>`
       }).join('')
-      : '<p class="camp-muted">你身上没有上锁的妖缚装置。</p>'
+      : '<p class="camp-muted">你身上没有可开锁的妖缚装置。</p>'
     campShow({
       title: '⛓️ 铁匠 · 开锁', className: 'blacksmith-modal',
       body: `<div class="camp-character"><i>🔨</i><div><b>“锁在身上的玩意儿？我拆得动。”</b><p>铁匠抄起钳子和锤子："金属的我也能开，卡死的翻倍收费。"</p></div></div>
@@ -1763,8 +1768,10 @@ window.CampSystem = (function () {
     state.gold -= 500
     state._prisonChastity = false
     if (typeof RestraintSystem !== 'undefined') {
-      const waist = RestraintSystem.get('waist')
-      if (waist && waist.id === 'prison_chastity') RestraintSystem.remove('waist')
+      const prev = state._prisonWaistPrev
+      state._prisonWaistPrev = null
+      if (prev) RestraintSystem.restore('waist', prev)   // 还原入狱前的腰部装置
+      else if (RestraintSystem.get('waist') && RestraintSystem.get('waist').id === 'prison_chastity') RestraintSystem.remove('waist')
     }
     state._freeMeatBrand = true
     state._blacksmithContract = true   // 永久契约：以后每次进铺子都要先服务
@@ -2349,7 +2356,7 @@ window.CampSystem = (function () {
     const devices = (RESTRAINTS || []).filter(r => !r.story)
     const deviceCards = devices.map(r => {
       const worn = typeof RestraintSystem !== 'undefined' && RestraintSystem.isWorn(r.slot)
-      const owned = worn || (state._prostituteGear && state._prostituteGear[r.id === 'chastity_device' ? 'chastity' : r.id])
+      const owned = worn || (state._ownedRestraints || []).includes(r.id) || (state._prostituteGear && state._prostituteGear[r.id === 'chastity_device' ? 'chastity' : r.id])
       const canBuy = state.gold >= r.price && !owned
       return `<button class="merchant-item${owned ? ' is-owned' : ''}${!owned && !canBuy ? ' is-unaffordable' : ''}" data-restr="${r.id}" ${owned || !canBuy ? 'disabled' : ''}>
         <span class="merchant-item-icon">${typeof RestraintSystem !== 'undefined' ? RestraintSystem.SLOT_ICONS[r.slot] : '⛓️'}</span>
@@ -2387,8 +2394,11 @@ window.CampSystem = (function () {
         if (!def) return
         if (state.gold < def.price) return
         state.gold -= def.price
+        // 记录已购买（可重复穿戴）
+        state._ownedRestraints = state._ownedRestraints || []
+        if (!state._ownedRestraints.includes(def.id)) state._ownedRestraints.push(def.id)
         if (typeof RestraintSystem !== 'undefined') RestraintSystem.equip(def.slot, def.id, { locked: false, source: 'tavern' })
-        EventBus.emit('ui:log', { text: `⛓️ 你主动戴上了${def.name}（可随时脱下）。`, type: 'good' })
+        EventBus.emit('ui:log', { text: `⛓️ 你买下并戴上了${def.name}（已拥有，可随时脱下重穿）。`, type: 'good' })
         EventBus.emit('state:changed', state)
         barkeepRestraints()
       }

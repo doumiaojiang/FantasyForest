@@ -14,7 +14,7 @@ window.RESTRAINTS = [
   },
   {
     id: 'leather_gag', name: '皮革口塞', slot: 'mouth', material: 'leather', price: 100, difficulty: 2,
-    desc: '塞住嘴巴：口交/深喉类服务做不了，战斗中的口交攻击只能硬挨（单倍伤害）。',
+    desc: '塞住嘴巴：战斗/伏击中的口交攻击只能硬挨（单倍伤害）。',
     effect: 'gag',
   },
   {

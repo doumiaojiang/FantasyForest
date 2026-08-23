@@ -160,6 +160,8 @@ window.BattleUI = (function () {
 
   /** 攻击、防御和跳过都会消耗一个玩家回合并推进状态。 */
   function tickPlayerTurn () {
+    // 定时锁：战斗回合同样递减
+    if (typeof RestraintSystem !== 'undefined') RestraintSystem.tickTimers()
     StatusSystem.tickInBattle()
     if (State.get().hp <= 0) {
       BattleSystem.end(false)
@@ -1229,7 +1231,7 @@ window.BattleUI = (function () {
       return
     }
     const items = Object.entries(state.inventory.consumables)
-      .filter(([id, v]) => v > 0 && id !== 'weapon_upgrade_material' && id !== 'twig' && id !== 'restraint_key' && id !== 'master_key' && id !== 'lockpick')
+      .filter(([id, v]) => v > 0 && id !== 'weapon_upgrade_material' && id !== 'twig' && id !== 'restraint_key' && id !== 'master_key' && id !== 'lockpick' && id !== 'curse_remover')
     // 已用 1 个物品时：清空可用道具，只保留取下巨肛塞入口
     const usableItems = state._battle && state._battle.itemUsedThisTurn ? [] : items
     // 无可用道具且未塞巨肛塞 → 无需打开菜单

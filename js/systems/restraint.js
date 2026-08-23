@@ -52,9 +52,9 @@ window.RestraintSystem = (function () {
     EventBus.emit('state:changed', State.get())
   }
 
-  /** 佩戴装置（可上锁或普通佩戴） */
-  function equip (slot, id, opts = {}) {
-    if (get(slot)) return { ok: false, msg: '该部位已经锁着东西了' }
+  /** 佩戴装置（可上锁或普通佩戴）；force=true 可覆盖已有槽位 */
+  function equip (slot, id, opts = {}, force = false) {
+    if (!force && get(slot)) return { ok: false, msg: '该部位已经锁着东西了' }
     const def = defOf(id)
     if (!def) return { ok: false, msg: '装置不存在' }
     const device = {
@@ -71,9 +71,19 @@ window.RestraintSystem = (function () {
     return { ok: true, device }
   }
 
+  /** 直接还原一个装置对象（监狱恢复用） */
+  function restore (slot, device) {
+    set(slot, device)
+  }
+
   function remove (slot) {
-    if (!get(slot)) return { ok: false, msg: '这里没有装置' }
+    const d = get(slot)
+    if (!d) return { ok: false, msg: '这里没有装置' }
     set(slot, null)
+    // 同步旧酒馆贞操笼：脱下后清除标志，避免读档时又被迁移回去
+    if (d.id === 'chastity_device' && State.get()._prostituteGear) {
+      State.get()._prostituteGear.chastity = false
+    }
     return { ok: true, msg: '已脱下' }
   }
 
@@ -127,20 +137,16 @@ window.RestraintSystem = (function () {
     return { ok: false, msg: `挣脱失败，下次成功率 ${25 + d.escapeBonus}%` }
   }
 
-  /** 使用钥匙：普通钥匙开普通锁；万能钥匙开任意非剧情、非诅咒锁 */
+  /** 使用钥匙：普通钥匙优先开普通锁，万能钥匙兜底 */
   function useKey (slot) {
     const d = get(slot)
     if (!d || !d.locked) return { ok: false, msg: '这里没有上锁的装置' }
     if (isCursed(slot)) return { ok: false, msg: '诅咒锁钥匙打不开，需要驱咒符' }
+    if (isStory(slot)) return { ok: false, msg: '剧情锁只能走剧情解除' }
     const inv = State.get().inventory.consumables
-    if ((inv.master_key || 0) <= 0 && (inv.restraint_key || 0) <= 0) return { ok: false, msg: '没有钥匙' }
-    if (isStory(slot) && (inv.master_key || 0) <= 0) return { ok: false, msg: '这是剧情锁，普通钥匙打不开' }
-    if ((inv.master_key || 0) > 0) {
-      if (isStory(slot)) return { ok: false, msg: '剧情锁只能走剧情解除' }
-      inv.master_key--
-    } else {
-      inv.restraint_key--
-    }
+    if ((inv.restraint_key || 0) <= 0 && (inv.master_key || 0) <= 0) return { ok: false, msg: '没有钥匙' }
+    if ((inv.restraint_key || 0) > 0) inv.restraint_key--
+    else inv.master_key--
     remove(slot)
     EventBus.emit('ui:log', { text: '🔑 钥匙咔哒一声，锁开了，装置脱落。', type: 'good' })
     EventBus.emit('state:changed', State.get())
@@ -218,19 +224,23 @@ window.RestraintSystem = (function () {
     if (!d) return 0
     const def = defOf(d.id)
     const base = (def && def.material === 'metal') ? 250 : 150
-    return isCursed(slot) ? base * 3 : base
+    const cursed = isCursed(slot) ? 3 : 1
+    const jammed = d.jammed ? 2 : 1
+    return base * cursed * jammed
   }
 
   function npcUnlock (slot) {
     const d = get(slot)
     if (!d) return { ok: false, msg: '这里没有装置' }
     if (!d.locked) { remove(slot); return { ok: true, msg: '已脱下' } }
+    if (isStory(slot)) return { ok: false, msg: '这是剧情锁，只有剧情能解除（攒积分出狱或铁匠契约）' }
     const state = State.get()
+    const wasCursed = isCursed(slot)
     const cost = npcUnlockCost(slot)
     if (state.gold < cost) return { ok: false, msg: `钱不够（需要 ${cost}G）` }
     state.gold -= cost
     remove(slot)
-    EventBus.emit('ui:log', { text: isCursed(slot) ? `🧿 铁匠连拆带驱，收了 ${cost}G，解开了诅咒锁。` : `🔓 铁匠收了 ${cost}G，帮你解开了束缚。`, type: 'good' })
+    EventBus.emit('ui:log', { text: wasCursed ? `🧿 铁匠连拆带驱，收了 ${cost}G，解开了诅咒锁。` : `🔓 铁匠收了 ${cost}G，帮你解开了束缚。`, type: 'good' })
     EventBus.emit('state:changed', state)
     return { ok: true, msg: '铁匠帮忙解开了' }
   }
@@ -355,11 +365,18 @@ window.RestraintSystem = (function () {
 
   function openManage () {
     const state = State.get()
+    const ownedIds = state._ownedRestraints || []
     const bonus = Math.round(goldBonus() * 100)
     const cards = SLOT_ORDER.map(slot => {
       const d = get(slot)
       const def = d && defOf(d.id)
       if (!d) {
+        // 空槽：有已拥有的装置则提供重新穿戴
+        const ownedId = ownedIds.find(id => { const od = defOf(id); return od && od.slot === slot })
+        if (ownedId) {
+          const od = defOf(ownedId)
+          return `<div class="restr-card restr-empty"><i>${SLOT_ICONS[slot]}</i><span><b>${SLOT_NAMES[slot]}</b><small>${od.name}（已拥有）</small></span><button class="btn restr-btn" data-act="wear" data-id="${ownedId}">📿 穿戴</button></div>`
+        }
         return `<div class="restr-card restr-empty"><i>${SLOT_ICONS[slot]}</i><span><b>${SLOT_NAMES[slot]}</b><small>空</small></span></div>`
       }
       const lockTag = d.locked
@@ -371,7 +388,7 @@ window.RestraintSystem = (function () {
              ${canCut(slot) ? `<button class="btn restr-btn" data-act="cut" data-slot="${slot}">🔪 割断</button>` : ''}
              ${isCursed(slot) ? `<button class="btn restr-btn" data-act="curse" data-slot="${slot}">🧿 驱咒符</button>` : `<button class="btn restr-btn" data-act="key" data-slot="${slot}">🔑 钥匙</button>`}
              ${isCursed(slot) ? '' : `<button class="btn restr-btn" data-act="lockpick" data-slot="${slot}">🛠️ 撬锁</button>`}
-             <button class="btn restr-btn" data-act="npc" data-slot="${slot}">🔧 求助铁匠</button>
+             ${isStory(slot) ? '' : `<button class="btn restr-btn" data-act="npc" data-slot="${slot}">🔧 求助铁匠</button>`}
            </div>`
         : `<button class="btn restr-btn" data-act="remove" data-slot="${slot}">✋ 脱下</button>`
       return `<div class="restr-card"><i>${SLOT_ICONS[slot]}</i><span><b>${def.name}</b><small>${def.desc}</small></span>${lockTag}${actionsHtml}</div>`
@@ -395,7 +412,10 @@ window.RestraintSystem = (function () {
           const slot = btn.dataset.slot
           const act = btn.dataset.act
           let result = null
-          if (act === 'struggle') result = struggle(slot)
+          if (act === 'wear') {
+            const ownedId = btn.dataset.id
+            result = equip(slot, ownedId, { locked: false, source: 'tavern' })
+          } else if (act === 'struggle') result = struggle(slot)
           else if (act === 'cut') result = cut(slot)
           else if (act === 'key') result = useKey(slot)
           else if (act === 'lockpick') result = useLockpick(slot)
@@ -413,7 +433,7 @@ window.RestraintSystem = (function () {
   return {
     SLOT_ORDER, SLOT_NAMES, SLOT_ICONS,
     get, defOf, isWorn, isLocked, countLocked, countWorn, goldBonus,
-    equip, remove, isStory, isHeavy, isCursed, canCut, cut, struggle,
+    equip, remove, restore, isStory, isHeavy, isCursed, canCut, cut, struggle,
     useKey, useLockpick, useCurseRemover, npcUnlock, npcUnlockCost,
     setTimer, tickTimers, lockedSlots,
     hasGag, hasHandcuffs, hasLegCuffs, hasCollar, hasArmbinder, hasBlindfold, hasWaistChastity, hasHandsBlocked, hasVibrating,

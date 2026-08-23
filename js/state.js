@@ -92,6 +92,8 @@ window.State = (function () {
       _wanted: false,                   // 越狱后是否处于通缉状态（守卫/队长会查你）
       _teleports: ['camp'],             // 已激活的传送阵 id 列表（营地始终激活）
       _restraints: {},                  // 妖缚装置 { slot: { id, locked, lockType, difficulty, material, source, escapeBonus, jammed } }
+      _ownedRestraints: [],              // 已购买的妖缚装置 id 列表（可重复穿戴）
+      _prisonWaistPrev: null,            // 入狱前腰部装置（出狱还原）
       _restraintSettings: { allowTrap: true },   // 妖缚设置：allowTrap=允许陷阱上锁
       _freeMeatBrand: false,            // 大腿上"免费肉便器"烙印（铁匠解锁后永久）
       _blacksmithContract: false,       // 与铁匠签的契约：每次进铺子要先服务
@@ -412,10 +414,22 @@ window.State = (function () {
       if (state._prisonChastity && !valid.waist) {
         valid.waist = { id: 'prison_chastity', slot: 'waist', locked: true, lockType: 'story', difficulty: 5, material: 'metal', source: 'prison', escapeBonus: 0, jammed: false }
       }
+      // 酒馆贞操笼迁移成腰部普通装置；已购买（含旧档）记录进 ownedRestraints，可重复穿戴
       if ((state._prostituteGear && state._prostituteGear.chastity) && !valid.waist) {
         valid.waist = { id: 'chastity_device', slot: 'waist', locked: false, lockType: 'common', difficulty: 3, material: 'metal', source: 'tavern', escapeBonus: 0, jammed: false }
+        state._ownedRestraints = state._ownedRestraints || []
+        if (!state._ownedRestraints.includes('chastity_device')) state._ownedRestraints.push('chastity_device')
       }
       state._restraints = valid
+      // 已购装置过滤（仅保留有效装置 id）
+      if (typeof window.RESTRAINTS !== 'undefined' && Array.isArray(state._ownedRestraints)) {
+        state._ownedRestraints = state._ownedRestraints.filter(id => RESTRAINTS.some(x => x.id === id && !x.story))
+      } else {
+        state._ownedRestraints = []
+      }
+      if (state._prisonWaistPrev && state._prisonWaistPrev.id && !RESTRAINTS.some(x => x.id === state._prisonWaistPrev.id)) {
+        state._prisonWaistPrev = null
+      }
     } else {
       state._restraints = {}
     }

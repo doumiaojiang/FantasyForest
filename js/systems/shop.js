@@ -234,8 +234,8 @@ window.ShopSystem = (function () {
     const item = ItemLib.get(itemId)
     if (!item) return { ok: false, msg: '物品不存在' }
     if (itemId === 'twig') return { ok: false, msg: '树枝是武器，不能直接使用' }
-    if (itemId === 'restraint_key' || itemId === 'master_key' || itemId === 'lockpick') {
-      return { ok: false, msg: '钥匙/开锁工具请在妖缚装置页面使用（HUD ⛓️）' }
+    if (itemId === 'restraint_key' || itemId === 'master_key' || itemId === 'lockpick' || itemId === 'curse_remover') {
+      return { ok: false, msg: '钥匙/开锁工具/驱咒符请在妖缚装置页面使用（HUD ⛓️）' }
     }
 
     // 满血时不能使用治疗类道具（避免浪费）
