@@ -111,6 +111,12 @@ window.BattleUI = (function () {
   }
 
   function doDefend () {
+    // 束腰：勒紧腰身，摆不出防御姿态
+    if (typeof RestraintSystem !== 'undefined' && RestraintSystem.hasCorset()) {
+      EventBus.emit('ui:log', { text: '🩱 束腰勒得你直不起腰，摆不出防御姿态！', type: 'danger' })
+      showPlayerTurn()
+      return
+    }
     if (!tickPlayerTurn()) return
     BattleSystem.defend()
     doEnemyTurn()
@@ -1051,6 +1057,12 @@ window.BattleUI = (function () {
       battle.targets.forEach(t => { if (t.dmgPerTurn) minionDmg += t.dmgPerTurn })
     }
     dmg += minionDmg
+
+    // 乳夹：敏感被扯动，30% 额外 -1 HP
+    if (!blocked && dmg > 0 && typeof RestraintSystem !== 'undefined' && RestraintSystem.hasNipple() && Math.random() < 0.3) {
+      dmg += 1
+      EventBus.emit('ui:log', { text: '🎀 乳夹被扯动，又麻又痛，额外 -1 HP。', type: 'danger' })
+    }
 
     // 牺牲项链：受到的伤害三倍（覆盖主攻击 + 召唤物总伤害）
     if (!blocked && (state.inventory.accessories || []).includes('sacrificial_necklace')) {

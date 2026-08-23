@@ -1103,10 +1103,15 @@
     // 定时锁：每回合递减，到点自动解开
     if (typeof RestraintSystem !== 'undefined') RestraintSystem.tickTimers()
 
-    // 脚镣：移动步数 -1（最低 1 格）
-    if (typeof RestraintSystem !== 'undefined' && RestraintSystem.hasLegCuffs() && steps > 1) {
-      steps = Math.max(1, steps - 1)
-      EventBus.emit('ui:log', { text: '🦶 脚镣拖着你的步子，只挪动了一截（步数 -1）。', type: 'danger' })
+    // 脚镣/脚链：移动步数 -1（可叠加，最低 1 格）
+    if (typeof RestraintSystem !== 'undefined') {
+      let slow = 0
+      if (RestraintSystem.hasLegCuffs()) slow++
+      if (RestraintSystem.hasAnkleChains()) slow++
+      if (slow > 0 && steps > 1) {
+        steps = Math.max(1, steps - slow)
+        EventBus.emit('ui:log', { text: '🦶 铁链拖着你的步子，挪动变慢了（步数 -' + slow + '）。', type: 'danger' })
+      }
     }
 
     // 受伤状态：移动减速 + 扣血

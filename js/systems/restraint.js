@@ -10,9 +10,9 @@
  */
 
 window.RestraintSystem = (function () {
-  const SLOT_ORDER = ['neck', 'mouth', 'arms', 'arms_heavy', 'legs', 'waist', 'eyes']
-  const SLOT_NAMES = { neck: '颈部', mouth: '嘴部', arms: '手臂', arms_heavy: '束臂', legs: '腿部', waist: '腰部', eyes: '眼部' }
-  const SLOT_ICONS = { neck: '🐕', mouth: '🤐', arms: '⛓️', arms_heavy: '🪢', legs: '🦶', waist: '🔒', eyes: '😵' }
+  const SLOT_ORDER = ['eyes', 'mouth', 'neck', 'chest', 'arms', 'arms_heavy', 'torso', 'waist', 'legs', 'ankles']
+  const SLOT_NAMES = { eyes: '眼部', mouth: '嘴部', neck: '颈部', chest: '胸部', arms: '手臂', arms_heavy: '束臂', torso: '躯干', waist: '腰部', legs: '腿部', ankles: '脚踝' }
+  const SLOT_ICONS = { eyes: '😵', mouth: '🤐', neck: '🐕', chest: '🎀', arms: '⛓️', arms_heavy: '🪢', torso: '🩱', waist: '🔒', legs: '🦶', ankles: '⛓️' }
   const BLADES = ['rusty_knife', 'basic_sword', 'master_sword', 'sharp_rock']
 
   function raw () { return State.get()._restraints || {} }
@@ -264,6 +264,9 @@ window.RestraintSystem = (function () {
     const def = d && defOf(d.id)
     return !!(def && def.vibrate)
   }
+  function hasNipple () { return hasEffect('nipple') }
+  function hasCorset () { return hasEffect('corset') }
+  function hasAnkleChains () { return hasEffect('ankle_chains') }
   /** 上锁槽位列表 */
   function lockedSlots () { return SLOT_ORDER.filter(isLocked) }
 
@@ -414,6 +417,7 @@ window.RestraintSystem = (function () {
     useKey, useLockpick, useCurseRemover, npcUnlock, npcUnlockCost,
     setTimer, tickTimers, lockedSlots,
     hasGag, hasHandcuffs, hasLegCuffs, hasCollar, hasArmbinder, hasBlindfold, hasWaistChastity, hasHandsBlocked, hasVibrating,
+    hasNipple, hasCorset, hasAnkleChains,
     settings, toggleTrap, removeAllUnlocked, bodyDiagram,
     openManage, openSettings,
   }

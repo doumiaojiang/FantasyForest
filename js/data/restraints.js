@@ -52,4 +52,19 @@ window.RESTRAINTS = [
     desc: '锁死小穴（同贞操装置）且内置震动机关：战斗中 30% 概率失控颤抖，本回合攻击落空。',
     effect: 'chastity', vibrate: true,
   },
+  {
+    id: 'nipple_clamps', name: '乳夹', slot: 'chest', material: 'metal', price: 120, difficulty: 2,
+    desc: '夹住乳头：战斗中每次受伤有 30% 概率额外 -1 HP（又麻又痛）。',
+    effect: 'nipple',
+  },
+  {
+    id: 'corset', name: '束腰', slot: 'torso', material: 'metal', price: 180, difficulty: 3,
+    desc: '勒紧腰身：战斗中摆不出防御姿态（无法防御）。',
+    effect: 'corset',
+  },
+  {
+    id: 'ankle_chains', name: '脚链', slot: 'ankles', material: 'metal', price: 130, difficulty: 2,
+    desc: '拖着脚链：移动步数 -1（可与脚镣叠加）。',
+    effect: 'ankle_chains',
+  },
 ]
