@@ -3322,7 +3322,6 @@ window.CampSystem = (function () {
     { id: 'collar', name: '项圈与牵绳', price: 150, icon: '🐾', desc: '怪物把你当奴隶，所有插入任务以 120 BPM 完成，等级翻倍' },
     { id: 'gag', name: '口塞', price: 100, icon: '⛓️', desc: '插入任务以 160 BPM 完成，金币翻倍；有项圈则 180 BPM，金币等级都翻倍' },
     { id: 'buttplug', name: '肛塞', price: 50, icon: '🔴', desc: '没有实际效果，但怪物超爱，还能预先扩张屁股' },
-    { id: 'chastity', name: '贞操笼', price: 200, icon: '🔒', category: 'chastity', desc: '贞操装置：锁死小穴。穿戴后小穴/撸管/寸止任务一律改为肛交' },
   ]
 
   /** 妓女用品供应商 */

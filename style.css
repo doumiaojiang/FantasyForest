@@ -2498,6 +2498,23 @@ body:has(.age-gate:not(.age-gate-hidden)) { overflow: hidden; }
 .restr-switch i::before { content: ''; position: absolute; height: 18px; width: 18px; left: 3px; top: 3px; background: #cdd4e0; border-radius: 50%; transition: transform .2s; }
 .restr-switch input:checked + i { background: rgba(90,190,130,.45); }
 .restr-switch input:checked + i::before { transform: translateX(20px); background: #9fd8b0; }
+
+/* 装备栏页 */
+.eq-section { margin-top: 10px; }
+.eq-label { display: block; color: #e6d8cc; font-size: .72rem; font-weight: 800; letter-spacing: .08em; margin-bottom: 6px; }
+.eq-weapon-list { display: grid; gap: 6px; }
+.eq-item { display: grid; grid-template-columns: 34px 1fr auto; align-items: center; gap: 10px; width: 100%; padding: 9px 12px; text-align: left; border: 1px solid rgba(180,140,120,.2); border-radius: 10px; background: rgba(180,140,120,.05); cursor: pointer; transition: border-color .15s, background .15s; }
+.eq-item:hover { border-color: rgba(255,190,140,.45); background: rgba(200,150,110,.1); }
+.eq-item.is-owned { opacity: .55; cursor: default; }
+.eq-grid { display: grid; grid-template-columns: 1fr; gap: 8px; }
+@media (min-width: 560px) { .eq-grid { grid-template-columns: 1fr 1fr; } }
+.eq-slot { display: grid; grid-template-columns: 34px 1fr auto; align-items: center; gap: 10px; padding: 10px 12px; border: 1px solid rgba(180,140,120,.22); border-radius: 10px; background: rgba(180,140,120,.06); }
+.eq-slot.is-worn { border-color: rgba(90,190,130,.3); background: rgba(90,190,130,.08); }
+.eq-slot.is-owned { border-color: rgba(255,190,140,.25); }
+.eq-slot > i { font-size: 1.3rem; }
+.eq-slot b { color: #f0e2d2; font-size: .82rem; display: block; }
+.eq-slot small { color: #a09088; font-size: .64rem; }
+.eq-empty { font-style: normal; font-size: .64rem; color: #6a6060; }
 .camp-opt:hover, .camp-opt:focus-visible { transform: translateY(-2px); border-color: rgba(239,155,69,.55); background: rgba(70, 42, 25, .46); outline: none; }
 .camp-footnote, .camp-muted { margin-top: 10px; color: #8f8987; font-size: .67rem; line-height: 1.5; text-align: center; }
 

@@ -71,10 +71,9 @@ function render (state) {
       ? (ItemLib.weapon(state.inventory.weapon)?.name || state.inventory.weapon)
       : '赤手空拳'
 
-    // 饰品（可穿多件）+ 贞操装置
+    // 饰品（贞操装置归妖缚，不在装备栏显示）
     const accs = state.inventory.accessories || []
     const accNames = accs.map(id => (ItemLib.accessory(id)?.name || id))
-    if (ChastitySystem.isWorn()) accNames.unshift('🔒 贞操装置')
     accessoryEl.textContent = accNames.length ? accNames.join('、') : '无'
 
     // 物品框（消耗品 + 妓院许可证）
@@ -104,7 +103,11 @@ function render (state) {
     const restrChip = (typeof RestraintSystem !== 'undefined')
       ? `<span class="status-chip restr-chip active" title="妖缚装置：点击打开装备栏与设置" id="hud-restr">⛓️ 妖缚 ${RestraintSystem.countWorn()}</span>`
       : ''
-    statusEl.innerHTML = wantedChip + restrChip + state.statuses.map(s => {
+    // 装备栏入口（常驻：武器 + 饰品）
+    const eqChip = (typeof EquipmentSystem !== 'undefined')
+      ? `<span class="status-chip restr-chip active" title="装备栏：武器与饰品" id="hud-eq">🛡️ 装备 ${EquipmentSystem.wornCount()}/${EquipmentSystem.totalCount()}</span>`
+      : ''
+    statusEl.innerHTML = wantedChip + restrChip + eqChip + state.statuses.map(s => {
       const def = STATUS_EFFECTS[s.id]
       const icon = def ? def.icon : '❓'
       const name = def ? def.name : s.id
@@ -117,6 +120,9 @@ function render (state) {
     // 妖缚入口点击
     const restrEl = document.getElementById('hud-restr')
     if (restrEl) restrEl.onclick = () => RestraintSystem.openManage()
+    // 装备栏入口点击
+    const eqEl = document.getElementById('hud-eq')
+    if (eqEl) eqEl.onclick = () => EquipmentSystem.openEquipment()
 
     // 佣兵（主角下方）
     if (mercenaryEl) {
