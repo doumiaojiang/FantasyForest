@@ -145,6 +145,7 @@ window.CampSystem = (function () {
           <button class="camp-opt camp-opt-tavern" data-opt="tavern"><i>🍺</i><span><b>雾灯酒馆</b><small>摇骰子、买酒</small></span><em>营业中</em></button>
           <button class="camp-opt camp-opt-blacksmith" data-opt="blacksmith"><i>🔨</i><span><b>铁匠铺</b><small>武器与饰品</small></span><em>营业中</em></button>
           <button class="camp-opt camp-opt-potion" data-opt="potion"><i>🧪</i><span><b>道具商</b><small>药品与各种消耗品</small></span><em>营业中</em></button>
+          <button class="camp-opt camp-opt-teleport" data-opt="ddshop"><i>🌀</i><span><b>梦幻商店</b><small>媚奴用品·束缚装置·解锁工具</small></span><em>出售</em></button>
           <button class="camp-opt camp-opt-glory" data-opt="glory"><i>🚻</i><span><b>公共厕所</b><small>${toiletHint}</small></span><em>${toiletStatus}</em></button>
           <button class="camp-opt camp-opt-prison" data-opt="prison"><i>⛓️</i><span><b>监狱</b><small>无证卖淫的归宿</small></span><em>${state._inPrison ? '在押' : '戒备'}</em></button>
           <button class="camp-opt camp-opt-deer" data-opt="deer"><i>🦌</i><span><b>篝火旁的鹿</b><small>旅人的初次见面礼</small></span><em>${deerStatus}</em></button>
@@ -165,6 +166,7 @@ window.CampSystem = (function () {
         else if (opt === 'prison') prisonDoor()
         else if (opt === 'deer') deer()
         else if (opt === 'teleport') campTeleport()
+        else if (opt === 'ddshop') ddShop()
       }
     })
   }
@@ -2348,7 +2350,7 @@ window.CampSystem = (function () {
     })
   }
 
-  /** 妖缚商店（DD 商店，地图上）：媚奴用品（buff）+ 束缚装置 + 钥匙/开锁工具 */
+  /** 梦幻商店（妖缚商行，营地内）：媚奴用品（buff）+ 束缚装置 + 钥匙/开锁工具 */
   function ddShop () {
     const state = State.get()
     const all = (RESTRAINTS || []).filter(r => !r.story)
@@ -2379,15 +2381,15 @@ window.CampSystem = (function () {
       </button>`
     }).join('')
     Dialog.show({
-      title: '⛓️ 妖缚商店', className: 'inventory-modal restraint-modal',
-      body: `<section class="merchant-hero"><span aria-hidden="true">⛓️</span><div><small>YAOFU EMPORIUM · 妖缚商行</small><h3>“要缚具，来我这。”</h3><p>森林深处的商行，皮绳、锁具、媚奴用品、钥匙一应俱全。</p></div></section>
+      title: '🌀 梦幻商店 · 妖缚商行', className: 'inventory-modal restraint-modal',
+      body: `<section class="merchant-hero"><span aria-hidden="true">🌀</span><div><small>DREAM EMPORIUM · 妖缚商行</small><h3>“梦里的好东西，我这都有。”</h3><p>营地深处的神秘商行，皮绳、锁具、媚奴用品、钥匙一应俱全。</p></div></section>
         <div class="merchant-stats"><span>💎 ${state.gold}G</span><span>⛓️ 已锁 ${typeof RestraintSystem !== 'undefined' ? RestraintSystem.countLocked() : 0} 件</span><span>💰 战斗金币加成 ${typeof RestraintSystem !== 'undefined' ? Math.round(RestraintSystem.goldBonus() * 100) : 0}%</span></div>
         <p class="work-footnote">媚奴用品为可自由穿脱的 buff 装置；束缚装置被怪物/陷阱上锁时需解锁。</p>
         ${buffCards ? `<p class="work-footnote" style="margin-top:10px"><b>💄 媚奴用品（接客加成）</b></p><div class="merchant-catalog">${buffCards}</div>` : ''}
         ${restrCards ? `<p class="work-footnote" style="margin-top:10px"><b>⛓️ 束缚装置（可自行穿戴）</b></p><div class="merchant-catalog">${restrCards}</div>` : ''}
         <p class="work-footnote" style="margin-top:10px"><b>🔑 解锁工具</b></p>
         <div class="merchant-catalog">${toolCards}</div>`,
-      actions: [{ label: '离开', handler: () => { Dialog.close(); GameFlow.afterEvent() } }],
+      actions: [{ label: '返回营地', handler: () => { Dialog.close(); open() } }],
     })
     document.querySelectorAll('[data-restr]').forEach(btn => {
       btn.onclick = () => {
