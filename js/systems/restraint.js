@@ -267,7 +267,88 @@ window.RestraintSystem = (function () {
   /** 上锁槽位列表 */
   function lockedSlots () { return SLOT_ORDER.filter(isLocked) }
 
+  /* ---------- 设置 ---------- */
+
+  function settings () {
+    const st = State.get()
+    if (!st._restraintSettings || typeof st._restraintSettings !== 'object') st._restraintSettings = {}
+    st._restraintSettings.allowTrap = st._restraintSettings.allowTrap !== false
+    return st._restraintSettings
+  }
+
+  function toggleTrap () {
+    const s = settings()
+    s.allowTrap = !s.allowTrap
+    EventBus.emit('state:changed', State.get())
+    return s.allowTrap
+  }
+
+  /** 一键脱下所有未上锁装置 */
+  function removeAllUnlocked () {
+    let n = 0
+    SLOT_ORDER.forEach(slot => {
+      const d = get(slot)
+      if (d && !d.locked) { set(slot, null); n++ }
+    })
+    if (n) EventBus.emit('ui:log', { text: `✋ 脱下 ${n} 件未上锁的妖缚装置。`, type: 'good' })
+    return n
+  }
+
+  /** 身体部位图（装备栏顶部）：显示每个槽位穿了什么/空着 */
+  function bodyDiagram () {
+    return `<div class="restr-body">${SLOT_ORDER.map(slot => {
+      const d = get(slot)
+      const def = d && defOf(d.id)
+      const cls = d
+        ? (d.locked ? ' restr-body-slot is-locked' : ' restr-body-slot is-worn')
+        : ' restr-body-slot is-empty'
+      const label = d ? def.name : SLOT_NAMES[slot]
+      const mark = d
+        ? (d.locked ? (isCursed(slot) ? '🧿' : '🔒') : '✓')
+        : '·'
+      return `<div class="${cls}" title="${SLOT_NAMES[slot]}：${label}">
+        <i>${SLOT_ICONS[slot]}</i><b>${SLOT_NAMES[slot]}</b><span>${mark}</span>
+      </div>`
+    }).join('')}</div>`
+  }
+
   /* ---------- 管理页 ---------- */
+
+  /** 妖缚设置页：开关 + 一键脱下未上锁 */
+  function openSettings () {
+    const s = settings()
+    const unlocked = SLOT_ORDER.filter(slot => { const d = get(slot); return d && !d.locked })
+    Dialog.show({
+      title: '⚙️ 妖缚设置',
+      className: 'restr-modal',
+      body: `<div class="restr-settings">
+        <div class="restr-setting-row">
+          <span><b>允许陷阱上锁</b><small>关闭后森林陷阱不再往你身上锁装置</small></span>
+          <label class="restr-switch"><input type="checkbox" id="restr-set-trap" ${s.allowTrap ? 'checked' : ''}><i></i></label>
+        </div>
+        <div class="restr-setting-row">
+          <span><b>一键脱下未上锁装置</b><small>${unlocked.length ? `当前有 ${unlocked.length} 件可脱下` : '没有未上锁的装置'}</small></span>
+          <button class="btn restr-btn" data-act="strip" ${unlocked.length ? '' : 'disabled'}>✋ 脱下</button>
+        </div>
+        <p class="camp-footnote">已佩戴 ${countWorn()} 件 · 上锁 ${countLocked()} 件 · 战斗金币加成 +${Math.round(goldBonus() * 100)}%。</p>
+      </div>`,
+      actions: [
+        { label: '← 返回装置', handler: () => { Dialog.close(); openManage() } },
+        { label: '关闭', handler: () => Dialog.close() },
+      ],
+    })
+    const trapToggle = document.getElementById('restr-set-trap')
+    if (trapToggle) trapToggle.onchange = () => { toggleTrap() }
+    setTimeout(() => {
+      document.querySelectorAll('[data-act="strip"]').forEach(btn => {
+        btn.onclick = () => {
+          removeAllUnlocked()
+          Dialog.close()
+          openSettings()
+        }
+      })
+    }, 0)
+  }
 
   function openManage () {
     const state = State.get()
@@ -297,9 +378,13 @@ window.RestraintSystem = (function () {
       title: '⛓️ 妖缚装置',
       className: 'restr-modal',
       body: `<div class="restr-top"><span>已佩戴 <b>${countWorn()}</b> 件 · 上锁 <b>${countLocked()}</b> 件</span><em>战斗金币 +${bonus}%</em></div>
+        ${bodyDiagram()}
         <div class="restr-grid">${cards}</div>
-        <p class="camp-footnote">普通钥匙开普通锁；万能钥匙开任意非剧情锁；开锁工具 60% 成功。挣扎失败永久 +10% 成功率，失败 3 次后必定成功；皮革/绳索可用尖石/刀/剑割断。</p>`,
-      actions: [{ label: '关闭', handler: () => Dialog.close() }],
+        <p class="camp-footnote">普通钥匙开普通锁；万能钥匙开任意非剧情/非诅咒锁；开锁工具 60% 成功。挣扎失败永久 +10% 成功率，失败 3 次后必定成功；皮革/绳索可用尖石/刀/剑割断；诅咒锁需铁匠或驱咒符。</p>`,
+      actions: [
+        { label: '⚙️ 设置', handler: () => { Dialog.close(); openSettings() } },
+        { label: '关闭', handler: () => Dialog.close() },
+      ],
     })
     setTimeout(() => {
       document.querySelectorAll('[data-act]').forEach(btn => {
@@ -329,6 +414,7 @@ window.RestraintSystem = (function () {
     useKey, useLockpick, useCurseRemover, npcUnlock, npcUnlockCost,
     setTimer, tickTimers, lockedSlots,
     hasGag, hasHandcuffs, hasLegCuffs, hasCollar, hasArmbinder, hasBlindfold, hasWaistChastity, hasHandsBlocked, hasVibrating,
-    openManage,
+    settings, toggleTrap, removeAllUnlocked, bodyDiagram,
+    openManage, openSettings,
   }
 })()

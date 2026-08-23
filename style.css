@@ -2471,6 +2471,33 @@ body:has(.age-gate:not(.age-gate-hidden)) { overflow: hidden; }
 .restr-struggle-opt i { font-size: 1.2rem; }
 .restr-struggle-opt b { color: #f0e2d2; font-size: .84rem; display: block; }
 .restr-struggle-opt small { color: #a09088; font-size: .66rem; }
+
+/* 身体部位图（装备栏） */
+.restr-body { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; margin: 10px 0; }
+.restr-body-slot { display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 8px 4px; border: 1px solid rgba(255,255,255,.07); border-radius: 10px; text-align: center; }
+.restr-body-slot i { font-size: 1.3rem; }
+.restr-body-slot b { font-size: .6rem; color: #9aa0ad; font-weight: 600; }
+.restr-body-slot span { font-size: .62rem; }
+.restr-body-slot.is-empty { background: rgba(255,255,255,.02); color: #5a5f6a; }
+.restr-body-slot.is-worn { background: rgba(90,190,130,.1); border-color: rgba(90,190,130,.25); }
+.restr-body-slot.is-worn span { color: #9fd8b0; }
+.restr-body-slot.is-locked { background: rgba(220,90,70,.12); border-color: rgba(220,90,70,.3); }
+.restr-body-slot.is-locked span { color: #ffb3a0; }
+@media (min-width: 560px) {
+  .restr-body { grid-template-columns: repeat(7, 1fr); }
+}
+
+/* 设置页 */
+.restr-settings { display: grid; gap: 8px; }
+.restr-setting-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 10px 12px; border: 1px solid rgba(180,140,120,.2); border-radius: 10px; background: rgba(180,140,120,.06); }
+.restr-setting-row b { color: #f0e2d2; font-size: .82rem; display: block; }
+.restr-setting-row small { color: #a09088; font-size: .64rem; }
+.restr-switch { position: relative; display: inline-block; width: 44px; height: 24px; flex-shrink: 0; }
+.restr-switch input { opacity: 0; width: 0; height: 0; }
+.restr-switch i { position: absolute; cursor: pointer; inset: 0; background: rgba(255,255,255,.12); border-radius: 99px; transition: background .2s; }
+.restr-switch i::before { content: ''; position: absolute; height: 18px; width: 18px; left: 3px; top: 3px; background: #cdd4e0; border-radius: 50%; transition: transform .2s; }
+.restr-switch input:checked + i { background: rgba(90,190,130,.45); }
+.restr-switch input:checked + i::before { transform: translateX(20px); background: #9fd8b0; }
 .camp-opt:hover, .camp-opt:focus-visible { transform: translateY(-2px); border-color: rgba(239,155,69,.55); background: rgba(70, 42, 25, .46); outline: none; }
 .camp-footnote, .camp-muted { margin-top: 10px; color: #8f8987; font-size: .67rem; line-height: 1.5; text-align: center; }
 
