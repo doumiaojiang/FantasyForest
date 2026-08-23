@@ -97,6 +97,14 @@ window.State = (function () {
       _restraintSettings: { allowTrap: true },   // 妖缚设置：allowTrap=允许陷阱上锁
       _guardCheckedThisVisit: false,        // 本次进城是否已接受过卫兵检查（防连续检查）
       _guardSearchPending: null,            // 搜身检查断点 { direction: 'enter'|'exit', startedAt, duration }
+      _guardSearchSettings: {               // 城门检查设置
+        enabled: true,                      // 总开关
+        frequency: 'standard',              // low 10/15 · standard 25/35 · high 40/60 · always 100
+        duration: 'standard',               // fast 5~10 · standard 10~30 · immersive 30~60 · fixed 60
+        confiscateLockpick: true,           // 没收开锁工具
+        allowBribe: true,                   // 允许 50G 贿赂放行
+        deviceComments: true,               // 妖缚特殊台词
+      },
       _freeMeatBrand: false,            // 大腿上"免费肉便器"烙印（铁匠解锁后永久）
       _blacksmithContract: false,       // 与铁匠签的契约：每次进铺子要先服务
       _gloryDiscovered: false,          // 是否已发现荣耀洞（调查隔间后）
@@ -464,6 +472,14 @@ window.State = (function () {
     } else {
       state._guardSearchPending = null
     }
+    if (!state._guardSearchSettings || typeof state._guardSearchSettings !== 'object') state._guardSearchSettings = {}
+    const gs = state._guardSearchSettings
+    gs.enabled = gs.enabled !== false
+    gs.frequency = ['low', 'standard', 'high', 'always'].includes(gs.frequency) ? gs.frequency : 'standard'
+    gs.duration = ['fast', 'standard', 'immersive', 'fixed'].includes(gs.duration) ? gs.duration : 'standard'
+    gs.confiscateLockpick = gs.confiscateLockpick !== false
+    gs.allowBribe = gs.allowBribe !== false
+    gs.deviceComments = gs.deviceComments !== false
     state._freeMeatBrand = !!state._freeMeatBrand
     state._blacksmithContract = !!state._blacksmithContract
     if (state._gloryDiscovered === undefined) state._gloryDiscovered = !!state._gloryDiscovered

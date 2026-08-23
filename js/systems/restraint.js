@@ -333,12 +333,16 @@ window.RestraintSystem = (function () {
 
   /* ---------- 管理页 ---------- */
 
-  /** 妖缚设置页：开关 + 一键脱下未上锁 */
+  /** 妖缚设置页：开关 + 一键脱下未上锁 + 城门检查设置 */
   function openSettings () {
     const s = settings()
+    const gs = State.get()._guardSearchSettings || {}
     const unlocked = SLOT_ORDER.filter(slot => { const d = get(slot); return d && !d.locked })
+    const FREQ = { low: '低（10%/15%）', standard: '标准（25%/35%）', high: '高（40%/60%）', always: '每次（100%）' }
+    const DUR = { fast: '快速（5~10 秒）', standard: '标准（10~30 秒）', immersive: '沉浸（30~60 秒）', fixed: '固定（60 秒）' }
+    const gval = (k, def) => gs[k] === undefined ? def : gs[k]
     Dialog.show({
-      title: '⚙️ 妖缚设置',
+      title: '⚙️ 设置',
       className: 'inventory-modal restraint-modal',
       body: `<div class="restr-settings">
         <div class="restr-setting-row">
@@ -349,6 +353,37 @@ window.RestraintSystem = (function () {
           <span><b>一键脱下未上锁装置</b><small>${unlocked.length ? `当前有 ${unlocked.length} 件可脱下` : '没有未上锁的装置'}</small></span>
           <button class="btn restr-btn" data-act="strip" ${unlocked.length ? '' : 'disabled'}>✋ 脱下</button>
         </div>
+        <div class="restr-collapse" data-collapse="guard"><span>🛡️ 城门检查</span><i>▾</i></div>
+        <div class="restr-collapse-body" id="restr-guard-body" ${gval('_guardCollapsed', false) ? 'hidden' : ''}>
+          <div class="restr-setting-row">
+            <span><b>启用城门检查</b><small>进出营地时可能被卫兵拦下搜身</small></span>
+            <label class="restr-switch"><input type="checkbox" id="gs-enabled" ${gval('enabled', true) ? 'checked' : ''}><i></i></label>
+          </div>
+          <div class="restr-setting-row">
+            <span><b>检查频率</b><small>${FREQ[gval('frequency', 'standard')]}</small></span>
+            <button class="btn restr-btn" data-cycle="frequency">切换</button>
+          </div>
+          <div class="restr-setting-row">
+            <span><b>检查时间</b><small>${DUR[gval('duration', 'standard')]}</small></span>
+            <button class="btn restr-btn" data-cycle="duration">切换</button>
+          </div>
+          <div class="restr-setting-row">
+            <span><b>没收开锁工具</b><small>搜到开锁工具时没收 1 个</small></span>
+            <label class="restr-switch"><input type="checkbox" id="gs-confiscate" ${gval('confiscateLockpick', true) ? 'checked' : ''}><i></i></label>
+          </div>
+          <div class="restr-setting-row">
+            <span><b>允许贿赂</b><small>可花 50G 快速放行</small></span>
+            <label class="restr-switch"><input type="checkbox" id="gs-bribe" ${gval('allowBribe', true) ? 'checked' : ''}><i></i></label>
+          </div>
+          <div class="restr-setting-row">
+            <span><b>妖缚特殊台词</b><small>卫兵对项圈/口塞/手铐等装置发表评论</small></span>
+            <label class="restr-switch"><input type="checkbox" id="gs-device" ${gval('deviceComments', true) ? 'checked' : ''}><i></i></label>
+          </div>
+          <div class="restr-setting-row">
+            <span><b>恢复城门检查默认</b><small>重置为开启/标准/标准</small></span>
+            <button class="btn restr-btn" data-act="gs-reset">↺ 恢复默认</button>
+          </div>
+        </div>
         <p class="camp-footnote">已佩戴 ${countWorn()} 件 · 上锁 ${countLocked()} 件 · 战斗金币加成 +${Math.round(goldBonus() * 100)}%。</p>
       </div>`,
       actions: [
@@ -358,6 +393,51 @@ window.RestraintSystem = (function () {
     })
     const trapToggle = document.getElementById('restr-set-trap')
     if (trapToggle) trapToggle.onchange = () => { toggleTrap() }
+    // 城门设置开关：立即保存
+    const bindToggle = (id, key) => {
+      const el = document.getElementById(id)
+      if (el) el.onchange = () => {
+        const g = State.get()._guardSearchSettings || (State.get()._guardSearchSettings = {})
+        g[key] = el.checked
+        EventBus.emit('state:changed', State.get())
+        State.save()
+      }
+    }
+    bindToggle('gs-enabled', 'enabled')
+    bindToggle('gs-confiscate', 'confiscateLockpick')
+    bindToggle('gs-bribe', 'allowBribe')
+    bindToggle('gs-device', 'deviceComments')
+    // 频率/时长循环切换
+    document.querySelectorAll('[data-cycle]').forEach(btn => {
+      btn.onclick = () => {
+        const key = btn.dataset.cycle
+        const opts = key === 'frequency' ? Object.keys(FREQ) : Object.keys(DUR)
+        const g = State.get()._guardSearchSettings || (State.get()._guardSearchSettings = {})
+        const cur = opts.indexOf(g[key]) >= 0 ? g[key] : 'standard'
+        g[key] = opts[(opts.indexOf(cur) + 1) % opts.length]
+        EventBus.emit('state:changed', State.get())
+        State.save()
+        Dialog.close()
+        openSettings()
+      }
+    })
+    // 折叠展开
+    document.querySelectorAll('[data-collapse]').forEach(btn => {
+      btn.onclick = () => {
+        const body = document.getElementById('restr-guard-body')
+        if (body) body.hidden = !body.hidden
+      }
+    })
+    // 恢复默认
+    document.querySelectorAll('[data-act="gs-reset"]').forEach(btn => {
+      btn.onclick = () => {
+        State.get()._guardSearchSettings = { enabled: true, frequency: 'standard', duration: 'standard', confiscateLockpick: true, allowBribe: true, deviceComments: true }
+        EventBus.emit('state:changed', State.get())
+        State.save()
+        Dialog.close()
+        openSettings()
+      }
+    })
     setTimeout(() => {
       document.querySelectorAll('[data-act="strip"]').forEach(btn => {
         btn.onclick = () => {

@@ -2567,6 +2567,10 @@ body:has(.age-gate:not(.age-gate-hidden)) { overflow: hidden; }
 .restr-switch i::before { content: ''; position: absolute; height: 18px; width: 18px; left: 3px; top: 3px; background: #cdd4e0; border-radius: 50%; transition: transform .2s; }
 .restr-switch input:checked + i { background: rgba(90,190,130,.45); }
 .restr-switch input:checked + i::before { transform: translateX(20px); background: #9fd8b0; }
+.restr-collapse { display: flex; justify-content: space-between; align-items: center; width: 100%; padding: 10px 12px; margin-top: 6px; border: 1px solid rgba(var(--inventory-accent-rgb),.25); border-radius: 10px; background: rgba(var(--inventory-accent-rgb),.08); color: var(--inventory-text); font-size: .82rem; font-weight: 800; cursor: pointer; }
+.restr-collapse i { font-style: normal; font-size: .7rem; color: var(--inventory-accent); transition: transform .2s; }
+.restr-collapse-body { display: grid; gap: 6px; padding: 8px 0 0; }
+.restr-collapse-body[hidden] { display: none; }
 
 /* 装备栏页 */
 .eq-section { margin-top: 10px; }

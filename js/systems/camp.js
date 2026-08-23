@@ -250,8 +250,13 @@ window.CampSystem = (function () {
           }
         } }])
     } else if (r < 40) {
-      // 搜身检查（30%）
-      showGuardSearchPrompt('exit')
+      // 搜身检查（30%）；总开关关闭则直接放行
+      if (!guardSettings().enabled) {
+        guardMsg('🛡️ 卫兵拦住你', '<div class="glory-section"><h3><span>“啊，老熟人了，过去吧。”</span><small>卫兵挥挥手放行</small></h3></div>',
+          [{ label: '出城', cls: 'btn-primary', handler: () => { Dialog.close(); doLeaveCamp() } }])
+      } else {
+        showGuardSearchPrompt('exit')
+      }
     } else if (r < 60) {
       // 放行（20%，佩戴奴隶项圈则被当成奴畜盘查）
       if (typeof RestraintSystem !== 'undefined' && RestraintSystem.hasCollar()) {
@@ -341,17 +346,49 @@ window.CampSystem = (function () {
 
   /* ============ 城门卫兵搜身检查 ============ */
 
-  /** 本次是否触发卫兵搜身：进入 25%（持证 40%）；离开普通玩家 35% */
-  function shouldGuardSearch (direction) {
-    const state = State.get()
-    if (state._guardCheckedThisVisit) return false
-    if (direction === 'enter') return Math.random() < (state._prostituteLicensed ? 0.40 : 0.25)
-    return Math.random() < 0.35
+  /** 检查频率表（进城/出城概率） */
+  const GUARD_FREQ = {
+    low: { enter: 0.10, exit: 0.15 },
+    standard: { enter: 0.25, exit: 0.35 },
+    high: { enter: 0.40, exit: 0.60 },
+    always: { enter: 1, exit: 1 },
   }
 
-  /** 妖缚装置台词：多件只显示优先级最高的一句 */
+  /** 检查时长表 [min, max] 秒 */
+  const GUARD_DURATION = {
+    fast: [5, 10],
+    standard: [10, 30],
+    immersive: [30, 60],
+    fixed: [60, 60],
+  }
+
+  /** 城门检查设置读取（带默认值） */
+  function guardSettings () {
+    const s = State.get()._guardSearchSettings || {}
+    return {
+      enabled: s.enabled !== false,
+      frequency: GUARD_FREQ[s.frequency] ? s.frequency : 'standard',
+      duration: GUARD_DURATION[s.duration] ? s.duration : 'standard',
+      confiscateLockpick: s.confiscateLockpick !== false,
+      allowBribe: s.allowBribe !== false,
+      deviceComments: s.deviceComments !== false,
+    }
+  }
+
+  /** 本次是否触发卫兵搜身：按频率表 */
+  function shouldGuardSearch (direction) {
+    const state = State.get()
+    const s = guardSettings()
+    if (!s.enabled) return false
+    if (state._guardCheckedThisVisit) return false
+    const freq = GUARD_FREQ[s.frequency]
+    return Math.random() < (direction === 'enter' ? freq.enter : freq.exit)
+  }
+
+  /** 妖缚装置台词：多件只显示优先级最高的一句（可在设置关闭） */
   function guardDeviceComment () {
     if (typeof RestraintSystem === 'undefined') return ''
+    if (!guardSettings().deviceComments) return ''
     if (RestraintSystem.hasCollar()) return '<p class="guard-search-warning">“戴着项圈还敢一个人乱跑？”</p>'
     if (RestraintSystem.hasGag()) return '<p class="guard-search-warning">“嘴都堵上了？那就老实站着。”</p>'
     if (RestraintSystem.hasHandcuffs() || RestraintSystem.hasArmbinder()) return '<p class="guard-search-warning">“手被锁成这样，应该翻不出什么花样。”</p>'
@@ -362,6 +399,7 @@ window.CampSystem = (function () {
   /** 检查前对话：状态摘要 + 四个选项 */
   function showGuardSearchPrompt (direction) {
     const state = State.get()
+    const s = guardSettings()
     const isEnter = direction === 'enter'
     const hasLockpick = (state.inventory.consumables.lockpick || 0) > 0
     const hasPass = (state.inventory.consumables.guard_pass || 0) > 0
@@ -378,8 +416,8 @@ window.CampSystem = (function () {
       ${guardDeviceComment()}
     `
     const actions = [
-      { label: '🔍 接受检查（10~30 秒）', cls: 'btn-primary', handler: () => { Dialog.close(); startGuardSearch(direction) } },
-      {
+      { label: '🔍 接受检查', cls: 'btn-primary', handler: () => { Dialog.close(); startGuardSearch(direction) } },
+      ...(s.allowBribe ? [{
         label: '💸 交 50G 快速放行', cls: 'btn-danger',
         disabled: state.gold < 50,
         handler: () => {
@@ -390,7 +428,7 @@ window.CampSystem = (function () {
           EventBus.emit('state:changed', state)
           finishGuardPass(direction)
         },
-      },
+      }] : []),
       ...(!isEnter && hasPass ? [{ label: '📜 出示免检查卷', cls: 'btn-success', handler: () => { Dialog.close(); useGuardPass() } }] : []),
       { label: isEnter ? '← 暂不进城' : '← 返回营地', handler: () => { Dialog.close(); cancelGuardSearch(direction) } },
     ]
@@ -402,10 +440,12 @@ window.CampSystem = (function () {
     })
   }
 
-  /** 开始搜身：随机 10~30 秒；记录断点 + 立即存档（防刷新绕过），复用任务倒计时 */
+  /** 开始搜身：按设置时长随机；记录断点 + 立即存档（防刷新绕过），复用任务倒计时 */
   async function startGuardSearch (direction) {
     const state = State.get()
-    const duration = 10 + Math.floor(Math.random() * 21)   // 10 ~ 30 秒
+    const s = guardSettings()
+    const dur = GUARD_DURATION[s.duration]
+    const duration = dur[0] === dur[1] ? dur[0] : (dur[0] + Math.floor(Math.random() * (dur[1] - dur[0] + 1)))
     state._guardSearchPending = { direction, startedAt: Date.now(), duration }
     EventBus.emit('state:changed', state)
     State.save()
@@ -435,10 +475,11 @@ window.CampSystem = (function () {
     resolveGuardSearch(direction)
   }
 
-  /** 搜身结算：只没收 1 个开锁工具，然后放行 */
+  /** 搜身结算：按设置决定是否没收开锁工具（只没收 1 个），然后放行 */
   function resolveGuardSearch (direction) {
     const state = State.get()
-    const confiscated = (state.inventory.consumables.lockpick || 0) > 0
+    const s = guardSettings()
+    const confiscated = s.confiscateLockpick && (state.inventory.consumables.lockpick || 0) > 0
     if (confiscated) {
       state.inventory.consumables.lockpick--
       EventBus.emit('ui:log', { text: '🛡️ 卫兵搜出并没收了 1 个开锁工具。', type: 'danger' })
