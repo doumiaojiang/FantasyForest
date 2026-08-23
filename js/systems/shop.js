@@ -226,11 +226,6 @@ window.ShopSystem = (function () {
     const count = state.inventory.consumables[itemId] || 0
     if (count <= 0) return { ok: false, msg: '没有该物品' }
 
-    // 女性专用塞入物：男性无法使用
-    if ((itemId === 'vibrator_egg' || itemId === 'vibrating_dildo') && state.gender === 'male') {
-      return { ok: false, msg: '这是女性专用的塞入物' }
-    }
-
     const item = ItemLib.get(itemId)
     if (!item) return { ok: false, msg: '物品不存在' }
     if (itemId === 'twig') return { ok: false, msg: '树枝是武器，不能直接使用' }
@@ -243,117 +238,29 @@ window.ShopSystem = (function () {
       return { ok: false, msg: '你已是满血，无法使用治疗物品' }
     }
 
-    // 可取下塞入物（巨肛塞 / 震动假阳具）：塞入时扣 1 个，取下/用尽时还回；菊穴只能塞一个
-    if (itemId === 'big_butt_plug' || itemId === 'vibrating_dildo') {
-      if (state._plugActive) return { ok: false, msg: '已塞入塞入物，可在物品菜单取下' }
-      if (combat && combat.smallPlugBlocked > 0) return { ok: false, msg: '菊穴里已经塞了别的肛塞！' }
-      state.inventory.consumables[itemId]--
-      state._plugActive = itemId
-      if (combat) {
-        combat.plugBlocked = item.effect.block || 3
-        combat.plugType = (itemId === 'big_butt_plug') ? 'anal' : 'vagina'
-        combat.blocked = (combat.smallPlugBlocked || 0) + (combat.plugBlocked || 0)
-      }
-      EventBus.emit('ui:log', { text: `🍑 塞入${item.name}，可抵挡 ${item.effect.block || 3} 次攻击！`, type: 'good' })
-      EventBus.emit('state:changed', state)
-      return { ok: true, item }
-    }
-
-    // 其他一次性肛塞类（小肛塞 / 跳蛋）：只能塞一个
-    if (item.effect.block) {
-      if (state._plugActive) return { ok: false, msg: '已塞入塞入物，请先取下' }
-      if (combat && (combat.smallPlugBlocked || 0) > 0) return { ok: false, msg: '穴里已经塞了别的东西！' }
-    }
-
     state.inventory.consumables[itemId]--
     applyEffect(item.effect)
-    // 一次性塞入物记录部位（肛塞=菊穴，跳蛋=小穴）
-    const combatAfter = state._battle || state._ambush
-    if (combatAfter && item.effect.block) {
-      combatAfter.smallPlugType = (itemId === 'vibrator_egg') ? 'vagina' : 'anal'
-    }
     EventBus.emit('ui:log', { text: `使用了 ${item.name}。`, type: 'good' })
     EventBus.emit('state:changed', state)
     return { ok: true, item }
   }
 
-  /** 取下塞入物（还回背包，只移除自身的格挡，保留小肛塞格挡） */
-  function removePlug () {
-    const state = State.get()
-    const combat = state._battle || state._ambush
-    if (!state._plugActive) return { ok: false, msg: '没有已塞入的塞入物' }
-    const plugId = state._plugActive
-    state._plugActive = false
-    if (combat) {
-      combat.plugBlocked = 0
-      combat.blocked = combat.smallPlugBlocked || 0
-    }
-    state.inventory.consumables[plugId] = (state.inventory.consumables[plugId] || 0) + 1
-    const plugItem = ItemLib.get(plugId)
-    EventBus.emit('ui:log', { text: `🍑 取下了${plugItem ? plugItem.name : '塞入物'}，放回背包。`, type: 'good' })
-    EventBus.emit('state:changed', state)
-    return { ok: true }
-  }
-
-  /** 塞入物格挡被消耗一次（由战斗结算调用），用尽时自动还回背包 */
-  function consumePlugCharge () {
-    const state = State.get()
-    const combat = state._battle || state._ambush
-    if (!state._plugActive || !combat) return
-    const plugId = state._plugActive
-    combat.plugBlocked = Math.max(0, (combat.plugBlocked || 0) - 1)
-    combat.blocked = (combat.smallPlugBlocked || 0) + combat.plugBlocked
-    if (combat.plugBlocked === 0) {
-      state._plugActive = false
-      state.inventory.consumables[plugId] = (state.inventory.consumables[plugId] || 0) + 1
-      const plugItem = ItemLib.get(plugId)
-      EventBus.emit('ui:log', { text: `🍑 ${plugItem ? plugItem.name : '塞入物'}用尽，自动取下放回背包。`, type: 'good' })
-    }
-  }
-
-  /** 消耗一次格挡（按攻击部位：肛塞挡菊穴、跳蛋/震动假阳具挡小穴） */
+  /** 消耗一次 DD 插入装备格挡（菊穴与小穴分别计数）。 */
   function consumeBlockForPart (part) {
     const state = State.get()
     const combat = state._battle || state._ambush
     if (!combat) return false
-    // 判定可消耗的格挡来源
-    if (part === 'anal') {
-      if (state._plugActive && combat.plugType === 'anal' && (combat.plugBlocked || 0) > 0) {
-        consumePlugCharge()
+    if (combat.insertionBlocks && typeof combat.insertionBlocks === 'object') {
+      const consumeSlot = slot => {
+        if ((combat.insertionBlocks[slot] || 0) <= 0) return false
+        combat.insertionBlocks[slot]--
+        combat.blocked = Math.max(0, (combat.insertionBlocks.anal || 0) + (combat.insertionBlocks.vagina || 0))
         return true
       }
-      if ((combat.smallPlugBlocked || 0) > 0 && combat.smallPlugType === 'anal') {
-        combat.smallPlugBlocked--
-        combat.blocked = combat.smallPlugBlocked + (combat.plugBlocked || 0)
-        return true
-      }
+      if (part === 'anal' || part === 'vagina') return consumeSlot(part)
       return false
-    }
-    if (part === 'vagina') {
-      if (state._plugActive && combat.plugType === 'vagina' && (combat.plugBlocked || 0) > 0) {
-        consumePlugCharge()
-        return true
-      }
-      if ((combat.smallPlugBlocked || 0) > 0 && combat.smallPlugType === 'vagina') {
-        combat.smallPlugBlocked--
-        combat.blocked = combat.smallPlugBlocked + (combat.plugBlocked || 0)
-        return true
-      }
-      return false
-    }
-    // 无部位（通用）：可取下物优先，否则一次性塞入物
-    if (state._plugActive) { consumePlugCharge(); return true }
-    if ((combat.smallPlugBlocked || 0) > 0) {
-      combat.smallPlugBlocked--
-      combat.blocked = combat.smallPlugBlocked + (combat.plugBlocked || 0)
-      return true
     }
     return false
-  }
-
-  /** 兼容旧调用：消耗一次肛塞格挡（巨肛塞优先，否则小肛塞），同步总计数 */
-  function consumeBlockCharge () {
-    return consumeBlockForPart(null)
   }
 
   function applyEffect (effect) {
@@ -366,13 +273,6 @@ window.ShopSystem = (function () {
     if (effect.cure) effect.cure.forEach(id => StatusSystem.remove(id))
     if (effect.regen) StatusSystem.apply('regeneration', effect.regen.turns, { level: effect.regen.level, source: 'player' })
     if (effect.orb) { if (combat) combat.orbBoost = true }
-    // 小肛塞类：独立计数（巨肛塞单独用 plugBlocked）
-    if (effect.block) {
-      if (combat) {
-        combat.smallPlugBlocked = (combat.smallPlugBlocked || 0) + effect.block
-        combat.blocked = (combat.smallPlugBlocked || 0) + (combat.plugBlocked || 0)
-      }
-    }
     if (effect.reflect) { if (combat) combat.reflectTurns += effect.turns || 2 }
   }
 
@@ -420,5 +320,5 @@ window.ShopSystem = (function () {
     return { ok: true }
   }
 
-  return { open, buy, equip, unequip, close, useConsumable, removePlug, consumePlugCharge, consumeBlockCharge, consumeBlockForPart, getStock, buyClothes, reviveMercenary }
+  return { open, buy, equip, unequip, close, useConsumable, consumeBlockForPart, getStock, buyClothes, reviveMercenary }
 })()

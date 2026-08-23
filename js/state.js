@@ -93,6 +93,7 @@ window.State = (function () {
       _teleports: ['camp'],             // 已激活的传送阵 id 列表（营地始终激活）
       _restraints: {},                  // 妖缚装置 { slot: { id, locked, lockType, difficulty, material, source, escapeBonus, jammed } }
       _ownedRestraints: [],              // 已购买的妖缚装置 id 列表（可重复穿戴）
+      _ownedRestraintCounts: {},         // 可叠加妖缚装置库存 { id: 数量 }（目前用于跳蛋）
       _prisonWaistPrev: null,            // 入狱前腰部装置（出狱还原）
       _restraintSettings: { allowTrap: true },   // 妖缚设置：allowTrap=允许陷阱上锁
       _guardCheckedThisVisit: false,        // 本次进城是否已接受过卫兵检查（防连续检查）
@@ -134,7 +135,7 @@ window.State = (function () {
       rounds: 0,
       logs: [],   // 冒险日志（持久化，读档恢复）
       clothesDeposited: false,   // 托管衣服给小鹿（尖石交换的代价）
-      _plugActive: false,   // 已塞入的可取下塞入物 id（'big_butt_plug'/'vibrating_dildo'），false=无
+      _plugActive: false,   // 旧版背包塞入物兼容字段；新版本统一迁入 DD 装备
       _moveState: null,     // 移动回合状态 { steps, turning }（岔路存档恢复用）
     }
   }
@@ -381,9 +382,6 @@ window.State = (function () {
     }))
     if (state.clothesDeposited === undefined) state.clothesDeposited = false
     if (state._plugActive === undefined) state._plugActive = false
-    // 兼容旧档：巨肛塞以 true 标记 → 归一为物品 id
-    if (state._plugActive === true) state._plugActive = 'big_butt_plug'
-    if (state._plugActive !== false && !['big_butt_plug', 'vibrating_dildo'].includes(state._plugActive)) state._plugActive = false
     if (state._moveState === undefined) state._moveState = null
     if (state._pendingGuardianTreasure === undefined) state._pendingGuardianTreasure = null
     if (state._pendingGuardianGold === undefined) state._pendingGuardianGold = null
@@ -415,9 +413,10 @@ window.State = (function () {
       const r = state._restraints && typeof state._restraints === 'object' && !Array.isArray(state._restraints) ? state._restraints : {}
       const valid = {}
       Object.keys(r).forEach(slot => {
-        const d = r[slot]
-        if (d && d.id && RESTRAINTS.some(x => x.id === d.id && x.slot === slot)) {
-          valid[slot] = { ...d, locked: !!d.locked, escapeBonus: Math.max(0, Math.min(30, Math.floor(finite(d.escapeBonus, 0)))), jammed: !!d.jammed }
+        const original = r[slot]
+        const d = original && original.id === 'buttplug' ? { ...original, id: 'medium_butt_plug' } : original
+        if (d && d.id && !(slot === 'vagina' && state.gender === 'male') && RESTRAINTS.some(x => x.id === d.id && (Array.isArray(x.allowedSlots) ? x.allowedSlots.includes(slot) : x.slot === slot))) {
+          valid[slot] = { ...d, slot, locked: !!d.locked, escapeBonus: Math.max(0, Math.min(30, Math.floor(finite(d.escapeBonus, 0)))), jammed: !!d.jammed }
         }
       })
       if (state._prisonChastity) {
@@ -426,6 +425,17 @@ window.State = (function () {
           state._prisonWaistPrev = valid.waist || null
           valid.waist = { id: 'prison_chastity', slot: 'waist', locked: true, lockType: 'story', difficulty: 5, material: 'metal', source: 'prison', escapeBonus: 0, jammed: false }
         }
+      }
+      const waistDef = valid.waist && RESTRAINTS.find(x => x.id === valid.waist.id)
+      if (waistDef && waistDef.effect === 'chastity' && valid.vagina) {
+        state._ownedRestraints = Array.isArray(state._ownedRestraints) ? state._ownedRestraints : []
+        if (!state._ownedRestraints.includes(valid.vagina.id)) state._ownedRestraints.push(valid.vagina.id)
+        delete valid.vagina
+      }
+      // 妆容栏迁移：口红从嘴部(旧) → 口唇(lip)；全套妆容保持在 face（面妆槽，旧档同 id）
+      if (r.mouth && r.mouth.id === 'lipstick' && !valid.lip) {
+        valid.lip = { ...r.mouth, slot: 'lip' }
+        delete valid.mouth
       }
       // 酒馆贞操笼迁移成腰部普通装置；已购买（含旧档）记录进 ownedRestraints，可重复穿戴
       if ((state._prostituteGear && state._prostituteGear.chastity) && !valid.waist) {
@@ -437,7 +447,7 @@ window.State = (function () {
       // 酒馆妓女用品 → 妖缚 buff 装置迁移（旧档购买记录保留并可重新穿戴）
       state._ownedRestraints = Array.isArray(state._ownedRestraints) ? state._ownedRestraints : []
       if (state._prostituteGear && typeof state._prostituteGear === 'object') {
-        const GEAR_MAP = { lipstick: 'lipstick', makeup: 'makeup', heels: 'heels', lingerie: 'lingerie', latex: 'latex', collar: 'slut_collar', gag: 'slut_gag', buttplug: 'buttplug' }
+        const GEAR_MAP = { lipstick: 'lipstick', makeup: 'makeup', heels: 'heels', lingerie: 'lingerie', latex: 'latex', collar: 'slut_collar', gag: 'slut_gag', buttplug: 'medium_butt_plug' }
         Object.entries(GEAR_MAP).forEach(([flag, did]) => {
           if (!state._prostituteGear[flag]) return
           if (!state._ownedRestraints.includes(did)) state._ownedRestraints.push(did)
@@ -448,11 +458,47 @@ window.State = (function () {
         })
         state._restraints = valid
       }
+      // 旧版背包塞入物全部迁为永久拥有的 DD 装备；旧版正在使用的装备尽量保持穿戴。
+      const legacyInsertIds = ['butt_plug', 'big_butt_plug', 'vibrator_egg', 'vibrating_dildo']
+      const legacyActive = state._plugActive === true ? 'big_butt_plug' : state._plugActive
+      state._ownedRestraintCounts = state._ownedRestraintCounts && typeof state._ownedRestraintCounts === 'object' && !Array.isArray(state._ownedRestraintCounts)
+        ? state._ownedRestraintCounts : {}
+      legacyInsertIds.forEach(id => {
+        const count = Math.max(0, Math.floor(finite(state.inventory?.consumables?.[id], 0)))
+        if (count > 0 || legacyActive === id) {
+          if (!state._ownedRestraints.includes(id)) state._ownedRestraints.push(id)
+          const def = RESTRAINTS.find(x => x.id === id)
+          if (def && def.stackable && count > 0) {
+            const previous = Math.max(0, Math.floor(finite(state._ownedRestraintCounts[id], 0)))
+            state._ownedRestraintCounts[id] = Math.min(def.maxStack || 99, previous + count)
+          }
+          if (state.inventory && state.inventory.consumables) state.inventory.consumables[id] = 0
+        }
+      })
+      if (legacyActive && legacyInsertIds.includes(legacyActive)) {
+        const def = RESTRAINTS.find(x => x.id === legacyActive)
+        const preferred = def && Array.isArray(def.allowedSlots) ? def.allowedSlots.find(slot => !valid[slot] && !(slot === 'vagina' && state.gender === 'male')) : null
+        if (def && preferred) valid[preferred] = { id: def.id, slot: preferred, locked: false, lockType: 'common', difficulty: def.difficulty || 1, material: def.material, source: 'migration', escapeBonus: 0, jammed: false }
+      }
+      state._plugActive = false
+      state._ownedRestraints = [...new Set(state._ownedRestraints.map(id => id === 'buttplug' ? 'medium_butt_plug' : id))]
       // 已购装置过滤（仅保留有效装置 id）
       if (typeof window.RESTRAINTS !== 'undefined' && Array.isArray(state._ownedRestraints)) {
         state._ownedRestraints = state._ownedRestraints.filter(id => RESTRAINTS.some(x => x.id === id && !x.story))
+        RESTRAINTS.filter(x => x.stackable && !x.story).forEach(def => {
+          const worn = Object.values(valid).find(d => d && d.id === def.id)
+          const owned = state._ownedRestraints.includes(def.id) || !!worn
+          const saved = Math.max(0, Math.floor(finite(state._ownedRestraintCounts[def.id], 0)))
+          const wornCount = worn ? Math.max(1, Math.floor(finite(worn.count, 1))) : 0
+          const count = owned ? Math.max(1, Math.min(def.maxStack || 99, Math.max(saved, wornCount))) : 0
+          if (count > 0) state._ownedRestraintCounts[def.id] = count
+          else delete state._ownedRestraintCounts[def.id]
+          if (worn) worn.count = Math.min(count, wornCount || 1)
+          if (owned && !state._ownedRestraints.includes(def.id)) state._ownedRestraints.push(def.id)
+        })
       } else {
         state._ownedRestraints = []
+        state._ownedRestraintCounts = {}
       }
       if (state._prisonWaistPrev && state._prisonWaistPrev.id && !RESTRAINTS.some(x => x.id === state._prisonWaistPrev.id)) {
         state._prisonWaistPrev = null
@@ -521,10 +567,26 @@ window.State = (function () {
     state._campDeerTaken = !!state._campDeerTaken
 
     // 旧战斗存档迁移：补肛塞子计数（旧档只有 blocked）
-    if (state._battle && state._battle.smallPlugBlocked === undefined && state._battle.plugBlocked === undefined) {
+    if (state._battle && !state._battle.insertionBlocks && state._battle.smallPlugBlocked === undefined && state._battle.plugBlocked === undefined) {
       state._battle.smallPlugBlocked = state._battle.blocked || 0
       state._battle.plugBlocked = 0
       state._battle.blocked = state._battle.smallPlugBlocked
+    }
+    if (state._battle) {
+      const currentBlocks = state._battle.insertionBlocks && typeof state._battle.insertionBlocks === 'object'
+        ? state._battle.insertionBlocks
+        : null
+      const maxFor = slot => {
+        const worn = state._restraints && state._restraints[slot]
+        const def = worn && typeof window.RESTRAINTS !== 'undefined' ? RESTRAINTS.find(r => r.id === worn.id && r.insert) : null
+        const count = def && def.stackable ? Math.max(1, Math.floor(finite(worn.count, 1))) : 1
+        return def ? Math.max(0, Math.floor(finite(def.block, 0))) * count : 0
+      }
+      state._battle.insertionBlocks = {
+        anal: Math.max(0, Math.min(maxFor('anal'), Math.floor(finite(currentBlocks ? currentBlocks.anal : maxFor('anal'), 0)))),
+        vagina: Math.max(0, Math.min(maxFor('vagina'), Math.floor(finite(currentBlocks ? currentBlocks.vagina : maxFor('vagina'), 0)))),
+      }
+      state._battle.blocked = state._battle.insertionBlocks.anal + state._battle.insertionBlocks.vagina
     }
 
     // 装备记录：缺则补，并从当前装备重建已购记录（含多饰品数组）

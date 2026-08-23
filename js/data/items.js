@@ -60,26 +60,6 @@ window.ITEMS = {
       effect: { regen: { level: 1, turns: 5 } },
     },
     {
-      id: 'butt_plug', name: '肛门塞', type: 'consumable', price: 50,
-      desc: '塞入可抵挡 1 次攻击及其效果，随后破损',
-      effect: { block: 1 },
-    },
-    {
-      id: 'big_butt_plug', name: '巨肛塞', type: 'consumable', price: 100,
-      desc: '塞入可抵挡 3 次攻击及其效果，可随时取放',
-      effect: { block: 3 },
-    },
-    {
-      id: 'vibrator_egg', name: '跳蛋', type: 'consumable', price: 50,
-      desc: '女性专用：塞入小穴震动，可抵挡 1 次攻击及其效果，随后破损',
-      effect: { block: 1 },
-    },
-    {
-      id: 'vibrating_dildo', name: '震动假阳具', type: 'consumable', price: 100,
-      desc: '女性专用：塞入小穴震动不止，可抵挡 3 次攻击及其效果，可随时取放',
-      effect: { block: 3 },
-    },
-    {
       id: 'weapon_upgrade_material', name: '武器升级材料', type: 'consumable', price: 500,
       desc: '到商店可免费升级武器（不适用大师之剑）；购买大师之剑时抵扣 500 金币',
       effect: { special: 'free_upgrade' },

@@ -61,7 +61,15 @@ window.LootSystem = (function () {
       const drop = enemy.loot.drops.find(d => d.roll === z)
       if (drop) {
         if (drop.itemId) {
-          state.inventory.consumables[drop.itemId] = (state.inventory.consumables[drop.itemId] || 0) + 1
+          const ddDef = typeof RestraintSystem !== 'undefined' ? RestraintSystem.defOf(drop.itemId) : null
+          if (ddDef && ddDef.insert) {
+            const granted = RestraintSystem.grant(drop.itemId)
+            if (granted.owned) {
+              const compensation = Math.max(1, Math.floor((ddDef.price || 0) / 2))
+              state.gold += compensation
+              EventBus.emit('ui:log', { text: `🎁 已拥有${ddDef.name}，重复掉落折算为 ${compensation}G。`, type: 'good' })
+            }
+          } else state.inventory.consumables[drop.itemId] = (state.inventory.consumables[drop.itemId] || 0) + 1
           result.drops.push({ itemId: drop.itemId })
         }
         if (drop.status) {

@@ -893,8 +893,7 @@
         if (e.heal && state.hp >= state.maxHp) return false
         return true
       })
-    // 没有任何可用道具且未塞入巨肛塞 → 无需打开菜单
-    if (!items.length && !state._plugActive) {
+    if (!items.length) {
       EventBus.emit('ui:log', { text: '没有可在移动时使用的物品。', type: 'dim' })
       return
     }
@@ -910,12 +909,6 @@
       </button>`
     }).join('')
 
-    // 已塞入可取下塞入物时，提供取下入口
-    if (state._plugActive) {
-      const plugItem = ItemLib.get(state._plugActive)
-      html = `<button class="btn btn-danger move-plug-remove" style="display:block;width:100%;text-align:left;margin:6px 0">🍑 取下${plugItem ? plugItem.name : '塞入物'}（放回背包，清除剩余格挡）</button>` + html
-    }
-
     Dialog.show({
       title: '🎒 使用物品（移动时）',
       body: html,
@@ -923,15 +916,6 @@
     })
 
     setTimeout(() => {
-      const plugBtn = document.querySelector('.move-plug-remove')
-      if (plugBtn) {
-        plugBtn.onclick = () => {
-          const result = ShopSystem.removePlug()
-          Dialog.close()
-          if (!result.ok) EventBus.emit('ui:log', { text: result.msg, type: 'danger' })
-          else showMoveItemMenu()
-        }
-      }
       document.querySelectorAll('.move-item-use').forEach(btn => {
         btn.onclick = () => {
           const id = btn.dataset.item

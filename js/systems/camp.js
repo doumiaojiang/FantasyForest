@@ -149,8 +149,8 @@ window.CampSystem = (function () {
         <div class="camp-grid">
           <button class="camp-opt camp-opt-tavern" data-opt="tavern"><i>🍺</i><span><b>雾灯酒馆</b><small>摇骰子、买酒</small></span><em>营业中</em></button>
           <button class="camp-opt camp-opt-blacksmith" data-opt="blacksmith"><i>🔨</i><span><b>铁匠铺</b><small>武器与饰品</small></span><em>营业中</em></button>
-          <button class="camp-opt camp-opt-potion" data-opt="potion"><i>🧪</i><span><b>道具商</b><small>药品与各种消耗品</small></span><em>营业中</em></button>
-          <button class="camp-opt camp-opt-dream" data-opt="ddshop"><i>🔮</i><span><b>梦幻商店</b><small>媚奴用品·束缚装置·解锁工具</small></span><em>营业中</em></button>
+          <button class="camp-opt camp-opt-potion" data-opt="potion"><i>🧪</i><span><b>道具商</b><small>药品与旅途补给</small></span><em>营业中</em></button>
+          <button class="camp-opt camp-opt-dream" data-opt="ddshop"><i>🔮</i><span><b>梦幻商店</b><small>插入装备·妖缚装置·解锁工具</small></span><em>营业中</em></button>
           <button class="camp-opt camp-opt-glory" data-opt="glory"><i>🚻</i><span><b>公共厕所</b><small>${toiletHint}</small></span><em>${toiletStatus}</em></button>
           <button class="camp-opt camp-opt-prison" data-opt="prison"><i>⛓️</i><span><b>监狱</b><small>无证卖淫的归宿</small></span><em>${state._inPrison ? '在押' : '戒备'}</em></button>
           <button class="camp-opt camp-opt-deer" data-opt="deer"><i>🦌</i><span><b>篝火旁的鹿</b><small>旅人的初次见面礼</small></span><em>${deerStatus}</em></button>
@@ -1819,9 +1819,9 @@ window.CampSystem = (function () {
     const state = State.get()
     campShow({
       title: '🧪 道具商', className: 'potion-modal',
-      body: `<div class="camp-character"><i>🧪</i><div><b>“要点什么？都是硬货。”</b><p>道具商掀开皮箱一角，瓶瓶罐罐叮当响："药品、药膏、还有各种塞的玩的——自己挑。"</p></div></div>
+      body: `<div class="camp-character"><i>🧪</i><div><b>“要点什么？都是硬货。”</b><p>道具商掀开皮箱一角，瓶瓶罐罐叮当响："药剂、药膏、咒术补给——自己挑。"</p></div></div>
         <div class="camp-grid">
-          <button class="camp-opt" data-ps="buy"><i>🛒</i><span><b>商店</b><small>药品与各种消耗品</small></span><em>进店</em></button>
+          <button class="camp-opt" data-ps="buy"><i>🛒</i><span><b>商店</b><small>药品与旅途消耗品</small></span><em>进店</em></button>
           <button class="camp-opt" data-ps="chat"><i>💬</i><span><b>聊天</b><small>听他唠唠进货门道</small></span><em>搭话</em></button>
         </div>`,
       actions: [{ label: '返回营地', handler: () => { Dialog.close(); open() } }],
@@ -1848,7 +1848,7 @@ window.CampSystem = (function () {
   const POTION_CHATS = [
     { title: '💬 道具商 · 进货', body: `<div class="camp-character"><i>🧪</i><div><b>“我这的货，路子野得很。”</b><p>他拍了拍皮箱："药草、药膏、假阳具……都是从深山里收来的。好使。"</p></div></div>` },
     { title: '💬 道具商 · 药草', body: `<div class="camp-character"><i>🧪</i><div><b>“森林里的药草，懂的人才知道金贵。”</b><p>他捻了捻干草："受伤了就来找我，比光挨着强。"</p></div></div>` },
-    { title: '💬 道具商 · 塞的', body: `<div class="camp-character"><i>🧪</i><div><b>“塞的玩意儿？我这也卖。”</b><p>他挤了挤眼："肛塞、跳蛋，路上防身又解闷——怪物爱这个。"</p></div></div>` },
+    { title: '💬 道具商 · 梦幻商店', body: `<div class="camp-character"><i>🧪</i><div><b>“找那些稀奇的塞入物？去梦幻商店。”</b><p>他朝营地深处努努嘴："那类货现在归妖缚商行管，我这里只留药品和旅途补给。"</p></div></div>` },
   ]
   function potionChat () {
     const state = State.get()
@@ -2584,22 +2584,30 @@ window.CampSystem = (function () {
     })
   }
 
-  /** 梦幻商店（妖缚商行，营地内）：媚奴用品（buff）+ 束缚装置 + 钥匙/开锁工具 */
+  /** 梦幻商店（妖缚商行，营地内）：插入类妖缚装备 + 妆容用品 + 媚奴用品 + 束缚装置 + 钥匙/开锁工具 */
   function ddShop () {
     const state = State.get()
-    const all = (RESTRAINTS || []).filter(r => !r.story)
+    const all = (RESTRAINTS || []).filter(r => !r.story && !(r.femaleOnly && state.gender === 'male'))
+    const itemIcon = r => {
+      if (typeof RestraintSystem === 'undefined') return '⛓️'
+      return (RestraintSystem.COSMETIC_ICONS && RestraintSystem.COSMETIC_ICONS[r.slot]) || RestraintSystem.SLOT_ICONS[r.slot] || '⛓️'
+    }
     const renderCard = r => {
-      const wornThis = typeof RestraintSystem !== 'undefined' && RestraintSystem.get(r.slot) && RestraintSystem.get(r.slot).id === r.id
-      const owned = (state._ownedRestraints || []).includes(r.id) || wornThis || (state._prostituteGear && state._prostituteGear[r.id === 'chastity_device' ? 'chastity' : r.id])
-      const canBuy = state.gold >= r.price && !owned
-      return `<button class="merchant-item${owned ? ' is-owned' : ''}${!owned && !canBuy ? ' is-unaffordable' : ''}" data-restr="${r.id}" ${owned || !canBuy ? 'disabled' : ''}>
-        <span class="merchant-item-icon">${typeof RestraintSystem !== 'undefined' ? RestraintSystem.SLOT_ICONS[r.slot] : '⛓️'}</span>
+      const wornThis = typeof RestraintSystem !== 'undefined' && RestraintSystem.hasDevice(r.id)
+      const ownedCount = typeof RestraintSystem !== 'undefined' ? RestraintSystem.ownedCount(r.id) : 0
+      const owned = ownedCount > 0 || (state._ownedRestraints || []).includes(r.id) || wornThis || (state._prostituteGear && state._prostituteGear[r.id === 'chastity_device' ? 'chastity' : r.id])
+      const full = r.stackable ? ownedCount >= (r.maxStack || 99) : owned
+      const canBuy = state.gold >= r.price && !full
+      return `<button class="merchant-item${full ? ' is-owned' : ''}${!full && !canBuy ? ' is-unaffordable' : ''}" data-restr="${r.id}" ${full || !canBuy ? 'disabled' : ''}>
+        <span class="merchant-item-icon">${itemIcon(r)}</span>
         <span class="merchant-item-info"><b>${r.name}</b><small>${r.desc}</small></span>
-        <span class="merchant-item-price">${owned ? '✓ 已拥有' : `<b>${r.price}G</b>`}</span>
+        <span class="merchant-item-price">${r.stackable ? (full ? `✓ 已有 ${ownedCount}/${r.maxStack}颗` : `<b>${r.price}G/颗</b><small>已有 ${ownedCount}/${r.maxStack} 颗</small>`) : (owned ? '✓ 已拥有' : `<b>${r.price}G</b>`)}</span>
       </button>`
     }
-    const buffCards = all.filter(r => r.buff).map(renderCard).join('')
-    const restrCards = all.filter(r => !r.buff).map(renderCard).join('')
+    const insertCards = all.filter(r => r.insert).map(renderCard).join('')
+    const cosmeticCards = all.filter(r => r.cosmetic).map(renderCard).join('')
+    const buffCards = all.filter(r => r.buff && !r.insert && !r.cosmetic).map(renderCard).join('')
+    const restrCards = all.filter(r => !r.buff && !r.insert).map(renderCard).join('')
     const toolCards = [
       { id: 'restraint_key', name: '普通钥匙', price: 200, icon: '🔑', desc: '解开一把普通上锁的妖缚装置' },
       { id: 'master_key', name: '万能钥匙', price: 500, icon: '🗝️', desc: '解开任意非剧情/非诅咒的上锁装置' },
@@ -2616,9 +2624,11 @@ window.CampSystem = (function () {
     }).join('')
     Dialog.show({
       title: '🔮 梦幻商店 · 妖缚商行', className: 'inventory-modal dream-shop-modal',
-      body: `<section class="merchant-hero dream-shop-hero"><span aria-hidden="true">🔮</span><div><small>DREAM EMPORIUM · 妖缚商行</small><h3>“梦里的好东西，我这都有。”</h3><p>营地深处的神秘商行，皮绳、锁具、媚奴用品、钥匙一应俱全。</p></div></section>
+      body: `<section class="merchant-hero dream-shop-hero"><span aria-hidden="true">🔮</span><div><small>DREAM EMPORIUM · 妖缚商行</small><h3>“梦里的好东西，我这都有。”</h3><p>营地深处的神秘商行，插入装备、皮绳、锁具、媚奴用品与钥匙一应俱全。</p></div></section>
         <div class="merchant-stats"><span>💎 ${state.gold}G</span><span>⛓️ 已锁 ${typeof RestraintSystem !== 'undefined' ? RestraintSystem.countLocked() : 0} 件</span><span>💰 战斗金币加成 ${typeof RestraintSystem !== 'undefined' ? Math.round(RestraintSystem.goldBonus() * 100) : 0}%</span></div>
-        <p class="dream-shop-note">媚奴用品可以自由穿脱；束缚装置一旦被怪物或陷阱上锁，就需要对应工具解开。</p>
+        <p class="dream-shop-note">插入类妖缚装备和媚奴用品都归入妖缚装备栏，可自由穿脱并提供接客加成；小穴被贞操装置封住时不能插入装备。</p>
+        <section class="dream-shop-section"><h4><span>🍑</span> 插入类妖缚装备 <small>格挡攻击 · 接客加成</small></h4><div class="merchant-catalog dream-shop-catalog">${insertCards}</div></section>
+        ${cosmeticCards ? `<section class="dream-shop-section"><h4><span>💄</span> 妆容用品 <small>口交加成</small></h4><div class="merchant-catalog dream-shop-catalog">${cosmeticCards}</div></section>` : ''}
         ${buffCards ? `<section class="dream-shop-section"><h4><span>💄</span> 媚奴用品 <small>接客加成</small></h4><div class="merchant-catalog dream-shop-catalog">${buffCards}</div></section>` : ''}
         ${restrCards ? `<section class="dream-shop-section"><h4><span>⛓️</span> 束缚装置 <small>可自行穿戴</small></h4><div class="merchant-catalog dream-shop-catalog">${restrCards}</div></section>` : ''}
         <section class="dream-shop-section"><h4><span>🔑</span> 解锁工具 <small>消耗品</small></h4><div class="merchant-catalog dream-shop-catalog">${toolCards}</div></section>`,
@@ -2630,17 +2640,20 @@ window.CampSystem = (function () {
         const def = RESTRAINTS.find(r => r.id === id)
         if (!def) return
         if (state.gold < def.price) return
+        if (def.stackable && RestraintSystem.ownedCount(def.id) >= (def.maxStack || 99)) return
         state.gold -= def.price
-        // 记录已购买（可重复穿戴）
-        state._ownedRestraints = state._ownedRestraints || []
-        if (!state._ownedRestraints.includes(def.id)) state._ownedRestraints.push(def.id)
-        const equipResult = typeof RestraintSystem !== 'undefined'
-          ? RestraintSystem.equip(def.slot, def.id, { locked: false, source: 'dream_shop' })
+        const grantResult = RestraintSystem.grant(def.id, 1)
+        const possibleSlots = typeof RestraintSystem !== 'undefined'
+          ? RestraintSystem.allowedSlotsOf(def).filter(slot => !RestraintSystem.get(slot) && RestraintSystem.canEquip(slot, def.id).ok)
+          : []
+        // 单一可用槽位直接穿戴；双用假阳具有多个选择时留在装备栏由玩家决定。
+        const equipResult = possibleSlots.length === 1
+          ? RestraintSystem.equip(possibleSlots[0], def.id, { locked: false, source: 'dream_shop' })
           : null
         const equipped = !!(equipResult && equipResult.ok)
-        const logText = equipped
-          ? `🔮 你买下并戴上了${def.name}（已拥有，可随时脱下重穿）。`
-          : `🔮 你买下了${def.name}，但对应部位已有装备；可在妖缚装备栏中更换。`
+        const logText = def.stackable
+          ? (equipped ? `🔮 你买下并塞入了 1 颗${def.name}。` : `🔮 你买下了 1 颗${def.name}（现有 ${grantResult.count} 颗）；可在妖缚装备栏调整塞入数量。`)
+          : (equipped ? `🔮 你买下并戴上了${def.name}（已拥有，可随时脱下重穿）。` : `🔮 你买下了${def.name}；可在妖缚装备栏中选择可用部位穿戴。`)
         EventBus.emit('ui:log', { text: logText, type: 'good' })
         EventBus.emit('state:changed', state)
         ddShop()
@@ -2824,7 +2837,7 @@ window.CampSystem = (function () {
     { title: '💬 老板娘 · 酒馆的风云', body: `<div class="camp-character"><i>💃</i><div><b>“隔壁桌那些赌棍，输急了眼连裤子都敢押。”</b><p>她呷了口酒：“你可别学他们，姐这儿不赊账。”</p></div></div>` },
     { title: '💬 老板娘 · 今晚的风', body: `<div class="camp-character"><i>💃</i><div><b>“夜里风凉，当心别在林子里过夜。”</b><p>她往炉子里添了根柴：“我这酒馆，永远给你留着一盏灯。”</p></div></div>` },
     { title: '💬 老板娘 · 铁匠铺', body: `<div class="camp-character"><i>💃</i><div><b>“新来的铁匠可有一手好手艺。”</b><p>她朝门口努努嘴：“他打的家伙什儿结实，你要是想换把趁手的兵器，去找他准没错。”</p></div></div>` },
-    { title: '💬 老板娘 · 道具商', body: `<div class="camp-character"><i>💃</i><div><b>“镇上那个道具商，进货的路子野得很。”</b><p>她压低声音：“药膏、肛塞、假阳具……什么稀奇古怪的玩意儿他都有。有钱尽管去逛逛。”</p></div></div>` },
+    { title: '💬 老板娘 · 两间商店', body: `<div class="camp-character"><i>💃</i><div><b>“镇上的货，现在分得可细。”</b><p>她压低声音：“药剂和旅途补给找道具商；塞入物、锁具那些稀奇玩意儿，得去梦幻商店。”</p></div></div>` },
     { title: '💬 老板娘 · 旅行商人走了', body: `<div class="camp-character"><i>💃</i><div><b>“诶，你听说了没？老旅行商人走了。”</b><p>她擦着吧台叹了口气：“说是咱这镇子越来越大了，他得赶去别的穷地方做生意。往后补给、装备，就得靠镇上的铁匠和道具商了。”</p></div></div>` },
     { title: '💬 老板娘 · 镇子变大了', body: `<div class="camp-character"><i>💃</i><div><b>“这几年镇子是一天比一天热闹。”</b><p>她给自己倒了杯酒：“铁匠铺、道具铺一个个开起来，就剩我这酒馆还守着老味道。”</p></div></div>` },
   ]
@@ -3001,11 +3014,22 @@ window.CampSystem = (function () {
       { id: 'latex', name: '乳胶衣', icon: '🖤', desc: '每项接客任务获得的金币和等级都翻倍' },
       { id: 'slut_collar', name: '媚奴项圈', icon: '🐕', desc: '插入任务强制 120 BPM，等级翻倍' },
       { id: 'slut_gag', name: '媚奴口塞', icon: '🤐', desc: '插入任务强制 160/180 BPM，金币翻倍' },
-      { id: 'buttplug', name: '肛塞', icon: '🔴', desc: '预先扩张屁股，插入任务额外 +10G' },
     ]
     const ownedList = (typeof RestraintSystem !== 'undefined')
       ? BUFF_GEAR.filter(g => RestraintSystem.hasDevice(g.id))
       : []
+    if (typeof RestraintSystem !== 'undefined') {
+      ;['anal', 'vagina'].forEach(slot => {
+        const entry = RestraintSystem.insertionDevice(slot)
+        if (!entry) return
+        ownedList.push({
+          id: entry.def.id,
+          name: entry.def.name,
+          icon: slot === 'vagina' ? '🌸' : '🍑',
+          desc: `${RestraintSystem.SLOT_NAMES[slot]} · 插入任务额外 +${entry.def.prostituteBonus || 0}G`,
+        })
+      })
+    }
     const gearHtml = ownedList.length
       ? `<div class="work-gear"><small>💄 已装备媚奴用品（妖缚）</small><div class="work-gear-list">${ownedList.map(g => `<span title="${g.desc}">${g.icon} ${g.name}</span>`).join('')}</div></div>`
       : `<div class="work-gear"><small>💄 已装备媚奴用品（妖缚）</small><div class="work-gear-list work-gear-empty">尚未装备任何用品</div></div>`
@@ -3463,7 +3487,7 @@ window.CampSystem = (function () {
       latex: !!R && R.hasDevice('latex'),
       collar: !!R && R.hasDevice('slut_collar'),
       gag: !!R && R.hasDevice('slut_gag'),
-      buttplug: !!R && R.hasDevice('buttplug'),
+      insertionBonus: R ? R.insertionProstituteBonus() : 0,
     }
     const isInsert = /操|插入|抽插|后入|骑乘|传教士/.test(task.desc)
     // 妖缚口塞（惩罚件）：口交/深喉任务做不了，直接判失败
@@ -3520,8 +3544,8 @@ window.CampSystem = (function () {
       if (gear.latex) goldMult *= 2
       // 媚奴口塞：插入任务金币翻倍
       if (gear.gag && isInsert) goldMult *= 2
-      // 肛塞：预先扩张，插入任务额外 +10G
-      if (gear.buttplug && isInsert) goldBonus += 10
+      // 插入类 DD 装备：菊穴和小穴可同时穿戴，加成按当前装备累加。
+      if (gear.insertionBonus && isInsert) goldBonus += gear.insertionBonus
     }
     // 等级翻倍（封顶 ×2）
     if (gear.lingerie) levelMult *= 2

@@ -929,7 +929,7 @@ window.BattleUI = (function () {
       EventBus.emit('ui:log', { text: `🛡️ 防御姿态！伤害从 ${before} 减至 ${dmg}`, type: 'good' })
     }
 
-    // 肛塞抵挡整次敌方结算（包含已有小兵伤害、治疗反转），必须先判定再结算
+    // DD 插入装备抵挡对应部位的整次敌方结算（包含已有小兵伤害、治疗反转）。
     if (battle.blocked > 0) {
       const attackPart = _lastEnemyAttack ? _lastEnemyAttack.part : null
       if (ShopSystem.consumeBlockForPart(attackPart)) {
@@ -989,7 +989,7 @@ window.BattleUI = (function () {
 
     EventBus.emit('state:changed', state)
 
-    let msg = blocked ? '🛡️ 被肛塞挡住了！' : failed
+    let msg = blocked ? '🛡️ 被插入装备挡住了！' : failed
       ? `❌ 没完成任务！受到 ${dmg} 点伤害`
       : `受到 ${dmg} 点伤害（召唤攻击已强化）`
     EventBus.emit('ui:log', { text: `[${summoned.name}] ${msg}`, type: dmg > 0 ? 'danger' : 'dim' })
@@ -1082,7 +1082,7 @@ window.BattleUI = (function () {
     }
 
 
-    // 肛塞抵挡（按攻击部位消耗：肛塞挡菊穴、跳蛋/震动假阳具挡小穴）
+    // DD 插入装备按部位消耗本场格挡：菊穴装备挡菊穴，小穴装备挡小穴。
     if (battle && battle.blocked > 0) {
       const attackPart = _lastEnemyAttack ? _lastEnemyAttack.part : null
       if (ShopSystem.consumeBlockForPart(attackPart)) {
@@ -1148,7 +1148,7 @@ window.BattleUI = (function () {
     let msg = failed
       ? `❌ 没完成任务！伤害翻倍！受到 ${dmg} 点伤害`
       : `✅ 完成任务！受到 ${dmg} 点伤害`
-    if (blocked) msg = '🛡️ 被肛塞挡住了！'
+    if (blocked) msg = '🛡️ 被插入装备挡住了！'
     EventBus.emit('ui:log', { text: msg, type: failed ? 'danger' : 'dim' })
 
     // 召唤物伤害提示
@@ -1234,17 +1234,14 @@ window.BattleUI = (function () {
       showPlayerTurn()
       return
     }
-    // 本回合已用 1 个物品：只允许"取下巨肛塞"（塞入的巨肛塞可随时取回），禁止再用其他道具
-    if (state._battle && state._battle.itemUsedThisTurn && !state._plugActive) {
+    if (state._battle && state._battle.itemUsedThisTurn) {
       EventBus.emit('ui:log', { text: '本回合已经使用过 1 个物品，下次再战！', type: 'dim' })
       return
     }
     const items = Object.entries(state.inventory.consumables)
       .filter(([id, v]) => v > 0 && id !== 'weapon_upgrade_material' && id !== 'twig' && id !== 'restraint_key' && id !== 'master_key' && id !== 'lockpick' && id !== 'curse_remover')
-    // 已用 1 个物品时：清空可用道具，只保留取下巨肛塞入口
     const usableItems = state._battle && state._battle.itemUsedThisTurn ? [] : items
-    // 无可用道具且未塞巨肛塞 → 无需打开菜单
-    if (!usableItems.length && !state._plugActive) {
+    if (!usableItems.length) {
       EventBus.emit('ui:log', { text: '没有可用物品。', type: 'dim' })
       return
     }
@@ -1261,12 +1258,6 @@ window.BattleUI = (function () {
       </button>`
     }).join('')
 
-    // 已塞入可取下塞入物时，提供取下入口
-    if (state._plugActive) {
-      const plugItem = ItemLib.get(state._plugActive)
-      html = `<button class="btn btn-danger plug-remove-btn" style="display:block;width:100%;text-align:left;margin:6px 0">🍑 取下${plugItem ? plugItem.name : '塞入物'}（放回背包，清除剩余格挡）</button>` + html
-    }
-
     Dialog.show({
       title: '🎒 选择物品',
       body: html,
@@ -1274,15 +1265,6 @@ window.BattleUI = (function () {
     })
 
     setTimeout(() => {
-      const plugBtn = document.querySelector('.plug-remove-btn')
-      if (plugBtn) {
-        plugBtn.onclick = () => {
-          const result = ShopSystem.removePlug()
-          Dialog.close()
-          if (!result.ok) EventBus.emit('ui:log', { text: result.msg, type: 'danger' })
-          else showPlayerTurn()
-        }
-      }
       document.querySelectorAll('[data-item]').forEach(btn => {
         btn.onclick = () => {
           const id = btn.dataset.item
@@ -1343,7 +1325,8 @@ window.BattleUI = (function () {
           const dropNames = realDrops.map(d => {
             if (d.itemId) {
               const it = ItemLib.get(d.itemId)
-              return it ? `${it.name}` : d.itemId
+              const dd = typeof RestraintSystem !== 'undefined' ? RestraintSystem.defOf(d.itemId) : null
+              return it ? `${it.name}` : dd ? `${dd.name}（妖缚装备）` : d.itemId
             }
             if (d.type === 'status') {
               const st = STATUS_EFFECTS[d.id]

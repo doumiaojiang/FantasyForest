@@ -86,7 +86,7 @@ window.TrapSystem = {
 
     // 妖缚：森林陷阱有概率锁上一件普通装置（同一时间最多一件上锁；可在妖缚设置里关闭）
     if (typeof RestraintSystem !== 'undefined' && RestraintSystem.settings().allowTrap && RestraintSystem.countLocked() === 0 && RestraintSystem.countWorn() < RestraintSystem.SLOT_ORDER.length && Math.random() < 0.3) {
-      const pool = RESTRAINTS.filter(r => !r.story && !r.buff)
+      const pool = RESTRAINTS.filter(r => !r.story && !r.buff && !r.insert && !(r.femaleOnly && state.gender === 'male'))
       const pick = pool[Math.floor(Math.random() * pool.length)]
       if (!RestraintSystem.isWorn(pick.slot)) {
         const opts = { locked: true, source: 'forest_trap' }
@@ -237,15 +237,13 @@ window.TreasureSystem = {
         BattleSystem.start(treasure.enemy)
         return 'battle'
       case 'items':
-        // 补给包：女性把巨肛塞换成震动假阳具（对应小穴）
         let itemList = treasure.items
-        if (State.get().gender !== 'male' && itemList.includes('big_butt_plug')) {
-          itemList = itemList.map(id => id === 'big_butt_plug' ? 'vibrating_dildo' : id)
-        }
         itemList.forEach(id => {
-          state.inventory.consumables[id] = (state.inventory.consumables[id] || 0) + 1
+          const dd = typeof RestraintSystem !== 'undefined' ? RestraintSystem.defOf(id) : null
+          if (dd && dd.insert) RestraintSystem.grant(id)
+          else state.inventory.consumables[id] = (state.inventory.consumables[id] || 0) + 1
         })
-        resultText = `获得：${itemList.map(id => ItemLib.get(id)?.name || id).join('、')}。`
+        resultText = `获得：${itemList.map(id => ItemLib.get(id)?.name || (typeof RestraintSystem !== 'undefined' ? RestraintSystem.defOf(id)?.name : '') || id).join('、')}。插入装备已加入妖缚装备栏。`
         break
       case 'maxhp':
         state.maxHp += treasure.value
@@ -352,15 +350,13 @@ window.TreasureSystem = {
         BattleSystem.start(treasure.enemy)
         return 'battle'
       case 'items':
-        // 补给包：女性把巨肛塞换成震动假阳具（对应小穴）
         let itemListFinal = treasure.items
-        if (State.get().gender !== 'male' && itemListFinal.includes('big_butt_plug')) {
-          itemListFinal = itemListFinal.map(id => id === 'big_butt_plug' ? 'vibrating_dildo' : id)
-        }
         itemListFinal.forEach(id => {
-          state.inventory.consumables[id] = (state.inventory.consumables[id] || 0) + 1
+          const dd = typeof RestraintSystem !== 'undefined' ? RestraintSystem.defOf(id) : null
+          if (dd && dd.insert) RestraintSystem.grant(id)
+          else state.inventory.consumables[id] = (state.inventory.consumables[id] || 0) + 1
         })
-        resultText = `再次获得：${itemListFinal.map(id => ItemLib.get(id)?.name || id).join('、')}。`
+        resultText = `再次获得：${itemListFinal.map(id => ItemLib.get(id)?.name || (typeof RestraintSystem !== 'undefined' ? RestraintSystem.defOf(id)?.name : '') || id).join('、')}。`
         break
       case 'maxhp':
         state.maxHp += treasure.value

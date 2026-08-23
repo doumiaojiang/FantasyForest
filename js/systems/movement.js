@@ -190,7 +190,8 @@ window.AmbushSystem = {
   async trigger () {
     const state = State.get()
     state.phase = 'ambush'
-    state._ambush = { smallPlugBlocked: 0, plugBlocked: 0, blocked: 0, reflectTurns: 0, smallPlugType: null, plugType: null }
+    const insertionBlocks = typeof RestraintSystem !== 'undefined' ? RestraintSystem.insertionBlocks() : { anal: 0, vagina: 0 }
+    state._ambush = { blocked: (insertionBlocks.anal || 0) + (insertionBlocks.vagina || 0), insertionBlocks, reflectTurns: 0 }
     EventBus.emit('ui:log', { text: '🌫️ 你被伏击了！反复掷骰直到掷出双数才能脱身。', type: 'danger' })
     EventBus.emit('state:changed', state)
 
@@ -435,8 +436,6 @@ window.AmbushSystem = {
 
   cleanup () {
     const state = State.get()
-    // 巨肛塞与普通战斗一致：事件结束时自动取下并归还背包。
-    if (state._plugActive) ShopSystem.removePlug()
     state._ambush = null
   },
 

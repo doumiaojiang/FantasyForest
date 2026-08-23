@@ -18,6 +18,7 @@ window.BattleSystem = (function () {
     const state = State.get()
     const enemy = DATA.monster(enemyId)
     if (!enemy) { console.error('未知怪物:', enemyId); return }
+    const insertionBlocks = typeof RestraintSystem !== 'undefined' ? RestraintSystem.insertionBlocks() : { anal: 0, vagina: 0 }
 
     state._battle = {
       enemyId,
@@ -27,11 +28,8 @@ window.BattleSystem = (function () {
       extraAttacksUsed: 0,   // 本回合已用攻击次数（每回合重置）
       reflectTurns: 0,
       orbBoost: false,
-      blocked: 0,           // 总格挡数（小肛塞 + 巨肛塞）
-      smallPlugBlocked: 0,  // 一次性塞入物剩余抵挡（小肛塞/跳蛋）
-      smallPlugType: null,  // 一次性塞入物部位：'anal' 肛塞 / 'vagina' 跳蛋
-      plugBlocked: 0,       // 可取下塞入物剩余抵挡（巨肛塞/震动假阳具）
-      plugType: null,       // 可取下塞入物部位：'anal' / 'vagina'
+      blocked: (insertionBlocks.anal || 0) + (insertionBlocks.vagina || 0),
+      insertionBlocks,      // DD 插入装备按身体部位记录的本场剩余格挡
       defending: false,
       goblinInitialCount: null,
     }
@@ -222,7 +220,6 @@ window.BattleSystem = (function () {
     EventBus.emit('ui:log', { text: force ? '🏳️ 你选择投降……' : `🏃 尝试逃跑... (概率 ${Math.round(chance*100)}%) 掷骰: ${roll.toFixed(2)} ${success ? '✅ 成功！' : '❌ 失败！'}`, type: success ? 'good' : 'danger' })
 
     if (success) {
-      returnPlug()   // 归还巨肛塞 + 清除幽灵格挡
       // 结束战斗
       const prev = battle.prevPos   // 存档里的来源格（读档后仍可用）
       state._battle = null
@@ -244,29 +241,11 @@ window.BattleSystem = (function () {
     EventBus.emit('state:changed', state)
   }
 
-  /** 归还塞入物（巨肛塞/震动假阳具）：清活动标记、还回背包、清除格挡计数（防止幽灵格挡） */
-  function returnPlug () {
-    const state = State.get()
-    if (!state._plugActive) return
-    const plugId = state._plugActive
-    state._plugActive = false
-    state.inventory.consumables[plugId] = (state.inventory.consumables[plugId] || 0) + 1
-    if (state._battle) {
-      state._battle.plugBlocked = 0
-      state._battle.blocked = state._battle.smallPlugBlocked || 0
-    }
-    const plugItem = typeof ItemLib !== 'undefined' ? ItemLib.get(plugId) : null
-    EventBus.emit('ui:log', { text: `🍑 ${plugItem ? plugItem.name : '塞入物'}自动取下放回背包。`, type: 'good' })
-  }
-
   /** 战斗结束 */
   function end (victory) {
     const state = State.get()
     const battle = state._battle
     if (!battle) return
-
-    // 战斗结束：塞着的巨肛塞还回背包（格挡是战斗内状态，不跨战斗残留）
-    returnPlug()
 
     if (victory) {
       // 魅魔：掷一次 Z 决定临死反击还是掉落（共用同一骰子结果）

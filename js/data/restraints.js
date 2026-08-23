@@ -70,13 +70,13 @@ window.RESTRAINTS = [
 
   /* ============ 媚奴用品（原酒馆妓女用品，整合进妖缚槽位，buff 类，可自由穿脱） ============ */
   {
-    id: 'lipstick', name: '口红', slot: 'mouth', material: 'cosmetic', price: 50, difficulty: 1, buff: true,
-    desc: '媚奴用品：口交服务额外 +20G。',
+    id: 'lipstick', name: '口红', slot: 'lip', material: 'cosmetic', price: 50, difficulty: 1, buff: true, cosmetic: true,
+    desc: '媚奴妆容（口唇）：口交服务额外 +20G。',
     effect: 'buff_lipstick',
   },
   {
-    id: 'makeup', name: '全套妆容', slot: 'face', material: 'cosmetic', price: 150, difficulty: 1, buff: true,
-    desc: '媚奴用品：口交服务额外 +30G。',
+    id: 'makeup', name: '全套妆容', slot: 'face', material: 'cosmetic', price: 150, difficulty: 1, buff: true, cosmetic: true,
+    desc: '媚奴妆容（面妆）：口交服务额外 +30G；与口红同时装备合计 +50G。',
     effect: 'buff_makeup',
   },
   {
@@ -104,9 +104,47 @@ window.RESTRAINTS = [
     desc: '媚奴用品：每项接客任务获得的金币和等级都翻倍。',
     effect: 'buff_latex',
   },
+  /* ============ 插入类 DD 装备（战斗格挡 + 接客加成，可自由穿脱） ============ */
   {
-    id: 'buttplug', name: '肛塞', slot: 'anal', material: 'metal', price: 50, difficulty: 1, buff: true,
-    desc: '媚奴用品：预先扩张屁股，插入任务额外 +10G。',
-    effect: 'buff_buttplug',
+    id: 'butt_plug', name: '小肛塞', slot: 'anal', allowedSlots: ['anal'], material: 'silicone', price: 50, difficulty: 1,
+    insert: true, sizeCm: 2.5, block: 1, prostituteBonus: 10,
+    desc: '2.5 cm · 菊穴装备：每场战斗抵挡 1 次菊穴攻击及其效果；插入类接客 +10G。',
+    effect: 'insert_block',
+  },
+  {
+    id: 'medium_butt_plug', name: '中肛塞', slot: 'anal', allowedSlots: ['anal'], material: 'silicone', price: 80, difficulty: 1,
+    insert: true, sizeCm: 3.5, block: 2, prostituteBonus: 15,
+    desc: '3.5 cm · 菊穴装备：每场战斗抵挡 2 次菊穴攻击及其效果；插入类接客 +15G。',
+    effect: 'insert_block',
+  },
+  {
+    id: 'large_butt_plug', name: '大肛塞', slot: 'anal', allowedSlots: ['anal'], material: 'silicone', price: 120, difficulty: 2,
+    insert: true, sizeCm: 4.2, block: 3, prostituteBonus: 20,
+    desc: '4.2 cm · 菊穴装备：每场战斗抵挡 3 次菊穴攻击及其效果；插入类接客 +20G。',
+    effect: 'insert_block',
+  },
+  {
+    id: 'big_butt_plug', name: '巨肛塞', slot: 'anal', allowedSlots: ['anal'], material: 'silicone', price: 180, difficulty: 3,
+    insert: true, sizeCm: 5.2, block: 4, prostituteBonus: 30, heavy: true,
+    desc: '5.2 cm · 菊穴装备：每场战斗抵挡 4 次菊穴攻击及其效果；插入类接客 +30G。',
+    effect: 'insert_block',
+  },
+  {
+    id: 'vibrator_egg', name: '震动跳蛋', slot: 'vagina', allowedSlots: ['vagina'], material: 'silicone', price: 70, difficulty: 1,
+    insert: true, stackable: true, maxStack: 4, femaleOnly: true, sizeCm: 2.8, block: 1, prostituteBonus: 10, vibrate: true,
+    desc: '2.8 cm · 女性专用小穴装备：可按颗塞入（最多 4 颗）；每颗抵挡 1 次小穴攻击，插入类接客 +10G。',
+    effect: 'insert_block',
+  },
+  {
+    id: 'vibrating_dildo', name: '震动棒', slot: 'vagina', allowedSlots: ['vagina'], material: 'silicone', price: 130, difficulty: 2,
+    insert: true, femaleOnly: true, sizeCm: 3.8, block: 3, prostituteBonus: 20, vibrate: true,
+    desc: '3.8 cm · 女性专用小穴装备：每场战斗抵挡 3 次小穴攻击及其效果；插入类接客 +20G。',
+    effect: 'insert_block',
+  },
+  {
+    id: 'dildo', name: '双用假阳具', slot: 'anal', allowedSlots: ['anal', 'vagina'], material: 'silicone', price: 150, difficulty: 2,
+    insert: true, sizeCm: 4.0, block: 2, prostituteBonus: 15,
+    desc: '可选择插入菊穴或小穴：每场战斗抵挡对应部位 2 次攻击及其效果；插入类接客 +15G。',
+    effect: 'insert_block',
   },
 ]

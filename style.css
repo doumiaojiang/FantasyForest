@@ -2571,6 +2571,7 @@ body:has(.age-gate:not(.age-gate-hidden)) { overflow: hidden; }
 .restr-collapse i { font-style: normal; font-size: .7rem; color: var(--inventory-accent); transition: transform .2s; }
 .restr-collapse-body { display: grid; gap: 6px; padding: 8px 0 0; }
 .restr-collapse-body[hidden] { display: none; }
+.restr-cosmetic { margin-top: 12px; padding-top: 10px; border-top: 1px solid rgba(var(--inventory-accent-rgb), .14); }
 
 /* 装备栏页 */
 .eq-section { margin-top: 10px; }
