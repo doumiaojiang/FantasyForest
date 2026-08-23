@@ -114,9 +114,8 @@ window.State = (function () {
       _prostituteDressed: false,        // 是否穿上妓女服
       _prostituteLevel: 1,              // 妓女等级
       _prostituteDebt: 0,               // 妓女欠款（任务失败欠老板娘的钱）
-      _prostituteGear: {},              // 妓女已购用品 { lipstick: true, ... }
+      _prostituteGear: {},              // 妓女已购用品 { lipstick: true, ... }（旧档迁移用）
       _prostituteSwapCost: 20,          // 换客人费用（每次 +10，最高 100，服务完成后重置 20）
-      _merchantDiscount: 0,             // 商人当前折扣（0 / 0.25 / 0.5），购买第一件后重置
       _prostitutePendingTask: null,      // 接客任务断点 { customerKey, z, stepIndex }
       _shopReturnToCamp: false,         // 营地商店关闭后返回营地
       _campDeerTaken: false,            // 是否已领取鹿的礼物
@@ -425,6 +424,20 @@ window.State = (function () {
         if (!state._ownedRestraints.includes('chastity_device')) state._ownedRestraints.push('chastity_device')
       }
       state._restraints = valid
+      // 酒馆妓女用品 → 妖缚 buff 装置迁移（旧档购买记录保留并可重新穿戴）
+      state._ownedRestraints = Array.isArray(state._ownedRestraints) ? state._ownedRestraints : []
+      if (state._prostituteGear && typeof state._prostituteGear === 'object') {
+        const GEAR_MAP = { lipstick: 'lipstick', makeup: 'makeup', heels: 'heels', lingerie: 'lingerie', latex: 'latex', collar: 'slut_collar', gag: 'slut_gag', buttplug: 'buttplug' }
+        Object.entries(GEAR_MAP).forEach(([flag, did]) => {
+          if (!state._prostituteGear[flag]) return
+          if (!state._ownedRestraints.includes(did)) state._ownedRestraints.push(did)
+          const def = RESTRAINTS.find(r => r.id === did)
+          if (def && !valid[def.slot]) {
+            valid[def.slot] = { id: did, slot: def.slot, locked: false, lockType: 'common', difficulty: def.difficulty || 2, material: def.material, source: 'tavern', escapeBonus: 0, jammed: false }
+          }
+        })
+        state._restraints = valid
+      }
       // 已购装置过滤（仅保留有效装置 id）
       if (typeof window.RESTRAINTS !== 'undefined' && Array.isArray(state._ownedRestraints)) {
         state._ownedRestraints = state._ownedRestraints.filter(id => RESTRAINTS.some(x => x.id === id && !x.story))
@@ -460,8 +473,6 @@ window.State = (function () {
     state._prostituteDressed = !!state._prostituteDressed
     state._prostituteLevel = Math.max(1, Math.min(999, Math.floor(finite(state._prostituteLevel, 1))))
     state._prostituteDebt = Math.max(0, Math.min(9999, Math.floor(finite(state._prostituteDebt, 0))))
-    const merchantDiscount = finite(state._merchantDiscount, 0)
-    state._merchantDiscount = [0.25, 0.5].includes(merchantDiscount) ? merchantDiscount : 0
     const validProstituteGear = ['lipstick', 'makeup', 'heels', 'lingerie', 'latex', 'collar', 'gag', 'buttplug', 'chastity']
     const savedProstituteGear = state._prostituteGear && typeof state._prostituteGear === 'object' && !Array.isArray(state._prostituteGear)
       ? state._prostituteGear

@@ -67,4 +67,46 @@ window.RESTRAINTS = [
     desc: '拖着脚链：移动步数 -1（可与脚镣叠加）。',
     effect: 'ankle_chains',
   },
+
+  /* ============ 媚奴用品（原酒馆妓女用品，整合进妖缚槽位，buff 类，可自由穿脱） ============ */
+  {
+    id: 'lipstick', name: '口红', slot: 'mouth', material: 'cosmetic', price: 50, difficulty: 1, buff: true,
+    desc: '媚奴用品：口交服务额外 +20G。',
+    effect: 'buff_lipstick',
+  },
+  {
+    id: 'makeup', name: '全套妆容', slot: 'face', material: 'cosmetic', price: 150, difficulty: 1, buff: true,
+    desc: '媚奴用品：口交服务额外 +30G。',
+    effect: 'buff_makeup',
+  },
+  {
+    id: 'slut_gag', name: '媚奴口塞', slot: 'mouth', material: 'leather', price: 100, difficulty: 2, buff: true,
+    desc: '媚奴用品：插入任务强制 160 BPM（+媚奴项圈则 180），插入任务金币翻倍。',
+    effect: 'buff_gag',
+  },
+  {
+    id: 'slut_collar', name: '媚奴项圈', slot: 'neck', material: 'leather', price: 150, difficulty: 2, buff: true,
+    desc: '媚奴用品：插入任务强制 120 BPM，插入任务等级翻倍。',
+    effect: 'buff_collar',
+  },
+  {
+    id: 'heels', name: '高跟鞋', slot: 'legs', material: 'leather', price: 100, difficulty: 1, buff: true,
+    desc: '媚奴用品：没有实际效果，但穿着被操的感觉无敌。',
+    effect: 'buff_heels',
+  },
+  {
+    id: 'lingerie', name: '情趣内衣', slot: 'torso', material: 'fabric', price: 200, difficulty: 1, buff: true,
+    desc: '媚奴用品：每项接客任务获得的等级翻倍。',
+    effect: 'buff_lingerie',
+  },
+  {
+    id: 'latex', name: '乳胶衣', slot: 'torso', material: 'fabric', price: 300, difficulty: 1, buff: true,
+    desc: '媚奴用品：每项接客任务获得的金币和等级都翻倍。',
+    effect: 'buff_latex',
+  },
+  {
+    id: 'buttplug', name: '肛塞', slot: 'anal', material: 'metal', price: 50, difficulty: 1, buff: true,
+    desc: '媚奴用品：预先扩张屁股，插入任务额外 +10G。',
+    effect: 'buff_buttplug',
+  },
 ]

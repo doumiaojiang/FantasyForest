@@ -140,7 +140,7 @@ window.BattleUI = (function () {
     }).join('')
     Dialog.show({
       title: '⛓️ 战斗中挣脱',
-      className: 'restr-struggle-modal',
+      className: 'inventory-modal restraint-modal',
       body: `<div class="restr-struggle-pick">${html}</div><p class="camp-footnote">挣脱会消耗本回合攻击机会；诅咒锁挣脱无效，定时锁可等它到点自动开。</p>`,
       actions: [{ label: '取消', handler: () => { Dialog.close(); showPlayerTurn() } }],
     })

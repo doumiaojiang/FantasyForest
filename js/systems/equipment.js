@@ -34,10 +34,10 @@ window.EquipmentSystem = (function () {
       ? ownedWeapons.map(id => {
           const it = ItemLib.get(id)
           const isCur = weapon() === id
-          return `<button class="eq-item${isCur ? ' is-owned' : ''}" data-eq="weapon" data-id="${id}" ${isCur ? 'disabled' : ''}>
-            <span class="merchant-item-icon">${it.icon || '⚔️'}</span>
-            <span class="merchant-item-info"><b>${it.name}</b><small>${it.desc}</small></span>
-            <span class="merchant-item-price">${isCur ? '✓ 使用中' : '⚔️ 装备'}</span>
+          return `<button class="eq-item${isCur ? ' is-equipped' : ''}" data-eq="weapon" data-id="${id}" ${isCur ? 'disabled' : ''}>
+            <span class="eq-item-icon">${it.icon || '⚔️'}</span>
+            <span class="eq-item-info"><b>${it.name}</b><small>${it.desc}</small></span>
+            <span class="eq-item-state">${isCur ? '✓ 使用中' : '⚔️ 装备'}</span>
           </button>`
         }).join('')
       : '<p class="camp-muted">还没有武器——去铁匠铺买一把。</p>'
@@ -59,7 +59,7 @@ window.EquipmentSystem = (function () {
 
     Dialog.show({
       title: '🛡️ 装备栏',
-      className: 'restr-modal',
+      className: 'inventory-modal equipment-modal',
       body: `<div class="restr-top"><span>武器 + 饰品</span><em>已装备 ${wornCount()}/${totalCount()}</em></div>
         <div class="eq-section"><b class="eq-label">⚔️ 武器（点击切换）</b><div class="eq-weapon-list">${weaponHtml}</div></div>
         <div class="eq-section"><b class="eq-label">📿 饰品（每类一件）</b><div class="eq-grid">${accessoryCards}</div></div>

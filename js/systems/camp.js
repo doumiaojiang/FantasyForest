@@ -2350,11 +2350,11 @@ window.CampSystem = (function () {
     })
   }
 
-  /** 妖缚器具商店：出售普通装置 + 钥匙/开锁工具 */
+  /** 妖缚器具商店：媚奴用品（buff）+ 束缚装置 + 钥匙/开锁工具 */
   function barkeepRestraints () {
     const state = State.get()
-    const devices = (RESTRAINTS || []).filter(r => !r.story)
-    const deviceCards = devices.map(r => {
+    const all = (RESTRAINTS || []).filter(r => !r.story)
+    const renderCard = r => {
       const wornThis = typeof RestraintSystem !== 'undefined' && RestraintSystem.get(r.slot) && RestraintSystem.get(r.slot).id === r.id
       const owned = (state._ownedRestraints || []).includes(r.id) || wornThis || (state._prostituteGear && state._prostituteGear[r.id === 'chastity_device' ? 'chastity' : r.id])
       const canBuy = state.gold >= r.price && !owned
@@ -2363,7 +2363,9 @@ window.CampSystem = (function () {
         <span class="merchant-item-info"><b>${r.name}</b><small>${r.desc}</small></span>
         <span class="merchant-item-price">${owned ? '✓ 已拥有' : `<b>${r.price}G</b>`}</span>
       </button>`
-    }).join('')
+    }
+    const buffCards = all.filter(r => r.buff).map(renderCard).join('')
+    const restrCards = all.filter(r => !r.buff).map(renderCard).join('')
     const toolCards = [
       { id: 'restraint_key', name: '普通钥匙', price: 200, icon: '🔑', desc: '解开一把普通上锁的妖缚装置' },
       { id: 'master_key', name: '万能钥匙', price: 500, icon: '🗝️', desc: '解开任意非剧情/非诅咒的上锁装置' },
@@ -2382,8 +2384,10 @@ window.CampSystem = (function () {
       title: '⛓️ 妖缚器具 · 吧台货箱', className: 'tavern-merchant-modal',
       body: `<section class="merchant-hero"><span aria-hidden="true">⛓️</span><div><small>RESTRAINT SUPPLIER · 吧台暗格</small><h3>“稀奇物件，我这都有。”</h3><p>老板娘掀开吧台下的暗格，皮绳、锁具、钥匙叮当作响。</p></div></section>
         <div class="merchant-stats"><span>💎 ${state.gold}G</span><span>⛓️ 已锁 ${typeof RestraintSystem !== 'undefined' ? RestraintSystem.countLocked() : 0} 件</span><span>💰 战斗金币加成 ${typeof RestraintSystem !== 'undefined' ? Math.round(RestraintSystem.goldBonus() * 100) : 0}%</span></div>
-        <p class="work-footnote">以下为可自行穿戴的普通装置（可随时脱下）；被怪物/陷阱上锁的不在此列。</p>
-        <div class="merchant-catalog">${deviceCards}</div>
+        <p class="work-footnote">媚奴用品为可自由穿脱的 buff 装置；束缚装置被怪物/陷阱上锁时需解锁。</p>
+        ${buffCards ? `<p class="work-footnote" style="margin-top:10px"><b>💄 媚奴用品（接客加成）</b></p><div class="merchant-catalog">${buffCards}</div>` : ''}
+        ${restrCards ? `<p class="work-footnote" style="margin-top:10px"><b>⛓️ 束缚装置（可自行穿戴）</b></p><div class="merchant-catalog">${restrCards}</div>` : ''}
+        <p class="work-footnote" style="margin-top:10px"><b>🔑 解锁工具</b></p>
         <div class="merchant-catalog">${toolCards}</div>`,
       actions: [{ label: '返回老板娘', handler: () => { Dialog.close(); tavernBarkeep() } }],
     })
@@ -2749,12 +2753,23 @@ window.CampSystem = (function () {
     const debtHtml = inDebt
       ? `<div class="work-debt">💸 欠款 <b>${debt}G</b><small>收入会优先还债；还清前不能离开或换衣</small></div>`
       : ''
-    // 已装备的妓女用品
-    const ownedGear = (state._prostituteGear || {})
-    const ownedList = MERCHANT_GOODS.filter(g => ownedGear[g.id])
+    // 已装备的媚奴用品（妖缚 buff 装置）
+    const BUFF_GEAR = [
+      { id: 'lipstick', name: '口红', icon: '💄', desc: '口交服务额外 +20G' },
+      { id: 'makeup', name: '全套妆容', icon: '💎', desc: '口交服务额外 +30G' },
+      { id: 'heels', name: '高跟鞋', icon: '👠', desc: '没有实际效果，但穿着被操的感觉无敌' },
+      { id: 'lingerie', name: '情趣内衣', icon: '🩲', desc: '每项接客任务获得的等级翻倍' },
+      { id: 'latex', name: '乳胶衣', icon: '🖤', desc: '每项接客任务获得的金币和等级都翻倍' },
+      { id: 'slut_collar', name: '媚奴项圈', icon: '🐕', desc: '插入任务强制 120 BPM，等级翻倍' },
+      { id: 'slut_gag', name: '媚奴口塞', icon: '🤐', desc: '插入任务强制 160/180 BPM，金币翻倍' },
+      { id: 'buttplug', name: '肛塞', icon: '🔴', desc: '预先扩张屁股，插入任务额外 +10G' },
+    ]
+    const ownedList = (typeof RestraintSystem !== 'undefined')
+      ? BUFF_GEAR.filter(g => RestraintSystem.hasDevice(g.id))
+      : []
     const gearHtml = ownedList.length
-      ? `<div class="work-gear"><small>💄 已装备用品</small><div class="work-gear-list">${ownedList.map(g => `<span title="${g.desc}">${g.icon} ${g.name}</span>`).join('')}</div></div>`
-      : `<div class="work-gear"><small>💄 已装备用品</small><div class="work-gear-list work-gear-empty">尚未装备任何用品</div></div>`
+      ? `<div class="work-gear"><small>💄 已装备媚奴用品（妖缚）</small><div class="work-gear-list">${ownedList.map(g => `<span title="${g.desc}">${g.icon} ${g.name}</span>`).join('')}</div></div>`
+      : `<div class="work-gear"><small>💄 已装备媚奴用品（妖缚）</small><div class="work-gear-list work-gear-empty">尚未装备任何用品</div></div>`
     campShow({
       title: '💋 今夜营业', className: 'tavern-work-modal',
       body: `${debtHtml}<section class="work-profile"><div class="work-rank"><i>${title.icon}</i><span><small>当前称号</small><b>${title.name}</b></span><em>Lv.${state._prostituteLevel}</em></div>
@@ -2764,7 +2779,7 @@ window.CampSystem = (function () {
         <p class="work-footnote">掷 Z 决定客人的要求。完成计时任务可获得金币和等级，跳过视为失败。</p>`,
       actions: [
         { label: inDebt ? '🔍 继续接客还债' : '🔍 寻找顾客', cls: 'btn-primary', handler: () => { Dialog.close(); findCustomer() } },
-        { label: '💄 妓女用品供应商', handler: () => { Dialog.close(); merchant() } },
+        { label: '⛓️ 妖缚器具（老板娘）', handler: () => { Dialog.close(); barkeepRestraints() } },
         // 全裸时无法换回衣服（本来就没衣服）；欠款时无法退出
         ...((!inDebt && !StatusSystem.has('naked')) ? [{ label: '👗 换回衣服', handler: () => { Dialog.close(); state._prostituteDressed = false; EventBus.emit('state:changed', state); tavernWork() } }] : []),
       ],
@@ -3200,17 +3215,33 @@ window.CampSystem = (function () {
 
     // 用战斗任务弹窗逐段执行：BPM + 计时 + 完成任务/跳过
     let failed = false
-    const gear = state._prostituteGear || {}
+    // 媚奴用品（妖缚 buff 装置）
+    const R = (typeof RestraintSystem !== 'undefined') ? RestraintSystem : null
+    const gear = {
+      lipstick: !!R && R.hasDevice('lipstick'),
+      makeup: !!R && R.hasDevice('makeup'),
+      heels: !!R && R.hasDevice('heels'),
+      lingerie: !!R && R.hasDevice('lingerie'),
+      latex: !!R && R.hasDevice('latex'),
+      collar: !!R && R.hasDevice('slut_collar'),
+      gag: !!R && R.hasDevice('slut_gag'),
+      buttplug: !!R && R.hasDevice('buttplug'),
+    }
     const isInsert = /操|插入|抽插|后入|骑乘|传教士/.test(task.desc)
-    // 项圈：插入任务强制 120 BPM；口塞：插入任务强制 160（+项圈 180）BPM
+    // 妖缚口塞（惩罚件）：口交/深喉任务做不了，直接判失败
+    if (R && R.hasGag() && /口交|深喉|吞吐|口穴/.test(taskFullText)) {
+      EventBus.emit('ui:log', { text: '🤐 口塞堵着嘴，你只能含混地干呕——口交服务做不了！', type: 'danger' })
+      failed = true
+    }
+    // 媚奴项圈：插入任务强制 120 BPM；媚奴口塞：插入任务强制 160（+项圈 180）BPM
     let forceBpm = 0
-    if (isInsert) {
+    if (isInsert && !failed) {
       if (gear.gag) forceBpm = gear.collar ? 180 : 160
       else if (gear.collar) forceBpm = 120
     }
     const dildoName = customer.name === '哥布林' ? '小号假阴茎' : customer.name === '狼人' ? '大号假阴茎' : customer.name === '兽人' ? '大号假阴茎' : customer.name === '牛头人' ? '马/牛形假阴茎' : customer.name === '卫兵' ? '中号假阴茎' : '最大的假阴茎'
     const steps = task.steps || [{ desc: task.desc, bpm: task.bpm || 0, seconds: task.seconds || 0 }]
-    if (typeof BattleUI !== 'undefined' && BattleUI.showTaskDialog) {
+    if (typeof BattleUI !== 'undefined' && BattleUI.showTaskDialog && !failed) {
       for (let i = Math.min(startStep, steps.length - 1); i < steps.length; i++) {
         state._prostitutePendingTask = { customerKey, z, stepIndex: i }
         EventBus.emit('state:changed', state)
@@ -3249,8 +3280,10 @@ window.CampSystem = (function () {
       }
       // 乳胶衣：金币翻倍
       if (gear.latex) goldMult *= 2
-      // 口塞：插入任务金币翻倍
+      // 媚奴口塞：插入任务金币翻倍
       if (gear.gag && isInsert) goldMult *= 2
+      // 肛塞：预先扩张，插入任务额外 +10G
+      if (gear.buttplug && isInsert) goldBonus += 10
     }
     // 等级翻倍（封顶 ×2）
     if (gear.lingerie) levelMult *= 2
@@ -3322,152 +3355,6 @@ window.CampSystem = (function () {
     })
   }
 
-  /** 妓女用品 */
-  const MERCHANT_GOODS = [
-    { id: 'lipstick', name: '口红', price: 50, icon: '💄', desc: '口交时额外赚 20G，记得在怪物鸡巴上留下口红印' },
-    { id: 'makeup', name: '全套妆容与耳环', price: 150, icon: '💎', desc: '口交时额外赚 30G，连狼人和库帕都愿意付' },
-    { id: 'heels', name: '高跟鞋', price: 100, icon: '👠', desc: '没有实际效果，但穿着被操的感觉无敌' },
-    { id: 'lingerie', name: '情趣内衣', price: 200, icon: '🩲', desc: '穿上三件套情趣内衣，每项任务获得的等级翻倍' },
-    { id: 'latex', name: '乳胶衣', price: 300, icon: '🖤', desc: '全身乳胶紧身衣，每项任务获得的金币和等级都翻倍' },
-    { id: 'collar', name: '项圈与牵绳', price: 150, icon: '🐾', desc: '怪物把你当奴隶，所有插入任务以 120 BPM 完成，等级翻倍' },
-    { id: 'gag', name: '口塞', price: 100, icon: '⛓️', desc: '插入任务以 160 BPM 完成，金币翻倍；有项圈则 180 BPM，金币等级都翻倍' },
-    { id: 'buttplug', name: '肛塞', price: 50, icon: '🔴', desc: '没有实际效果，但怪物超爱，还能预先扩张屁股' },
-  ]
-
-  /** 妓女用品供应商 */
-  function merchant () {
-    const state = State.get()
-    const disc = state._merchantDiscount || 0
-    const ownedCount = MERCHANT_GOODS.filter(goods => (state._prostituteGear || {})[goods.id]).length
-    campShow({
-      title: '💄 酒馆用品供应商', className: 'tavern-merchant-modal',
-      body: `<section class="merchant-hero"><span aria-hidden="true">💄</span><div><small>BACKROOM SUPPLIER · 酒馆后场</small><h3>“姐姐来挑点好东西？”</h3><p>她守着一只暗红色皮箱，里面全是接客用的特殊用品。</p></div></section>
-        <div class="merchant-stats"><span>💎 ${state.gold}G</span><span>🎒 已购 ${ownedCount}/${MERCHANT_GOODS.length}</span><span>${disc > 0 ? `🏷️ 下件 -${disc * 100}%` : '🏷️ 当前原价'}</span></div>
-        <div class="merchant-menu">
-          <button class="merchant-menu-card" data-merchant="shop"><i>🎒</i><span><b>查看用品</b><small>永久生效，可以同时拥有多件</small></span><em>${ownedCount === MERCHANT_GOODS.length ? '已全部拥有' : '打开货箱'}</em></button>
-          <button class="merchant-menu-card" data-merchant="flirt"><i>💋</i><span><b>争取折扣</b><small>完成供应商的计时任务</small></span><em>${disc > 0 ? `已有 ${disc * 100}% 折扣` : '最多半价'}</em></button>
-        </div>`,
-      actions: [{ label: '返回营业', handler: () => { Dialog.close(); prostitute() } }],
-    })
-    document.querySelectorAll('[data-merchant]').forEach(btn => {
-      btn.onclick = () => {
-        const opt = btn.dataset.merchant
-        Dialog.close()
-        if (opt === 'shop') merchantShop()
-        else if (opt === 'flirt') merchantFlirt()
-      }
-    })
-  }
-
-  /** 商人商店：第一件商品享折扣 */
-  function merchantShop () {
-    const state = State.get()
-    const owned = state._prostituteGear || {}
-    const disc = state._merchantDiscount || 0
-    const discBanner = disc > 0
-      ? `<div class="merchant-discount is-active"><b>🏷️ ${disc * 100}% 折扣已生效</b><span>仅限下一件用品，购买后恢复原价</span><strong class="merchant-wallet">💎 ${state.gold}G</strong></div>`
-      : `<div class="merchant-discount"><b>🏷️ 当前按原价出售</b><span>完成供应商任务，可以让下一件享受折扣</span><strong class="merchant-wallet">💎 ${state.gold}G</strong></div>`
-    campShow({
-      title: '🎒 接客用品货箱', className: 'merchant-shop-modal',
-      body: `${discBanner}<div class="merchant-catalog">${MERCHANT_GOODS.map(g => {
-          const has = owned[g.id]
-          const price = Math.ceil(g.price * (1 - disc))
-          const canBuy = state.gold >= price
-          return `<button class="merchant-item${has ? ' is-owned' : ''}${!has && !canBuy ? ' is-unaffordable' : ''}" data-goods="${g.id}" ${has || !canBuy ? 'disabled' : ''}>
-            <span class="merchant-item-icon">${g.icon}</span><span class="merchant-item-info"><b>${g.name}</b><small>${g.desc}</small></span>
-            <span class="merchant-item-price">${has ? '✓ 已拥有' : `<b>${price}G</b>${disc > 0 ? `<s>${g.price}G</s>` : ''}`}</span>
-          </button>`
-        }).join('')}</div><p class="work-footnote">用品购买后永久生效；没有“穿戴栏”限制，效果按说明自动计算。</p>`,
-      actions: [{ label: '返回供应商', handler: () => { Dialog.close(); merchant() } }],
-    })
-    document.querySelectorAll('[data-goods]').forEach(btn => {
-      btn.onclick = () => {
-        const goods = MERCHANT_GOODS.find(g => g.id === btn.dataset.goods)
-        if (!goods || (state._prostituteGear || {})[goods.id]) return
-        Dialog.close()
-        const price = Math.ceil(goods.price * (1 - disc))
-        if (state.gold < price) { EventBus.emit('ui:log', { text: '💰 钱不够买这个。', type: 'dim' }); merchantShop(); return }
-        state.gold -= price
-        state._prostituteGear = state._prostituteGear || {}
-        state._prostituteGear[goods.id] = true
-        EventBus.emit('ui:log', { text: `💄 买下${goods.name}，花了 ${price}G${disc > 0 ? '（含折扣）' : ''}。`, type: 'good' })
-        // 折扣只对第一件生效，买完重置
-        state._merchantDiscount = 0
-        EventBus.emit('state:changed', state)
-        merchantShop()
-      }
-    })
-  }
-
-  /** 贿赂供应商：两个服务任务换折扣 */
-  function merchantFlirt () {
-    const state = State.get()
-    if ((state._merchantDiscount || 0) > 0) {
-      EventBus.emit('ui:log', { text: '💄 你已经有折扣了，买完这单再说。', type: 'dim' })
-      merchantShop(); return
-    }
-    campShow({
-      title: '💋 和供应商讲价', className: 'tavern-merchant-modal',
-      body: `<section class="merchant-flirt-intro"><span>💋</span><div><small>用服务换折扣</small><h3>选一个你愿意完成的任务</h3><p>只有完整完成全部计时阶段，下一件商品才会打折。</p></div></section>
-        <div class="merchant-offers">
-          <button class="merchant-offer" data-flirt="25"><i>🏷️</i><span><b>七五折</b><small>口交 1 分钟，再完成 10 次深喉</small></span><em>下一件 -25%</em></button>
-          <button class="merchant-offer is-premium" data-flirt="50"><i>🔥</i><span><b>半价</b><small>口交 1 分钟，再接受后入式 1 分钟</small></span><em>下一件 -50%</em></button>
-          <button class="merchant-offer is-plain" data-flirt="no"><i>↩</i><span><b>保持原价</b><small>不做任务，直接返回货箱</small></span><em>跳过</em></button>
-        </div>`,
-      actions: [{ label: '返回供应商', handler: () => { Dialog.close(); merchant() } }],
-    })
-    document.querySelectorAll('[data-flirt]').forEach(btn => {
-      btn.onclick = () => {
-        const opt = btn.dataset.flirt
-        Dialog.close()
-        if (opt === 'no') { merchantShop(); return }
-        merchantFlirtTask(opt === '25' ? 0.25 : 0.5)
-      }
-    })
-  }
-
-  /** 执行贿赂任务 */
-  async function merchantFlirtTask (discount) {
-    const state = State.get()
-    const is25 = discount === 0.25
-    const steps = is25 ? [
-      { desc: '你跪下来，含住供应商的鸡巴卖力口交 1 分钟', bpm: 0, seconds: 60 },
-      { desc: '对准她粗壮的肉棒，连续深喉 10 次', bpm: 0, seconds: 60 },
-    ] : [
-      { desc: '你跪下来，含住供应商的鸡巴卖力口交 1 分钟', bpm: 0, seconds: 60 },
-      { desc: '你趴下撅起屁股，让供应商从背后后入式操你 1 分钟', bpm: 0, seconds: 60 },
-    ]
-
-    let failed = false
-    if (typeof BattleUI !== 'undefined' && BattleUI.showTaskDialog) {
-      for (let i = 0; i < steps.length; i++) {
-        const step = steps[i]
-        const f = await BattleUI.showTaskDialog({
-          enemyName: `💄 妓女用品供应商（第 ${i + 1}/${steps.length} 段）`,
-          attackName: '',
-          desc: step.desc,
-          bpm: step.bpm || 0,
-          seconds: step.seconds || 0,
-          dmg: 0,
-          noDamage: true,
-          dildoName: '供应商那根粗壮的肉棒',
-        })
-        if (f) { failed = true; break }
-      }
-    } else {
-      failed = !confirm(`完成供应商的两段服务，换取 ${discount * 100}% 折扣？`)
-    }
-
-    if (failed) {
-      EventBus.emit('ui:log', { text: '💄 你中途打了退堂鼓，供应商撇撇嘴，折扣泡汤了。', type: 'dim' })
-      merchant()
-      return
-    }
-    state._merchantDiscount = discount
-    EventBus.emit('ui:log', { text: `💄 供应商被你伺候得舒坦，给你 ${discount * 100}% 折扣！`, type: 'good' })
-    EventBus.emit('state:changed', state)
-    merchantShop()
-  }
 
   /** 摇骰子赌博：下注 1/3/5，60% 亏钱 */
   function tavernGamble () {

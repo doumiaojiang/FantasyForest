@@ -86,7 +86,7 @@ window.TrapSystem = {
 
     // 妖缚：森林陷阱有概率锁上一件普通装置（同一时间最多一件上锁；可在妖缚设置里关闭）
     if (typeof RestraintSystem !== 'undefined' && RestraintSystem.settings().allowTrap && RestraintSystem.countLocked() === 0 && RestraintSystem.countWorn() < RestraintSystem.SLOT_ORDER.length && Math.random() < 0.3) {
-      const pool = RESTRAINTS.filter(r => !r.story)
+      const pool = RESTRAINTS.filter(r => !r.story && !r.buff)
       const pick = pool[Math.floor(Math.random() * pool.length)]
       if (!RestraintSystem.isWorn(pick.slot)) {
         const opts = { locked: true, source: 'forest_trap' }

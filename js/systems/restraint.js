@@ -10,9 +10,9 @@
  */
 
 window.RestraintSystem = (function () {
-  const SLOT_ORDER = ['eyes', 'mouth', 'neck', 'chest', 'arms', 'arms_heavy', 'torso', 'waist', 'legs', 'ankles']
-  const SLOT_NAMES = { eyes: '眼部', mouth: '嘴部', neck: '颈部', chest: '胸部', arms: '手臂', arms_heavy: '束臂', torso: '躯干', waist: '腰部', legs: '腿部', ankles: '脚踝' }
-  const SLOT_ICONS = { eyes: '😵', mouth: '🤐', neck: '🐕', chest: '🎀', arms: '⛓️', arms_heavy: '🪢', torso: '🩱', waist: '🔒', legs: '🦶', ankles: '⛓️' }
+  const SLOT_ORDER = ['eyes', 'face', 'mouth', 'neck', 'chest', 'arms', 'arms_heavy', 'torso', 'waist', 'legs', 'ankles', 'anal']
+  const SLOT_NAMES = { eyes: '眼部', face: '脸面', mouth: '嘴部', neck: '颈部', chest: '胸部', arms: '手臂', arms_heavy: '束臂', torso: '躯干', waist: '腰部', legs: '腿部', ankles: '脚踝', anal: '菊穴' }
+  const SLOT_ICONS = { eyes: '😵', face: '🎭', mouth: '🤐', neck: '🐕', chest: '🎀', arms: '⛓️', arms_heavy: '🪢', torso: '🩱', waist: '🔒', legs: '🦶', ankles: '⛓️', anal: '🔴' }
   const BLADES = ['rusty_knife', 'basic_sword', 'master_sword', 'sharp_rock']
 
   function raw () { return State.get()._restraints || {} }
@@ -80,9 +80,11 @@ window.RestraintSystem = (function () {
     const d = get(slot)
     if (!d) return { ok: false, msg: '这里没有装置' }
     set(slot, null)
-    // 同步旧酒馆贞操笼：脱下后清除标志，避免读档时又被迁移回去
-    if (d.id === 'chastity_device' && State.get()._prostituteGear) {
-      State.get()._prostituteGear.chastity = false
+    // 同步旧酒馆用品标志：脱下后清除，避免读档时又被迁移回去
+    const st = State.get()
+    if (st._prostituteGear) {
+      const GEAR_FLAG = { chastity_device: 'chastity', lipstick: 'lipstick', makeup: 'makeup', heels: 'heels', lingerie: 'lingerie', latex: 'latex', slut_collar: 'collar', slut_gag: 'gag', buttplug: 'buttplug' }
+      if (GEAR_FLAG[d.id]) st._prostituteGear[GEAR_FLAG[d.id]] = false
     }
     return { ok: true, msg: '已脱下' }
   }
@@ -277,6 +279,10 @@ window.RestraintSystem = (function () {
   function hasNipple () { return hasEffect('nipple') }
   function hasCorset () { return hasEffect('corset') }
   function hasAnkleChains () { return hasEffect('ankle_chains') }
+  /** 是否正穿着某件装置（按装置 id，区分同槽位的多件装置） */
+  function hasDevice (id) {
+    return SLOT_ORDER.some(slot => { const d = get(slot); return d && d.id === id })
+  }
   /** 上锁槽位列表 */
   function lockedSlots () { return SLOT_ORDER.filter(isLocked) }
 
@@ -333,7 +339,7 @@ window.RestraintSystem = (function () {
     const unlocked = SLOT_ORDER.filter(slot => { const d = get(slot); return d && !d.locked })
     Dialog.show({
       title: '⚙️ 妖缚设置',
-      className: 'restr-modal',
+      className: 'inventory-modal restraint-modal',
       body: `<div class="restr-settings">
         <div class="restr-setting-row">
           <span><b>允许陷阱上锁</b><small>关闭后森林陷阱不再往你身上锁装置</small></span>
@@ -376,9 +382,9 @@ window.RestraintSystem = (function () {
         if (ownedHere.length) {
           const wearBtns = ownedHere.map(oid => {
             const od = defOf(oid)
-            return `<button class="btn restr-btn" data-act="wear" data-id="${oid}">📿 ${od.name}</button>`
+            return `<button class="btn restr-btn" data-act="wear" data-slot="${slot}" data-id="${oid}">📿 ${od.name}</button>`
           }).join('')
-          return `<div class="restr-card restr-empty"><i>${SLOT_ICONS[slot]}</i><span><b>${SLOT_NAMES[slot]}</b><small>已拥有 ${ownedHere.map(id => defOf(id).name).join('、')}</small></span><div class="restr-actions">${wearBtns}</div></div>`
+          return `<div class="restr-card restr-empty has-owned"><i>${SLOT_ICONS[slot]}</i><span><b>${SLOT_NAMES[slot]}</b><small>已拥有 ${ownedHere.map(id => defOf(id).name).join('、')}</small></span><div class="restr-actions">${wearBtns}</div></div>`
         }
         return `<div class="restr-card restr-empty"><i>${SLOT_ICONS[slot]}</i><span><b>${SLOT_NAMES[slot]}</b><small>空</small></span></div>`
       }
@@ -399,7 +405,7 @@ window.RestraintSystem = (function () {
 
     Dialog.show({
       title: '⛓️ 妖缚装置',
-      className: 'restr-modal',
+      className: 'inventory-modal restraint-modal',
       body: `<div class="restr-top"><span>已佩戴 <b>${countWorn()}</b> 件 · 上锁 <b>${countLocked()}</b> 件</span><em>战斗金币 +${bonus}%</em></div>
         ${bodyDiagram()}
         <div class="restr-grid">${cards}</div>
@@ -440,7 +446,7 @@ window.RestraintSystem = (function () {
     useKey, useLockpick, useCurseRemover, npcUnlock, npcUnlockCost,
     setTimer, tickTimers, lockedSlots,
     hasGag, hasHandcuffs, hasLegCuffs, hasCollar, hasArmbinder, hasBlindfold, hasWaistChastity, hasHandsBlocked, hasVibrating,
-    hasNipple, hasCorset, hasAnkleChains,
+    hasNipple, hasCorset, hasAnkleChains, hasDevice,
     settings, toggleTrap, removeAllUnlocked, bodyDiagram,
     openManage, openSettings,
   }
