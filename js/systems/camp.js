@@ -201,9 +201,8 @@ window.CampSystem = (function () {
       useGuardPass()
       return
     }
-    // 4. 本次进城已检查过 → 跳过普通搜身
+    // 4. 本次进城已检查过 → 不再触发任何卫兵拦截（一次营地访问最多一次）
     if (state._guardCheckedThisVisit) {
-      if (state._prostituteLicensed) { guardEncounter(); return }
       doLeaveCamp(); return
     }
     // 5. 新的卫兵搜身（普通玩家 35% 概率；持证玩家由 guardEncounter 表内 30% 处理）
@@ -233,7 +232,6 @@ window.CampSystem = (function () {
     // 10% 罚款100 / 30% 搜身 / 20% 放行 / 5% 没收衣服 / 15% 口交1分钟 / 15% 肛交1分钟 / 5% 给血药
     const r = Math.random() * 100
     if (r < 10) {
-      // 罚款 100
       guardMsg('🛡️ 卫兵拦住你', `<div class="glory-section"><h3><span>“妓女证？行，交 100G 罚款。”</span><small>卫兵伸手讨钱</small></h3>
         <p class="camp-muted">${state.gold >= 100 ? '你乖乖掏钱。' : '你掏不出钱，卫兵脸色一沉，把你丢进公共厕所：<b>"没钱？去厕所里干活把钱挣回来！"</b>'}</p></div>`,
         [{ label: state.gold >= 100 ? `💸 交 100G` : '🚻 被丢进厕所', cls: 'btn-primary', handler: () => {
@@ -251,15 +249,10 @@ window.CampSystem = (function () {
             showGloryWork()
           }
         } }])
-    } else if (r < 30) {
-      // 搜身检查（30%）；本次进城已检查过则不再搜身，直接放行
-      if (state._guardCheckedThisVisit) {
-        guardMsg('🛡️ 卫兵拦住你', '<div class="glory-section"><h3><span>“啊，老熟人了，过去吧。”</span><small>卫兵挥挥手放行</small></h3></div>',
-          [{ label: '出城', cls: 'btn-primary', handler: () => { Dialog.close(); doLeaveCamp() } }])
-      } else {
-        showGuardSearchPrompt('exit')
-      }
-    } else if (r < 50) {
+    } else if (r < 40) {
+      // 搜身检查（30%）
+      showGuardSearchPrompt('exit')
+    } else if (r < 60) {
       // 放行（20%，佩戴奴隶项圈则被当成奴畜盘查）
       if (typeof RestraintSystem !== 'undefined' && RestraintSystem.hasCollar()) {
         guardMsg('🛡️ 卫兵拦住你', `<div class="glory-section"><h3><span>“项圈？哪家的奴畜也敢到处跑。”</span><small>卫兵拽了拽你脖子上的项圈，一脸戏谑</small></h3>
@@ -471,11 +464,15 @@ window.CampSystem = (function () {
     }
   }
 
-  /** 放弃检查：不扣钱、不耗回合、不清除检查可能，坐标不变，下次重新判定 */
+  /** 放弃检查：不扣钱、不耗回合、不清除检查可能，下次重新判定 */
   function cancelGuardSearch (direction) {
     const state = State.get()
     if (direction === 'enter') {
-      // 暂不进城：留在城门原地，恢复移动（不改变坐标）
+      // 暂不进城：回到进入营地前的位置（避免站在营地格绕过检查）
+      if (state._campReturnPos && state._campReturnPos.x !== undefined) {
+        state.position = { x: state._campReturnPos.x, y: state._campReturnPos.y }
+        state._campReturnPos = null
+      }
       state.phase = 'idle'
       campClose()
       EventBus.emit('state:changed', state)

@@ -773,16 +773,16 @@
     MapUI.render()
     HUD.render()
 
-    if (state.phase === 'battle') {
+    if (state._guardSearchPending && typeof CampSystem !== 'undefined' && CampSystem.resumeGuardSearch) {
+      // 城门搜身断点优先于一切 phase 判断：恢复剩余倒计时并继续检查（不重复结算）
+      CampSystem.resumeGuardSearch()
+    } else if (state.phase === 'battle') {
       // 存档已恢复 _battle 全部战况（HP/回合/反射/格挡），只重建 UI
       if (BattleUI.resume) BattleUI.resume()
     } else if (state.phase === 'shop') {
       ShopSystem.open(null)
     } else if (state.phase === 'camp') {
       CampSystem.open()
-    } else if (state._guardSearchPending && typeof CampSystem !== 'undefined' && CampSystem.resumeGuardSearch) {
-      // 城门搜身断点：恢复剩余倒计时并继续检查（不重复结算）
-      CampSystem.resumeGuardSearch()
     } else {
       // 恢复移动存档：剩余步数 + 来源格 + 转向状态
       if (state._moveState && (state._moveState.steps || 0) > 0) {

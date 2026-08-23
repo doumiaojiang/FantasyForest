@@ -3236,7 +3236,7 @@ body:has(.age-gate:not(.age-gate-hidden)) { overflow: hidden; }
 .guard-search-status b { color: #dce6f2; font-weight: 700; }
 .guard-search-warning { margin-top: 10px; padding: 8px 12px; border: 1px solid rgba(255,180,90,.28); border-radius: 8px; background: rgba(255,150,50,.08); color: #ffcf8f; font-size: .72rem; text-align: center; }
 
-/* 60 秒检查任务弹窗（倒计时金色/警戒橙，无 BPM 板块） */
+/* 搜身检查任务弹窗（倒计时金色/警戒橙，无 BPM 板块，随机 10~30 秒） */
 .modal-box.guard-search-task-modal { border-color: rgba(120,160,255,.4); background: linear-gradient(160deg, rgba(16,22,40,.99), rgba(12,14,24,.99)); box-shadow: 0 24px 70px #000c, inset 0 1px rgba(160,190,255,.12); }
 .guard-search-task-modal .timer-display { color: #ffcf7a; text-shadow: 0 0 18px rgba(255,180,90,.5); }
 .guard-search-task-modal .timer-bar-track { background: rgba(255,180,90,.14); }
@@ -3244,6 +3244,9 @@ body:has(.age-gate:not(.age-gate-hidden)) { overflow: hidden; }
 
 @media (max-width: 520px) {
   .guard-search-status { grid-template-columns: 1fr; }
+  /* 手机端操作按钮纵向排列，避免文字被拆成多行 */
+  .guard-search-modal .modal-actions { flex-direction: column; align-items: stretch; }
+  .guard-search-modal .modal-actions .btn { flex: 1 1 auto; min-width: 0; min-height: 44px; }
   .modal-box.guard-search-task-modal { max-height: calc(100dvh - 20px); overflow: auto; }
   .modal-box.guard-search-task-modal .modal-actions { position: sticky; bottom: 0; background: rgba(10, 13, 22, .96); padding: 10px 12px; }
 }
