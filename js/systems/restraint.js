@@ -11,22 +11,23 @@
 
 window.RestraintSystem = (function () {
   // 身体槽位（部位图展示）
-  const SLOT_ORDER = ['eyes', 'mouth', 'neck', 'chest', 'arms', 'arms_heavy', 'torso', 'waist', 'legs', 'ankles', 'anal', 'vagina']
-  const SLOT_NAMES = { eyes: '眼部', mouth: '嘴部', neck: '颈部', chest: '胸部', arms: '手臂', arms_heavy: '束臂', torso: '躯干', waist: '腰部', legs: '腿部', ankles: '脚踝', anal: '菊穴', vagina: '小穴' }
-  const SLOT_ICONS = { eyes: '😵', mouth: '🤐', neck: '🐕', chest: '🎀', arms: '⛓️', arms_heavy: '🪢', torso: '🩱', waist: '🔒', legs: '🦶', ankles: '⛓️', anal: '🍑', vagina: '🌸' }
-  // 妆容栏（独立区域，不占身体槽位）
-  const COSMETIC_SLOTS = ['lip', 'face']
-  const COSMETIC_NAMES = { lip: '口唇', face: '面妆' }
-  const COSMETIC_ICONS = { lip: '💄', face: '💋' }
+  const SLOT_ORDER = ['eyes', 'lip', 'face', 'mouth', 'neck', 'chest', 'arms', 'arms_heavy', 'torso', 'outfit', 'waist', 'legs', 'feet', 'ankles', 'anal', 'vagina']
+  const SLOT_NAMES = { eyes: '眼部', lip: '口唇妆容', face: '面部妆容', mouth: '嘴部', neck: '颈部', chest: '胸部', arms: '手臂', arms_heavy: '束臂', torso: '躯干', outfit: '服装', waist: '腰部', legs: '腿部', feet: '鞋履', ankles: '脚踝', anal: '菊穴', vagina: '小穴' }
+  const SLOT_ICONS = { eyes: '😵', lip: '💄', face: '✨', mouth: '🤐', neck: '🐕', chest: '🎀', arms: '⛓️', arms_heavy: '🪢', torso: '🩱', outfit: '👗', waist: '🔒', legs: '🦶', feet: '👠', ankles: '⛓️', anal: '🍑', vagina: '🌸' }
   const BLADES = ['rusty_knife', 'basic_sword', 'master_sword', 'sharp_rock']
 
   function raw () { return State.get()._restraints || {} }
   function get (slot) { return raw()[slot] || null }
-  function defOf (id) { return (RESTRAINTS || []).find(r => r.id === id) }
+  function defOf (id) {
+    const def = (RESTRAINTS || []).find(r => r.id === id)
+    if (!def || !def.genderNames) return def
+    const gender = State.get().gender === 'male' ? 'male' : 'female'
+    return { ...def, name: def.genderNames[gender] || def.name }
+  }
   function isWorn (slot) { return !!get(slot) }
   function isLocked (slot) { const d = get(slot); return !!(d && d.locked) }
   function countLocked () { return SLOT_ORDER.filter(isLocked).length }
-  function countWorn () { return SLOT_ORDER.concat(COSMETIC_SLOTS).filter(isWorn).length }
+  function countWorn () { return SLOT_ORDER.filter(isWorn).length }
 
   /** 上锁装置金币加成：普通 +5%，重型/诅咒 +10%，上限 +30% */
   function goldBonus () {
@@ -59,6 +60,57 @@ window.RestraintSystem = (function () {
 
   function allowedSlotsOf (def) { return def && Array.isArray(def.allowedSlots) ? def.allowedSlots : (def ? [def.slot] : []) }
 
+  function insertSizeText (def) {
+    if (!def || !Number.isFinite(def.sizeCm)) return '未标注'
+    if (def.id.includes('butt_plug') || def.dildo) return `${def.sizeCm} cm${def.sizeCm >= 5.2 ? '以上' : '以下'}`
+    return `${def.sizeCm} cm`
+  }
+
+  function insertDetailsHtml (def, charge) {
+    const slotLabel = allowedSlotsOf(def).map(s => SLOT_NAMES[s] || s).join(' / ')
+    const chargeLimit = def.stackable ? `${def.block} 次/颗` : `${charge.max} 次`
+    const bonus = `${def.prostituteBonus} 金币${def.stackable ? '/颗' : ''}`
+    return `<span class="rpg-gear-details">
+      <span class="rpg-gear-kicker">插入装备 · ${slotLabel}</span>
+      <span class="rpg-gear-stat"><em>尺寸</em><strong>${insertSizeText(def)}</strong></span>
+      <span class="rpg-gear-stat"><em>防护充能</em><strong>可充能 ${chargeLimit}</strong></span>
+      <small class="rpg-gear-hint">每点充能完全抵挡一次对应部位的攻击：0 伤害、0 效果</small>
+      <span class="rpg-gear-special"><em>特殊</em><strong>酒馆妓女：+${bonus}</strong></span>
+      <span class="rpg-gear-warning">🔒 上锁后：酒馆妓女与荣耀洞均不可用</span>
+      <span class="restr-charge${charge.current <= 0 ? ' is-empty' : ''}">⚡ 当前充能 ${charge.current}/${charge.max}${charge.current < charge.max ? ' · 去酒馆找附魔师' : ''}</span>
+    </span>`
+  }
+
+  function gearTone (def) {
+    if (def.cosmetic) return 'cosmetic'
+    if (def.slot === 'mouth') return 'mouth'
+    if (def.buff) return 'service'
+    return 'restraint'
+  }
+
+  function serviceDetailsHtml (def) {
+    const fixed = {
+      lipstick: { kind: '妆容装备 · 口唇', stats: [['类型', '口唇妆容'], ['锁具', '不可上锁']], hint: '可以与全套妆容同时装备', special: '酒馆妓女：口交服务 +20 金币' },
+      makeup: { kind: '妆容装备 · 面部', stats: [['类型', '全脸妆容'], ['锁具', '不可上锁']], hint: '可以与口红同时装备', special: '酒馆妓女：口交服务 +30 金币' },
+      leather_gag: { kind: '口部装备 · 嘴部', stats: [['束缚难度', `${def.difficulty} 级`]], hint: '堵住嘴，口交任务无法完成；战斗口交攻击承受单倍伤害', special: '酒馆妓女：不触发口塞加成', warning: '上锁后：酒馆妓女与荣耀洞均不可用' },
+      deepthroat_gag: { kind: '口部装备 · 嘴部', stats: [['束缚难度', `${def.difficulty} 级`]], hint: '固定张口与深喉姿势，口交任务无法完成', special: '酒馆妓女：不触发口塞加成', warning: '上锁后：酒馆妓女与荣耀洞均不可用' },
+      slut_gag: { kind: '口部装备 · 嘴部', stats: [['束缚难度', `${def.difficulty} 级`]], hint: '同时佩戴项圈时，插入任务提升到 180 BPM', special: '酒馆妓女与荣耀洞可用；插入任务 160 BPM · 金币 ×2', warning: '开口结构：上锁后仍可进行性服务', allowLockedService: true },
+    }[def.id]
+    const meta = fixed || {
+      kind: `${def.buff ? '服务装备' : (def.heavy ? '重型妖缚装备' : '妖缚装备')} · ${SLOT_NAMES[def.slot] || def.slot}`,
+      stats: [['束缚难度', `${def.difficulty || 1} 级`]],
+      hint: def.story ? '剧情装备，只能通过对应剧情解除' : (def.heavy ? '重型装备，挣脱与解除更加困难' : '可以穿戴，也可以使用普通锁主动上锁'),
+      special: def.desc,
+    }
+    return `<span class="rpg-gear-details">
+      <span class="rpg-gear-kicker">${meta.kind}</span>
+      ${meta.stats.map(([label, value]) => `<span class="rpg-gear-stat"><em>${label}</em><strong>${value}</strong></span>`).join('')}
+      <small class="rpg-gear-hint">${meta.hint}</small>
+      <span class="rpg-gear-special"><em>特殊</em><strong>${meta.special}</strong></span>
+      ${meta.warning ? `<span class="rpg-gear-warning${meta.allowLockedService ? ' is-allowed' : ''}">${meta.allowLockedService ? '✓' : '🔒'} ${meta.warning}</span>` : ''}
+    </span>`
+  }
+
   /** 该装置在当前性别下的最大拥有数（男性一律 1） */
   function effectiveMaxOwn (def) {
     const max = def && def.maxOwn ? def.maxOwn : 1
@@ -67,7 +119,7 @@ window.RestraintSystem = (function () {
 
   /** 已穿戴在某部位的该装置数量 */
   function wornCountOf (id) {
-    return SLOT_ORDER.concat(COSMETIC_SLOTS).filter(slot => { const d = get(slot); return d && d.id === id }).length
+    return SLOT_ORDER.filter(slot => { const d = get(slot); return d && d.id === id }).length
   }
 
   /** 检查装置是否能穿到指定部位。 */
@@ -76,8 +128,10 @@ window.RestraintSystem = (function () {
     if (!def) return { ok: false, msg: '装置不存在' }
     if (!allowedSlotsOf(def).includes(slot)) return { ok: false, msg: `${def.name}不能装备到${SLOT_NAMES[slot] || '该部位'}` }
     const state = State.get()
-    if ((def.femaleOnly || slot === 'vagina') && state.gender === 'male') return { ok: false, msg: '男性没有可用的小穴槽位' }
-    if (slot === 'vagina' && hasWaistChastity()) return { ok: false, msg: '小穴被贞操装置阻挡，无法插入装备' }
+    if (def.femaleOnly && state.gender === 'male') return { ok: false, msg: `${def.name}仅限女性使用` }
+    if (def.maleOnly && state.gender !== 'male') return { ok: false, msg: `${def.name}仅限男性使用` }
+    if (slot === 'vagina' && state.gender === 'male') return { ok: false, msg: '男性没有可用的小穴槽位' }
+    if (slot === 'vagina' && hasWaistChastity()) return { ok: false, msg: '小穴被贞操带阻挡，无法插入装备' }
     // 已装备数量小于已拥有数量时，允许同 ID 装备到另一部位（如女性同尺寸 2 根假阳具）
     if (wornCountOf(id) >= ownedCount(id)) {
       return { ok: false, msg: wornCountOf(id) > 0 ? `${def.name}已全部穿戴（${wornCountOf(id)}/${ownedCount(id)}）` : `${def.name}已经装备在其他部位` }
@@ -99,7 +153,7 @@ window.RestraintSystem = (function () {
     // 贞操类占用腰部并封住小穴；强制装备时也必须先取出小穴装备。
     if (def.effect === 'chastity' && get('vagina')) {
       set('vagina', null)
-      EventBus.emit('ui:log', { text: '🔒 贞操装置合拢前，小穴里的插入装备被迫取出。', type: 'danger' })
+      EventBus.emit('ui:log', { text: '🔒 贞操带合拢前，小穴里的插入装备被迫取出。', type: 'danger' })
     }
     const device = {
       id, slot,
@@ -111,6 +165,11 @@ window.RestraintSystem = (function () {
       escapeBonus: 0,
       jammed: !!opts.jammed,
       count: def.stackable ? Math.max(1, Math.min(ownedCount(id), Math.floor(Number(opts.count) || 1))) : 1,
+    }
+    if (def.insert) {
+      const state = State.get()
+      if (!state._insertionCharges || typeof state._insertionCharges !== 'object') state._insertionCharges = {}
+      if (!Number.isFinite(state._insertionCharges[slot])) state._insertionCharges[slot] = 0
     }
     set(slot, device)
     return { ok: true, device }
@@ -128,10 +187,32 @@ window.RestraintSystem = (function () {
     // 同步旧酒馆用品标志：脱下后清除，避免读档时又被迁移回去
     const st = State.get()
     if (st._prostituteGear) {
-      const GEAR_FLAG = { chastity_device: 'chastity', lipstick: 'lipstick', makeup: 'makeup', heels: 'heels', lingerie: 'lingerie', latex: 'latex', slut_collar: 'collar', slut_gag: 'gag', butt_plug: 'buttplug', medium_butt_plug: 'buttplug' }
+      const GEAR_FLAG = { chastity_device: 'chastity', vibrating_chastity: 'chastity', lipstick: 'lipstick', makeup: 'makeup', heels: 'heels', lingerie: 'lingerie', latex: 'latex', slut_collar: 'collar', slut_gag: 'gag', butt_plug: 'buttplug', medium_butt_plug: 'buttplug' }
       if (GEAR_FLAG[d.id]) st._prostituteGear[GEAR_FLAG[d.id]] = false
     }
     return { ok: true, msg: '已脱下' }
+  }
+
+  /** 玩家使用普通锁，主动锁住一件已穿戴的妖缚装备。 */
+  function lockDevice (slot) {
+    const d = get(slot)
+    const def = d && defOf(d.id)
+    if (!d || !def) return { ok: false, msg: '这里没有可上锁的装置' }
+    if (d.locked) return { ok: false, msg: '这件装置已经上锁' }
+    if (def.cosmetic) return { ok: false, msg: '妆容不能上锁' }
+    if (def.story) return { ok: false, msg: '剧情装备不能手动上锁' }
+    const inv = State.get().inventory.consumables
+    if ((inv.restraint_lock || 0) <= 0) return { ok: false, msg: '没有普通锁，请到梦幻商店购买' }
+    inv.restraint_lock--
+    d.locked = true
+    d.lockType = 'common'
+    d.source = 'self_locked'
+    d.escapeBonus = 0
+    d.jammed = false
+    delete d.timer
+    EventBus.emit('ui:log', { text: `🔒 你用普通锁锁住了${def.name}。`, type: 'danger' })
+    EventBus.emit('state:changed', State.get())
+    return { ok: true, msg: '装置已上锁' }
   }
 
   /** 是否剧情锁（只能剧情解除） */
@@ -315,19 +396,12 @@ window.RestraintSystem = (function () {
   }
   /** 双手受限（手铐或反绑束臂器）：无法使用物品 */
   function hasHandsBlocked () { return hasHandcuffs() || hasArmbinder() }
-  /** 震动装置：战斗中失控颤抖 */
-  function hasVibrating () {
-    const d = get('waist')
-    const def = d && defOf(d.id)
-    return !!(def && def.vibrate)
-  }
   function hasNipple () { return hasEffect('nipple') }
   function hasCorset () { return hasEffect('corset') }
   function hasAnkleChains () { return hasEffect('ankle_chains') }
   /** 是否正穿着某件装置（按装置 id；含妆容栏） */
   function hasDevice (id) {
-    const allSlots = SLOT_ORDER.concat(COSMETIC_SLOTS)
-    return allSlots.some(slot => { const d = get(slot); return d && d.id === id })
+    return SLOT_ORDER.some(slot => { const d = get(slot); return d && d.id === id })
   }
   function ownedCount (id) {
     const def = defOf(id)
@@ -372,6 +446,9 @@ window.RestraintSystem = (function () {
     const next = Math.max(1, Math.min(max, current + Math.sign(Number(delta) || 0)))
     if (next === current) return { ok: false, msg: delta > 0 ? `最多只能塞入 ${max} 颗` : '只剩 1 颗；要全部取出请点“全部取出”' }
     d.count = next
+    if (!State.get()._insertionCharges || typeof State.get()._insertionCharges !== 'object') State.get()._insertionCharges = {}
+    const nextMax = Math.max(0, def.block || 0) * next
+    State.get()._insertionCharges[slot] = Math.min(nextMax, Math.max(0, State.get()._insertionCharges[slot] || 0))
     EventBus.emit('state:changed', State.get())
     return { ok: true, msg: delta > 0 ? `又塞入 1 颗${def.name}，现在共 ${next} 颗` : `取出 1 颗${def.name}，还剩 ${next} 颗`, count: next }
   }
@@ -384,15 +461,155 @@ window.RestraintSystem = (function () {
     const result = { anal: 0, vagina: 0 }
     ;['anal', 'vagina'].forEach(slot => {
       const entry = insertionDevice(slot)
-      if (entry) result[slot] = Math.max(0, entry.def.block || 0) * (entry.def.stackable ? Math.max(1, entry.device.count || 1) : 1)
+      if (!entry) return
+      const max = Math.max(0, entry.def.block || 0) * (entry.def.stackable ? Math.max(1, entry.device.count || 1) : 1)
+      const stored = State.get()._insertionCharges && State.get()._insertionCharges[slot]
+      result[slot] = Math.max(0, Math.min(max, Number.isFinite(stored) ? stored : 0))
     })
     return result
+  }
+  /** 插入装备的持久防护充能；战斗中优先读取本场同步值。 */
+  function insertionCharge (slot) {
+    const entry = insertionDevice(slot)
+    if (!entry) return null
+    const count = entry.def.stackable ? Math.max(1, entry.device.count || 1) : 1
+    const max = Math.max(0, entry.def.block || 0) * count
+    const state = State.get()
+    const combat = state._battle || state._ambush
+    const combatStored = combat && combat.insertionBlocks && typeof combat.insertionBlocks === 'object'
+      ? combat.insertionBlocks[slot]
+      : null
+    const saved = state._insertionCharges && state._insertionCharges[slot]
+    const current = combat
+      ? Math.max(0, Math.min(max, Number.isFinite(combatStored) ? combatStored : 0))
+      : Math.max(0, Math.min(max, Number.isFinite(saved) ? saved : 0))
+    return { current, max, inCombat: !!combat }
+  }
+  function setInsertionCharge (slot, value) {
+    const info = insertionCharge(slot)
+    if (!info) return { ok: false, msg: '该部位没有插入装备' }
+    const state = State.get()
+    if (!state._insertionCharges || typeof state._insertionCharges !== 'object') state._insertionCharges = {}
+    const next = Math.max(0, Math.min(info.max, Math.floor(Number(value) || 0)))
+    state._insertionCharges[slot] = next
+    const combat = state._battle || state._ambush
+    if (combat && combat.insertionBlocks) {
+      combat.insertionBlocks[slot] = next
+      combat.blocked = Math.max(0, (combat.insertionBlocks.anal || 0) + (combat.insertionBlocks.vagina || 0))
+    }
+    EventBus.emit('state:changed', state)
+    return { ok: true, current: next, max: info.max }
   }
   function insertionProstituteBonus () {
     return ['anal', 'vagina'].reduce((sum, slot) => {
       const entry = insertionDevice(slot)
-      return sum + (entry ? Math.max(0, entry.def.prostituteBonus || 0) * (entry.def.stackable ? Math.max(1, entry.device.count || 1) : 1) : 0)
+      return sum + (entry && !entry.device.locked ? Math.max(0, entry.def.prostituteBonus || 0) * (entry.def.stackable ? Math.max(1, entry.device.count || 1) : 1) : 0)
     }, 0)
+  }
+  /** 酒馆禁止携带上锁的插入装备工作。 */
+  function lockedInsertionDevices () {
+    return ['anal', 'vagina'].map(slot => {
+      const entry = insertionDevice(slot)
+      return entry && entry.device.locked ? { slot, ...entry } : null
+    }).filter(Boolean)
+  }
+  /** 酒馆与荣耀洞共用：上锁的口部或插入装备会阻止性服务。 */
+  function lockedServiceDevices () {
+    return ['mouth', 'anal', 'vagina'].map(slot => {
+      const device = get(slot)
+      const def = device && defOf(device.id)
+      if (!device || !def || !device.locked) return null
+      if (slot === 'mouth' && def.id === 'slut_gag') return null
+      if (slot !== 'mouth' && !def.insert) return null
+      return { slot, device, def }
+    }).filter(Boolean)
+  }
+
+  /** 普通怪物战：处理被口部/插入装备占用的攻击目标。 */
+  function resolveMonsterOrifice (originalPart, random = Math.random, options = {}) {
+    if (!['oral', 'anal', 'vagina'].includes(originalPart)) return { mode: 'original', part: originalPart, events: [] }
+    const state = State.get()
+    const events = []
+    const label = { oral: '嘴穴', anal: '菊穴', vagina: '小穴' }
+
+    const inspect = (part, mutate) => {
+      if (part === 'vagina' && (state.gender === 'male' || hasWaistChastity())) {
+        return { available: false, reason: 'sealed', name: state.gender === 'male' ? '身体结构' : '贞操装备' }
+      }
+      if (part === 'oral') {
+        const mouth = get('mouth')
+        const mouthDef = mouth && defOf(mouth.id)
+        if (mouthDef && mouthDef.id !== 'slut_gag') return { available: false, reason: 'sealed', name: mouthDef.name }
+        return { available: true }
+      }
+      const entry = insertionDevice(part)
+      if (!entry) return { available: true }
+      const charge = insertionCharge(part)
+      if (charge && charge.current > 0) {
+        if (mutate) {
+          setInsertionCharge(part, charge.current - 1)
+          events.push(`⚡ ${entry.def.name}消耗 1 点充能，完全抵挡本次攻击与效果（剩余 ${charge.current - 1}/${charge.max}）`)
+        }
+        return { available: false, reason: 'charged', name: entry.def.name }
+      }
+      if (entry.device.locked) return { available: false, reason: 'locked', name: entry.def.name }
+      if (mutate) {
+        remove(part)
+        events.push(`💥 怪物拔掉了已经失效且未上锁的${entry.def.name}`)
+      }
+      return { available: true, removed: true, name: entry.def.name }
+    }
+
+    const original = inspect(originalPart, true)
+    if (original.available) return { mode: original.removed ? 'removed' : 'original', part: originalPart, from: originalPart, events }
+    if (original.reason === 'charged') return { mode: 'blocked', part: originalPart, from: originalPart, events }
+    if (original.reason === 'locked') events.push(`🔒 ${original.name}已经上锁，怪物无法拔出`)
+    if (original.reason === 'sealed') events.push(`🚫 ${label[originalPart]}被${original.name}挡住`)
+
+    const candidates = ['oral', 'anal']
+    if (state.gender !== 'male') candidates.push('vagina')
+    const available = candidates.filter(part => part !== originalPart && inspect(part, false).available)
+    if (!available.length) {
+      const battle = state._battle
+      if (options.boss && battle && !battle.bossForcedUnlockUsed) {
+        const forcedTargets = []
+        candidates.forEach(part => {
+          let slot = part
+          let device = get(slot)
+          let def = device && defOf(device.id)
+          if (part === 'vagina' && !device && hasWaistChastity()) {
+            slot = 'waist'
+            device = get(slot)
+            def = device && defOf(device.id)
+          }
+          if (!device || !def || !device.locked || device.jammed || isStory(slot) || isCursed(slot)) return
+          const blocksPart = part === 'oral'
+            ? def.id !== 'slut_gag'
+            : part === 'anal'
+              ? !!def.insert
+              : slot === 'waist' ? def.effect === 'chastity' : !!def.insert
+          if (!blocksPart) return
+          forcedTargets.push({ part, slot, device, def })
+        })
+        if (forcedTargets.length) {
+          const preferred = forcedTargets.find(target => target.part === originalPart)
+          const target = preferred || forcedTargets[Math.min(forcedTargets.length - 1, Math.floor(Math.max(0, Number(random()) || 0) * forcedTargets.length))]
+          battle.bossForcedUnlockUsed = true
+          remove(target.slot)
+          events.push(`🌿 森林之灵发动「藤蔓破锁」，强行破坏了${target.def.name}的普通锁并拔下装备`)
+          events.push(`↪️ ${label[target.part]}重新暴露，召唤怪物继续原攻击`)
+          return { mode: 'forced_unlock', part: target.part, from: originalPart, removed: true, events }
+        }
+      }
+      events.push('🍑 所有可用部位都被挡住，怪物改为打屁股')
+      return { mode: 'spank', part: 'body', from: originalPart, events }
+    }
+
+    const index = Math.min(available.length - 1, Math.floor(Math.max(0, Number(random()) || 0) * available.length))
+    const nextPart = available[index]
+    const next = inspect(nextPart, true)
+    events.push(`↪️ 怪物放弃${label[originalPart]}，改攻${label[nextPart]}`)
+    return { mode: 'redirect', part: nextPart, from: originalPart, removed: next.removed, events }
   }
   /** 上锁槽位列表 */
   function lockedSlots () { return SLOT_ORDER.filter(isLocked) }
@@ -573,7 +790,7 @@ window.RestraintSystem = (function () {
         if (ownedHere.length) {
           const blockedHint = slot === 'vagina' && state.gender === 'male'
             ? '男性不可用'
-            : slot === 'vagina' && hasWaistChastity() ? '被贞操装置阻挡' : ''
+            : slot === 'vagina' && hasWaistChastity() ? '被贞操带阻挡' : ''
           const wearBtns = ownedHere.map(oid => {
             const od = defOf(oid)
             const check = canEquip(slot, oid)
@@ -584,12 +801,16 @@ window.RestraintSystem = (function () {
           }).join('')
           return `<div class="restr-card restr-empty has-owned"><i>${SLOT_ICONS[slot]}</i><span><b>${SLOT_NAMES[slot]}</b><small>${blockedHint ? `${blockedHint} · ` : ''}已拥有 ${ownedHere.map(id => defOf(id).name).join('、')}</small></span><div class="restr-actions">${wearBtns}</div></div>`
         }
-        const emptyHint = slot === 'vagina' && state.gender === 'male' ? '男性不可用' : slot === 'vagina' && hasWaistChastity() ? '被贞操装置阻挡' : '空'
+        const emptyHint = slot === 'vagina' && state.gender === 'male' ? '男性不可用' : slot === 'vagina' && hasWaistChastity() ? '被贞操带阻挡' : '空'
         return `<div class="restr-card restr-empty"><i>${SLOT_ICONS[slot]}</i><span><b>${SLOT_NAMES[slot]}</b><small>${emptyHint}</small></span></div>`
       }
       const lockTag = d.locked
         ? `<em class="restr-lock">${d.jammed ? '⛓️ 卡死' : isCursed(slot) ? '🧿 诅咒锁' : isStory(slot) ? '📜 剧情锁' : '🔒 上锁'}${d.timer ? ` · ⏲️${d.timer}` : ''}</em>`
         : `<em class="restr-open">✓ 未锁</em>`
+      const lockCount = State.get().inventory.consumables.restraint_lock || 0
+      const lockButton = !def.cosmetic && !def.story
+        ? `<button class="btn restr-btn" data-act="lock" data-slot="${slot}" ${lockCount > 0 ? '' : 'disabled'}>🔒 ${lockCount > 0 ? `上锁（剩 ${lockCount}）` : '没有普通锁'}</button>`
+        : ''
       const actionsHtml = d.locked
         ? `<div class="restr-actions">
              ${d.jammed ? '' : `<button class="btn restr-btn" data-act="struggle" data-slot="${slot}">💪 挣扎</button>`}
@@ -603,29 +824,17 @@ window.RestraintSystem = (function () {
                <button class="btn restr-btn" data-act="stack-minus" data-slot="${slot}" ${(d.count || 1) <= 1 ? 'disabled' : ''}>➖ 取出一颗</button>
                <button class="btn restr-btn" data-act="stack-plus" data-slot="${slot}" ${(d.count || 1) >= ownedCount(d.id) ? 'disabled' : ''}>➕ 再塞一颗</button>
                <button class="btn restr-btn" data-act="remove" data-slot="${slot}">✋ 全部取出</button>
+               ${lockButton}
              </div>`
-          : `<button class="btn restr-btn" data-act="remove" data-slot="${slot}">✋ 脱下</button>`
+          : `<div class="restr-actions"><button class="btn restr-btn" data-act="remove" data-slot="${slot}">✋ 脱下</button>${lockButton}</div>`
       const countLabel = def.stackable ? ` ×${Math.max(1, d.count || 1)}` : ''
-      return `<div class="restr-card"><i>${SLOT_ICONS[slot]}</i><span><b>${def.name}${countLabel}</b><small>${def.desc}</small></span>${lockTag}${actionsHtml}</div>`
-    }).join('')
-
-    // 妆容栏（独立区域，口唇 + 面妆可同时穿戴）
-    const cosmeticCards = COSMETIC_SLOTS.map(slot => {
-      const d = get(slot)
-      const def = d && defOf(d.id)
-      if (!d) {
-        const ownedHere = ownedIds.filter(id => { const od = defOf(id); return od && od.cosmetic && allowedSlotsOf(od).includes(slot) && wornCountOf(id) < ownedCount(id) })
-        if (ownedHere.length) {
-          const wearBtns = ownedHere.map(oid => {
-            const od = defOf(oid)
-            const check = canEquip(slot, oid)
-            return `<button class="btn restr-btn" data-act="wear" data-slot="${slot}" data-id="${oid}" ${check.ok ? '' : 'disabled'} title="${check.ok ? `装备到${COSMETIC_NAMES[slot]}` : check.msg}">📿 ${od.name}${check.ok ? '' : ' · 不可用'}</button>`
-          }).join('')
-          return `<div class="restr-card restr-empty has-owned"><i>${COSMETIC_ICONS[slot]}</i><span><b>${COSMETIC_NAMES[slot]}</b><small>已拥有 ${ownedHere.map(id => defOf(id).name).join('、')}</small></span><div class="restr-actions">${wearBtns}</div></div>`
-        }
-        return `<div class="restr-card restr-empty"><i>${COSMETIC_ICONS[slot]}</i><span><b>${COSMETIC_NAMES[slot]}</b><small>空</small></span></div>`
-      }
-      return `<div class="restr-card"><i>${COSMETIC_ICONS[slot]}</i><span><b>${def.name}</b><small>${COSMETIC_NAMES[slot]} · ${def.desc}</small></span><button class="btn restr-btn" data-act="remove" data-slot="${slot}">✋ 卸下</button></div>`
+      const charge = def.insert ? insertionCharge(slot) : null
+      const chargeHtml = charge
+        ? insertDetailsHtml(def, charge)
+        : ''
+      const serviceHtml = !def.insert ? serviceDetailsHtml(def) : ''
+      const tone = def.insert ? 'insert' : gearTone(def)
+      return `<div class="restr-card rpg-equipped-card rpg-gear-${tone}"><i>${SLOT_ICONS[slot]}</i><span><b class="rpg-gear-name">${def.name}${countLabel}</b>${def.insert ? chargeHtml : serviceHtml}</span>${lockTag}${actionsHtml}</div>`
     }).join('')
 
     Dialog.show({
@@ -634,8 +843,7 @@ window.RestraintSystem = (function () {
       body: `<div class="restr-top"><span>已佩戴 <b>${countWorn()}</b> 件 · 上锁 <b>${countLocked()}</b> 件</span><em>战斗金币 +${bonus}%</em></div>
         ${bodyDiagram()}
         <div class="restr-grid">${cards}</div>
-        <div class="restr-cosmetic"><b class="eq-label">💄 妆容（口唇 + 面妆可同时装备）</b><div class="restr-grid">${cosmeticCards}</div></div>
-        <p class="camp-footnote">普通钥匙开普通锁；万能钥匙开任意非剧情/非诅咒锁；开锁工具 60% 成功。挣扎失败永久 +10% 成功率，失败 3 次后必定成功；皮革/绳索可用尖石/刀/剑割断；诅咒锁需铁匠或驱咒符。</p>`,
+        <p class="camp-footnote">怪物攻击被占用的部位时，每点充能会完全抵挡一次攻击（0伤害、0效果）；充能耗尽且未上锁会被拔掉并继续原攻击，已上锁则改攻其他部位。全部部位不可用时怪物会改打屁股。充能跨战斗与存档保留，可找附魔师或使用灵魂石补充。</p>`,
       actions: [
         { label: '⚙️ 设置', handler: () => { Dialog.close(); openSettings() } },
         { label: '关闭', handler: () => Dialog.close() },
@@ -650,7 +858,8 @@ window.RestraintSystem = (function () {
           if (act === 'wear') {
             const ownedId = btn.dataset.id
             result = equip(slot, ownedId, { locked: false, source: 'tavern' })
-          } else if (act === 'struggle') result = struggle(slot)
+          } else if (act === 'lock') result = lockDevice(slot)
+          else if (act === 'struggle') result = struggle(slot)
           else if (act === 'cut') result = cut(slot)
           else if (act === 'key') result = useKey(slot)
           else if (act === 'lockpick') result = useLockpick(slot)
@@ -668,14 +877,14 @@ window.RestraintSystem = (function () {
   }
 
   return {
-    SLOT_ORDER, SLOT_NAMES, SLOT_ICONS, COSMETIC_SLOTS, COSMETIC_NAMES, COSMETIC_ICONS,
+    SLOT_ORDER, SLOT_NAMES, SLOT_ICONS,
     get, defOf, isWorn, isLocked, countLocked, countWorn, goldBonus,
-    equip, remove, restore, isStory, isHeavy, isCursed, canCut, cut, struggle,
+    equip, remove, restore, lockDevice, isStory, isHeavy, isCursed, canCut, cut, struggle,
     useKey, useLockpick, useCurseRemover, npcUnlock, npcUnlockCost,
     setTimer, tickTimers, lockedSlots,
-    hasGag, hasHandcuffs, hasLegCuffs, hasCollar, hasArmbinder, hasBlindfold, hasWaistChastity, hasHandsBlocked, hasVibrating,
+    hasGag, hasHandcuffs, hasLegCuffs, hasCollar, hasArmbinder, hasBlindfold, hasWaistChastity, hasHandsBlocked,
     hasNipple, hasCorset, hasAnkleChains, hasDevice, ownedCount, grant, adjustStack,
-    allowedSlotsOf, canEquip, insertionDevice, insertionBlocks, insertionProstituteBonus,
+    allowedSlotsOf, canEquip, insertionDevice, insertionBlocks, insertionCharge, setInsertionCharge, insertionProstituteBonus, lockedInsertionDevices, lockedServiceDevices, resolveMonsterOrifice,
     effectiveMaxOwn, wornCountOf,
     settings, toggleTrap, removeAllUnlocked, bodyDiagram,
     openManage, openSettings,

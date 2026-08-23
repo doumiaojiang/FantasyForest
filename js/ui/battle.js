@@ -373,7 +373,7 @@ window.BattleUI = (function () {
     await Dialog.showDice(roll, 'Z')
 
     const enemy = DATA.monster(_enemy.id)
-    const attack = enemy.attacks.find(a => a.roll === roll) || { name: '普通攻击', desc: '攻击了你', dmg: 0 }
+    let attack = enemy.attacks.find(a => a.roll === roll) || { name: '普通攻击', desc: '攻击了你', dmg: 0 }
     // 贞操装置：小穴/撸管/寸止任务强制改为肛交；否则女性角色 Z4-6 操菊穴改为操小穴
     const chRes = ChastitySystem.resolveAttack(attack)
     let effAttack = chRes.attack
@@ -382,9 +382,52 @@ window.BattleUI = (function () {
       effAttack = { ...attack, desc: attack.desc.replace(/菊穴/g, '小穴'), name: attack.name }
       attackPart = 'vagina'
     }
+    if (!attackPart && /口交|深喉|吞吐|口穴|嘴穴|操嘴/.test(effAttack.desc || '')) attackPart = 'oral'
+
+    // 第一阶段：普通怪物发现目标部位被挡住时，尝试拔出、改换部位或打屁股。
+    let chargedBlocked = false
+    if (typeof RestraintSystem !== 'undefined') {
+      const originalTiming = getTaskTiming(effAttack)
+      const targetResult = RestraintSystem.resolveMonsterOrifice(attackPart)
+      targetResult.events.forEach(text => EventBus.emit('ui:log', { text, type: text.startsWith('💥') ? 'danger' : 'good' }))
+      if (targetResult.mode === 'blocked') {
+        chargedBlocked = true
+        effAttack = { ...effAttack, dmg: 0, status: null, special: null, turns: 0, level: 0 }
+      } else if (targetResult.mode === 'redirect') {
+        const partName = { oral: '嘴穴', anal: '菊穴', vagina: '小穴' }[targetResult.part]
+        effAttack = {
+          ...effAttack,
+          name: `${effAttack.name} · 改攻${partName}`,
+          desc: `${enemy.name}发现原本的部位无法使用，立刻改为攻击你的${partName}；攻击强度与持续时间不变。`,
+          special: null,
+          taskBpm: originalTiming.bpm,
+          taskSeconds: originalTiming.seconds,
+        }
+        attackPart = targetResult.part
+      } else if (targetResult.mode === 'spank') {
+        effAttack = {
+          ...effAttack,
+          name: '打屁股',
+          desc: `${enemy.name}找不到能使用的部位，只好把你按住狠狠打屁股。`,
+          status: null,
+          special: null,
+          turns: 0,
+          level: 0,
+          taskBpm: originalTiming.bpm,
+          taskSeconds: originalTiming.seconds,
+        }
+        attackPart = 'body'
+      }
+      attack = effAttack
+    }
     _lastEnemyAttack = { attack: effAttack, roll, part: attackPart }
 
     EventBus.emit('ui:log', { text: `[${_enemy.name}] ${effAttack.desc}`, type: 'danger' })
+
+    if (chargedBlocked) {
+      applyEnemyDamage(false, { chargeBlocked: true })
+      return
+    }
 
     // 口塞：口交/深喉类攻击做不了，硬挨一记（单倍伤害，不翻倍）
     if (typeof RestraintSystem !== 'undefined' && RestraintSystem.hasGag() && /口交|深喉|吞吐|口穴|嘴穴/.test(effAttack.desc)) {
@@ -496,8 +539,9 @@ window.BattleUI = (function () {
     }
 
     // 解析 BPM 和秒数
-    const bpm = parseBpm(effBpmSrc)
-    const seconds = parseSeconds(effDesc)
+    const timing = getTaskTiming({ ...attack, desc: effBpmSrc })
+    const bpm = timing.bpm
+    const seconds = timing.seconds
 
     // 纯状态攻击（无动作、无伤害，只施加状态）：直接确认，不进入任务流程
     if (attack.dmg === 0 && bpm === 0 && attack.status) {
@@ -831,7 +875,7 @@ window.BattleUI = (function () {
 
     // 掷 Z 决定被召唤敌人的攻击
     const z = Dice.rollEnemy()
-    const attack = summoned.attacks.find(a => a.roll === z) || summoned.attacks[0] || { name: '攻击', desc: '攻击了你', dmg: 0 }
+    let attack = summoned.attacks.find(a => a.roll === z) || summoned.attacks[0] || { name: '攻击', desc: '攻击了你', dmg: 0 }
     // 贞操装置：小穴/撸管/寸止任务强制改为肛交；否则女性角色 Z4-6 操菊穴改为操小穴
     const chRes = ChastitySystem.resolveAttack(attack)
     let effAttack = chRes.attack
@@ -839,6 +883,43 @@ window.BattleUI = (function () {
     if (!chRes.chastity && State.get().gender !== 'male' && attackPart === 'anal' && z >= 4) {
       effAttack = { ...attack, desc: attack.desc.replace(/菊穴/g, '小穴'), name: attack.name }
       attackPart = 'vagina'
+    }
+    if (!attackPart && /口交|深喉|吞吐|口穴|嘴穴|操嘴/.test(effAttack.desc || '')) attackPart = 'oral'
+
+    let chargedBlocked = false
+    if (typeof RestraintSystem !== 'undefined') {
+      const originalTiming = getTaskTiming(effAttack)
+      const targetResult = RestraintSystem.resolveMonsterOrifice(attackPart, Math.random, { boss: true })
+      targetResult.events.forEach(text => EventBus.emit('ui:log', { text, type: text.startsWith('🌿') || text.startsWith('💥') ? 'danger' : 'good' }))
+      if (targetResult.mode === 'blocked') {
+        chargedBlocked = true
+        effAttack = { ...effAttack, name: `${effAttack.name} · 被充能抵挡`, desc: '插入装备的防护充能完全挡住了召唤怪物的攻击与效果。', dmg: 0, heal: 0, status: null, special: null, turns: 0, level: 0 }
+      } else if (targetResult.mode === 'redirect' || targetResult.mode === 'forced_unlock') {
+        const partName = { oral: '嘴穴', anal: '菊穴', vagina: '小穴' }[targetResult.part]
+        effAttack = {
+          ...effAttack,
+          name: `${effAttack.name} · ${targetResult.mode === 'forced_unlock' ? '破锁强攻' : '改攻'}${partName}`,
+          desc: `${summoned.name}${targetResult.mode === 'forced_unlock' ? '在藤蔓破锁后' : '发现原部位无法使用后'}改为攻击你的${partName}；原攻击伤害与效果不变。`,
+          taskBpm: originalTiming.bpm,
+          taskSeconds: originalTiming.seconds,
+        }
+        attackPart = targetResult.part
+      } else if (targetResult.mode === 'spank') {
+        effAttack = {
+          ...effAttack,
+          name: '藤蔓打屁股',
+          desc: `${summoned.name}找不到能使用的部位，只好在森林之灵操控下狠狠打你的屁股。`,
+          heal: 0,
+          status: null,
+          special: null,
+          turns: 0,
+          level: 0,
+          taskBpm: originalTiming.bpm,
+          taskSeconds: originalTiming.seconds,
+        }
+        attackPart = 'body'
+      }
+      attack = effAttack
     }
     _lastEnemyAttack = { attack: effAttack, roll: z, summonedId, part: attackPart }
     // 持久化当前召唤攻击（任务中刷新后不丢失，读档时自动结算）
@@ -874,10 +955,14 @@ window.BattleUI = (function () {
     }, 0)
 
     // 口塞：口交/深喉类召唤攻击做不了，硬挨一记（单倍伤害）
-    const gaggedOral = typeof RestraintSystem !== 'undefined' && RestraintSystem.hasGag() && /口交|深喉|吞吐|口穴|嘴穴/.test(effAttack.desc)
+    const mouthDevice = typeof RestraintSystem !== 'undefined' ? RestraintSystem.get('mouth') : null
+    const mouthDef = mouthDevice && RestraintSystem.defOf(mouthDevice.id)
+    const gaggedOral = attackPart === 'oral' && mouthDef && mouthDef.id !== 'slut_gag'
 
     // 任务弹窗
-    const failed = gaggedOral
+    const failed = chargedBlocked
+      ? (() => { EventBus.emit('ui:log', { text: '⚡ 召唤攻击被完全抵挡；场上已有小兵仍会独立造成伤害。', type: 'good' }); return false })()
+      : gaggedOral
       ? (() => { EventBus.emit('ui:log', { text: '🤐 口塞堵着嘴，你没法完成口交任务，硬挨了召唤攻击（单倍伤害）。', type: 'danger' }); return false })()
       : await showTaskDialog({
           enemyName: `🌲 ${summoned.name}`,
@@ -930,7 +1015,7 @@ window.BattleUI = (function () {
     }
 
     // DD 插入装备抵挡对应部位的整次敌方结算（包含已有小兵伤害、治疗反转）。
-    if (battle.blocked > 0) {
+    if (!chargedBlocked && battle.blocked > 0) {
       const attackPart = _lastEnemyAttack ? _lastEnemyAttack.part : null
       if (ShopSystem.consumeBlockForPart(attackPart)) {
         blocked = true
@@ -1041,8 +1126,8 @@ window.BattleUI = (function () {
       return
     }
     const attack = _lastEnemyAttack.attack
-    let dmg = attack.dmg || 0
-    let blocked = false
+    let blocked = !!opts.chargeBlocked
+    let dmg = blocked ? 0 : (attack.dmg || 0)
 
     // 全裸：按难度概率被敌人暴击（普通25% / 困难35% / 残酷45%）；蒙眼罩额外 +10%
     if ((StatusSystem.has('naked') || (typeof RestraintSystem !== 'undefined' && RestraintSystem.hasBlindfold())) && !blocked) {
@@ -1055,7 +1140,7 @@ window.BattleUI = (function () {
     }
 
     // 防御：伤害减半（仅生效一次）
-    if (battle && battle.defending) {
+    if (battle && battle.defending && !blocked) {
       const halved = Math.ceil(dmg * CONFIG.battle.defendMult)
       EventBus.emit('ui:log', { text: `🛡️ 防御姿态！伤害从 ${dmg} 减至 ${halved}`, type: 'good' })
       dmg = halved
@@ -1067,7 +1152,7 @@ window.BattleUI = (function () {
     if (battle) {
       battle.targets.forEach(t => { if (t.dmgPerTurn) minionDmg += t.dmgPerTurn })
     }
-    dmg += minionDmg
+    if (!blocked) dmg += minionDmg
 
     // 乳夹：敏感被扯动，30% 额外 -1 HP
     if (!blocked && dmg > 0 && typeof RestraintSystem !== 'undefined' && RestraintSystem.hasNipple() && Math.random() < 0.3) {
@@ -1083,7 +1168,7 @@ window.BattleUI = (function () {
 
 
     // DD 插入装备按部位消耗本场格挡：菊穴装备挡菊穴，小穴装备挡小穴。
-    if (battle && battle.blocked > 0) {
+    if (!blocked && battle && battle.blocked > 0) {
       const attackPart = _lastEnemyAttack ? _lastEnemyAttack.part : null
       if (ShopSystem.consumeBlockForPart(attackPart)) {
         blocked = true
@@ -1148,7 +1233,7 @@ window.BattleUI = (function () {
     let msg = failed
       ? `❌ 没完成任务！伤害翻倍！受到 ${dmg} 点伤害`
       : `✅ 完成任务！受到 ${dmg} 点伤害`
-    if (blocked) msg = '🛡️ 被插入装备挡住了！'
+    if (blocked) msg = opts.chargeBlocked ? '⚡ 防护充能完全抵挡：0 伤害、0 效果！' : '🛡️ 被插入装备挡住了！'
     EventBus.emit('ui:log', { text: msg, type: failed ? 'danger' : 'dim' })
 
     // 召唤物伤害提示
@@ -1239,7 +1324,7 @@ window.BattleUI = (function () {
       return
     }
     const items = Object.entries(state.inventory.consumables)
-      .filter(([id, v]) => v > 0 && id !== 'weapon_upgrade_material' && id !== 'twig' && id !== 'restraint_key' && id !== 'master_key' && id !== 'lockpick' && id !== 'curse_remover')
+      .filter(([id, v]) => v > 0 && id !== 'weapon_upgrade_material' && id !== 'twig' && id !== 'restraint_lock' && id !== 'restraint_key' && id !== 'master_key' && id !== 'lockpick' && id !== 'curse_remover')
     const usableItems = state._battle && state._battle.itemUsedThisTurn ? [] : items
     if (!usableItems.length) {
       EventBus.emit('ui:log', { text: '没有可用物品。', type: 'dim' })
@@ -1268,6 +1353,13 @@ window.BattleUI = (function () {
       document.querySelectorAll('[data-item]').forEach(btn => {
         btn.onclick = () => {
           const id = btn.dataset.item
+          if (ShopSystem.isSoulGem(id)) {
+            ShopSystem.openSoulGemCharge(id, () => {
+              if (State.get()._battle) State.get()._battle.itemUsedThisTurn = true
+              showPlayerTurn()
+            }, showItemMenu)
+            return
+          }
           const result = ShopSystem.useConsumable(id)
           Dialog.close()
           if (!result.ok) EventBus.emit('ui:log', { text: result.msg, type: 'danger' })

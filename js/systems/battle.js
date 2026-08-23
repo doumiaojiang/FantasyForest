@@ -30,11 +30,19 @@ window.BattleSystem = (function () {
       orbBoost: false,
       blocked: (insertionBlocks.anal || 0) + (insertionBlocks.vagina || 0),
       insertionBlocks,      // DD 插入装备按身体部位记录的本场剩余格挡
+      bossForcedUnlockUsed: false,
       defending: false,
       goblinInitialCount: null,
     }
     buildTargets(enemy, state._battle)
     state.phase = 'battle'
+
+    if (state._battle.blocked > 0) {
+      const parts = []
+      if (insertionBlocks.anal > 0) parts.push(`菊穴 ${insertionBlocks.anal}`)
+      if (insertionBlocks.vagina > 0) parts.push(`小穴 ${insertionBlocks.vagina}`)
+      EventBus.emit('ui:log', { text: `⚡ 当前插入装备防护充能：${parts.join(' · ')}。`, type: 'good' })
+    }
 
     // 陷阱效果：HP 翻倍
     if (state._nextEnemyHpDouble) {
@@ -366,13 +374,6 @@ window.AttackResolver = {
     if (mult > 0 && typeof RestraintSystem !== 'undefined') {
       if (RestraintSystem.hasArmbinder()) dmg = Math.max(1, Math.round(dmg * 0.4))
       else if (RestraintSystem.hasHandcuffs()) dmg = Math.max(1, Math.round(dmg * 0.7))
-    }
-
-    // 震动贞操带：30% 失控颤抖，本回合落空
-    if (mult > 0 && typeof RestraintSystem !== 'undefined' && RestraintSystem.hasVibrating() && Math.random() < 0.3) {
-      mult = 0
-      dmg = 0
-      EventBus.emit('ui:log', { text: '📳 震动贞操带猛地一震，你双腿一软，攻击落空了！', type: 'danger' })
     }
 
     // 力量宝珠：只在命中时附加武器基础伤害（未命中不造成伤害）

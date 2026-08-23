@@ -887,8 +887,8 @@
         const item = ItemLib.get(id)
         if (!item) return false
         const e = item.effect
-        // 非战斗道具：治疗 / 治愈状态 / 再生
-        if (!(e.heal || e.cure || e.regen)) return false
+        // 非战斗道具：治疗 / 治愈状态 / 再生 / 灵魂石充能
+        if (!(e.heal || e.cure || e.regen || e.special === 'soul_charge')) return false
         // 满血时不用治疗类
         if (e.heal && state.hp >= state.maxHp) return false
         return true
@@ -919,6 +919,10 @@
       document.querySelectorAll('.move-item-use').forEach(btn => {
         btn.onclick = () => {
           const id = btn.dataset.item
+          if (ShopSystem.isSoulGem(id)) {
+            ShopSystem.openSoulGemCharge(id, () => showMoveItemMenu(), () => showMoveItemMenu())
+            return
+          }
           const result = ShopSystem.useConsumable(id)
           Dialog.close()
           if (!result.ok) {

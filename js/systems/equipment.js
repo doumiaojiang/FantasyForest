@@ -63,7 +63,7 @@ window.EquipmentSystem = (function () {
       body: `<div class="restr-top"><span>武器 + 饰品</span><em>已装备 ${wornCount()}/${totalCount()}</em></div>
         <div class="eq-section"><b class="eq-label">⚔️ 武器（点击切换）</b><div class="eq-weapon-list">${weaponHtml}</div></div>
         <div class="eq-section"><b class="eq-label">📿 饰品（每类一件）</b><div class="eq-grid">${accessoryCards}</div></div>
-        <p class="camp-footnote">贞操装置属于妖缚系统，请从 ⛓️ 妖缚 进入查看。</p>`,
+        <p class="camp-footnote">贞操带与贞操锁属于妖缚系统，请从 ⛓️ 妖缚 进入查看。</p>`,
       actions: [{ label: '关闭', handler: () => Dialog.close() }],
     })
     setTimeout(() => {

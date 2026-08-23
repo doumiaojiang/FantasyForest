@@ -75,6 +75,11 @@ window.ITEMS = {
       effect: { special: 'guard_pass' },
     },
     {
+      id: 'restraint_lock', name: '普通锁', type: 'consumable', price: 80,
+      desc: '在妖缚装备栏中给一件已穿戴且未上锁的装置上锁；使用后消耗',
+      effect: { special: 'restraint_lock' },
+    },
+    {
       id: 'restraint_key', name: '普通钥匙', type: 'consumable', price: 200,
       desc: '解开一把普通上锁的妖缚装置（剧情锁无效）',
       effect: { special: 'restraint_key' },
@@ -93,6 +98,21 @@ window.ITEMS = {
       id: 'curse_remover', name: '驱咒符', type: 'consumable', price: 250,
       desc: '解除一件被诅咒锁住的妖缚装置（钥匙/撬锁/挣扎都无效的锁）',
       effect: { special: 'curse_remover' },
+    },
+    {
+      id: 'petty_soul_gem', name: '微型灵魂石', type: 'consumable', price: 60,
+      desc: '为一件插入装备恢复 1 点防护充能；城镇与野外均可使用',
+      effect: { special: 'soul_charge', charge: 1 },
+    },
+    {
+      id: 'lesser_soul_gem', name: '次级灵魂石', type: 'consumable', price: 110,
+      desc: '为一件插入装备恢复 2 点防护充能；城镇与野外均可使用',
+      effect: { special: 'soul_charge', charge: 2 },
+    },
+    {
+      id: 'common_soul_gem', name: '普通灵魂石', type: 'consumable', price: 180,
+      desc: '将一件插入装备恢复至满充；城镇与野外均可使用',
+      effect: { special: 'soul_charge', charge: 99 },
     },
   ],
 

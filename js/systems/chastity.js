@@ -8,7 +8,7 @@
 
 window.ChastitySystem = (function () {
   const CATEGORY = 'chastity'
-  const NAME = '贞操装置'
+  const NAME = '贞操装备'
 
   /** 是否佩戴了任一贞操装置（腰部妖缚槽 / 监狱贞操锁 / 酒馆贞操笼） */
   function isWorn () {

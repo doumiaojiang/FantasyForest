@@ -198,9 +198,9 @@ window.STATUS_EFFECTS = {
 
   chastity: {
     id: 'chastity',
-    name: '贞操锁',
+    name: '贞操装备',
     icon: '🔒',
-    desc: '小穴被贞操笼/贞操带锁死，无法使用（监狱惩罚）',
+    desc: '贞操带或贞操锁已锁上，受限制的部位无法使用（监狱惩罚）',
     onApply (state, effect) {},
     onTick (state, effect) {},
     onRemove (state, effect) {},

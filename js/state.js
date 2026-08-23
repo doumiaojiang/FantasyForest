@@ -94,6 +94,7 @@ window.State = (function () {
       _restraints: {},                  // 妖缚装置 { slot: { id, locked, lockType, difficulty, material, source, escapeBonus, jammed } }
       _ownedRestraints: [],              // 已购买的妖缚装置 id 列表（可重复穿戴）
       _ownedRestraintCounts: {},         // 可叠加妖缚装置库存 { id: 数量 }（目前用于跳蛋）
+      _insertionCharges: {},             // 插入装备防护充能 { anal, vagina }；只能在城镇补充
       _prisonWaistPrev: null,            // 入狱前腰部装置（出狱还原）
       _restraintSettings: { allowTrap: true },   // 妖缚设置：allowTrap=允许陷阱上锁
       _guardCheckedThisVisit: false,        // 本次进城是否已接受过卫兵检查（防连续检查）
@@ -126,6 +127,10 @@ window.State = (function () {
       _prostituteLevel: 1,              // 妓女等级
       _prostituteDebt: 0,               // 妓女欠款（任务失败欠老板娘的钱）
       _prostituteGear: {},              // 妓女已购用品 { lipstick: true, ... }（旧档迁移用）
+      _ownedProstituteGear: [],          // 短暂独立用品版本的兼容字段（读取后迁回妖缚装备）
+      _equippedProstituteGear: {},       // 短暂独立用品版本的兼容字段
+      _ordinaryProstituteGearMigrated: false,
+      _serviceGearRestored: false,        // 独立普通用品版本 → 服务类妖缚装备迁移完成
       _prostituteSwapCost: 20,          // 换客人费用（每次 +10，最高 100，服务完成后重置 20）
       _prostitutePendingTask: null,      // 接客任务断点 { customerKey, z, stepIndex }
       _shopReturnToCamp: false,         // 营地商店关闭后返回营地
@@ -135,7 +140,7 @@ window.State = (function () {
       rounds: 0,
       logs: [],   // 冒险日志（持久化，读档恢复）
       clothesDeposited: false,   // 托管衣服给小鹿（尖石交换的代价）
-      _plugActive: false,   // 旧版背包塞入物兼容字段；新版本统一迁入 DD 装备
+      _plugActive: false,   // 旧版背包塞入物兼容字段；新版本统一迁入妖缚装备
       _moveState: null,     // 移动回合状态 { steps, turning }（岔路存档恢复用）
     }
   }
@@ -326,6 +331,7 @@ window.State = (function () {
     if (!['normal', 'hard', 'brutal'].includes(state.difficulty)) state.difficulty = 'normal'
     const def = createDefault(state.difficulty)
     const finite = (value, fallback) => Number.isFinite(Number(value)) ? Number(value) : fallback
+    const hadInsertionCharges = !!(state._insertionCharges && typeof state._insertionCharges === 'object' && !Array.isArray(state._insertionCharges))
 
     // 顶层基础字段
     state.saveVersion = SAVE_VERSION
@@ -361,6 +367,7 @@ window.State = (function () {
       // 旧档：把单槽 accessory 迁移到多槽数组
       if (state.inventory.accessory) state.inventory.accessories.push(state.inventory.accessory)
     }
+    if (!hadInsertionCharges) state._insertionCharges = {}
 
     // 状态 / 进度
     if (!Array.isArray(state.statuses)) state.statuses = []
@@ -408,6 +415,34 @@ window.State = (function () {
     } else {
       state._teleports = ['camp']
     }
+    // 服务类妖缚装备迁移：兼容旧酒馆标志及短暂存在过的独立普通用品版本。
+    const serviceGearIds = ['lipstick', 'makeup', 'slut_gag', 'slut_collar', 'heels', 'lingerie', 'latex']
+    const serviceGearSlots = { lipstick: 'lip', makeup: 'face', slut_gag: 'mouth', slut_collar: 'neck', heels: 'feet', lingerie: 'outfit', latex: 'outfit' }
+    state._ownedRestraints = Array.isArray(state._ownedRestraints) ? state._ownedRestraints : []
+    state._restraints = state._restraints && typeof state._restraints === 'object' && !Array.isArray(state._restraints) ? state._restraints : {}
+    if (!state._serviceGearRestored) {
+      const oldFlags = state._prostituteGear && typeof state._prostituteGear === 'object' ? state._prostituteGear : {}
+      const flagMap = { lipstick: 'lipstick', makeup: 'makeup', heels: 'heels', lingerie: 'lingerie', latex: 'latex', collar: 'slut_collar', gag: 'slut_gag' }
+      Object.entries(flagMap).forEach(([flag, id]) => {
+        if (!oldFlags[flag]) return
+        if (!state._ownedRestraints.includes(id)) state._ownedRestraints.push(id)
+        const slot = serviceGearSlots[id]
+        if (!state._restraints[slot]) state._restraints[slot] = { id, slot, locked: false, lockType: 'common', difficulty: 1, material: 'leather', source: 'migration', escapeBonus: 0, jammed: false }
+      })
+      ;(state._ownedProstituteGear || []).forEach(id => {
+        if (serviceGearIds.includes(id) && !state._ownedRestraints.includes(id)) state._ownedRestraints.push(id)
+      })
+      const separateWorn = state._equippedProstituteGear && typeof state._equippedProstituteGear === 'object' ? state._equippedProstituteGear : {}
+      Object.entries(separateWorn).forEach(([slot, id]) => {
+        if (!serviceGearIds.includes(id) || serviceGearSlots[id] !== slot) return
+        if (!state._ownedRestraints.includes(id)) state._ownedRestraints.push(id)
+        if (!state._restraints[slot]) state._restraints[slot] = { id, slot, locked: false, lockType: 'common', difficulty: 1, material: 'leather', source: 'migration', escapeBonus: 0, jammed: false }
+      })
+      state._serviceGearRestored = true
+    }
+    state._ownedProstituteGear = []
+    state._equippedProstituteGear = {}
+
     // 妖缚装置迁移：监狱贞操锁 / 酒馆贞操装置并入腰部槽
     if (typeof window.RESTRAINTS !== 'undefined') {
       const r = state._restraints && typeof state._restraints === 'object' && !Array.isArray(state._restraints) ? state._restraints : {}
@@ -426,28 +461,43 @@ window.State = (function () {
           valid.waist = { id: 'prison_chastity', slot: 'waist', locked: true, lockType: 'story', difficulty: 5, material: 'metal', source: 'prison', escapeBonus: 0, jammed: false }
         }
       }
+      // 旧档中的两种普通贞操装备按当前角色性别归并：女性用贞操带，男性用贞操锁。
+      const genderChastityId = state.gender === 'male' ? 'vibrating_chastity' : 'chastity_device'
+      const incompatibleChastityId = state.gender === 'male' ? 'chastity_device' : 'vibrating_chastity'
+      if (valid.waist && valid.waist.id === incompatibleChastityId) valid.waist.id = genderChastityId
+      if (state._prisonWaistPrev && state._prisonWaistPrev.id === incompatibleChastityId) {
+        state._prisonWaistPrev = { ...state._prisonWaistPrev, id: genderChastityId }
+      }
+      state._ownedRestraints = Array.isArray(state._ownedRestraints) ? state._ownedRestraints : []
+      if (state._ownedRestraints.includes(incompatibleChastityId) && !state._ownedRestraints.includes(genderChastityId)) {
+        state._ownedRestraints.push(genderChastityId)
+      }
+      state._ownedRestraints = state._ownedRestraints.filter(id => id !== incompatibleChastityId)
       const waistDef = valid.waist && RESTRAINTS.find(x => x.id === valid.waist.id)
       if (waistDef && waistDef.effect === 'chastity' && valid.vagina) {
         state._ownedRestraints = Array.isArray(state._ownedRestraints) ? state._ownedRestraints : []
         if (!state._ownedRestraints.includes(valid.vagina.id)) state._ownedRestraints.push(valid.vagina.id)
         delete valid.vagina
       }
-      // 妆容栏迁移：口红从嘴部(旧) → 口唇(lip)；全套妆容保持在 face（面妆槽，旧档同 id）
-      if (r.mouth && r.mouth.id === 'lipstick' && !valid.lip) {
-        valid.lip = { ...r.mouth, slot: 'lip' }
-        delete valid.mouth
-      }
       // 酒馆贞操笼迁移成腰部普通装置；已购买（含旧档）记录进 ownedRestraints，可重复穿戴
       if ((state._prostituteGear && state._prostituteGear.chastity) && !valid.waist) {
-        valid.waist = { id: 'chastity_device', slot: 'waist', locked: false, lockType: 'common', difficulty: 3, material: 'metal', source: 'tavern', escapeBonus: 0, jammed: false }
+        valid.waist = { id: genderChastityId, slot: 'waist', locked: false, lockType: 'common', difficulty: 3, material: 'metal', source: 'tavern', escapeBonus: 0, jammed: false }
         state._ownedRestraints = state._ownedRestraints || []
-        if (!state._ownedRestraints.includes('chastity_device')) state._ownedRestraints.push('chastity_device')
+        if (!state._ownedRestraints.includes(genderChastityId)) state._ownedRestraints.push(genderChastityId)
       }
       state._restraints = valid
-      // 酒馆妓女用品 → 妖缚 buff 装置迁移（旧档购买记录保留并可重新穿戴）
+      ;['anal', 'vagina'].forEach(slot => {
+        const worn = valid[slot]
+        const insertDef = worn ? RESTRAINTS.find(x => x.id === worn.id && x.insert) : null
+        const max = insertDef ? Math.max(0, Math.floor(finite(insertDef.block, 0))) * (insertDef.stackable ? Math.max(1, Math.floor(finite(worn.count, 1))) : 1) : 0
+        // 旧存档首次升级时保留原有体验：当前穿戴的插入装备按满充迁移。
+        const fallback = !hadInsertionCharges && insertDef ? max : 0
+        state._insertionCharges[slot] = Math.max(0, Math.min(max, Math.floor(finite(state._insertionCharges[slot], fallback))))
+      })
+      // 旧酒馆肛塞标志仍迁入插入类妖缚装备；服务用品已在上方统一迁移。
       state._ownedRestraints = Array.isArray(state._ownedRestraints) ? state._ownedRestraints : []
       if (state._prostituteGear && typeof state._prostituteGear === 'object') {
-        const GEAR_MAP = { lipstick: 'lipstick', makeup: 'makeup', heels: 'heels', lingerie: 'lingerie', latex: 'latex', collar: 'slut_collar', gag: 'slut_gag', buttplug: 'medium_butt_plug' }
+        const GEAR_MAP = { buttplug: 'medium_butt_plug' }
         Object.entries(GEAR_MAP).forEach(([flag, did]) => {
           if (!state._prostituteGear[flag]) return
           if (!state._ownedRestraints.includes(did)) state._ownedRestraints.push(did)
@@ -458,7 +508,7 @@ window.State = (function () {
         })
         state._restraints = valid
       }
-      // 旧版背包塞入物全部迁为永久拥有的 DD 装备；旧版正在使用的装备尽量保持穿戴。
+      // 旧版背包塞入物全部迁为永久拥有的妖缚装备；旧版正在使用的装备尽量保持穿戴。
       const legacyInsertIds = ['butt_plug', 'big_butt_plug', 'vibrator_egg', 'vibrating_dildo']
       const legacyActive = state._plugActive === true ? 'big_butt_plug' : state._plugActive
       state._ownedRestraintCounts = state._ownedRestraintCounts && typeof state._ownedRestraintCounts === 'object' && !Array.isArray(state._ownedRestraintCounts)
@@ -587,6 +637,7 @@ window.State = (function () {
         vagina: Math.max(0, Math.min(maxFor('vagina'), Math.floor(finite(currentBlocks ? currentBlocks.vagina : maxFor('vagina'), 0)))),
       }
       state._battle.blocked = state._battle.insertionBlocks.anal + state._battle.insertionBlocks.vagina
+      state._battle.bossForcedUnlockUsed = !!state._battle.bossForcedUnlockUsed
     }
 
     // 装备记录：缺则补，并从当前装备重建已购记录（含多饰品数组）

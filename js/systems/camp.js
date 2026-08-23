@@ -674,9 +674,34 @@ window.CampSystem = (function () {
   function gloryHole () {
     const state = State.get()
     setCampPhase()
+    if (showServiceGearLockout('荣耀洞', renderToilet)) return
     // 有未完成的强制流程（欠债/免费追加）直接回服务单
     if ((state._gloryDebt || 0) > 0 || state._gloryFreeService) { showGloryWork(); return }
     renderToilet()
+  }
+
+  function lockedServiceGear () {
+    return typeof RestraintSystem !== 'undefined' ? RestraintSystem.lockedServiceDevices() : []
+  }
+
+  function serviceGearNames (entries) {
+    return entries.map(entry => `${RestraintSystem.SLOT_NAMES[entry.slot]}的${entry.def.name}`).join('、')
+  }
+
+  /** 上锁的口部/插入装备会同时阻止酒馆妓女和荣耀洞服务。 */
+  function showServiceGearLockout (venue, backHandler) {
+    const blocked = lockedServiceGear()
+    if (!blocked.length) return false
+    campShow({
+      title: `🔒 ${venue}拒绝服务`, className: 'tavern-work-modal',
+      body: `<section class="work-wardrobe"><span>🚫</span><div><small>${venue} · 装备检查</small><h3>上锁的口部或插入装备不能带去接客</h3><p><b>${serviceGearNames(blocked)}</b>仍处于上锁状态。先解开装备，才能继续服务。</p></div></section>
+        <div class="work-rule">球形口塞、深喉口塞，以及肛塞、假阳具、跳蛋或震动棒只要上锁，就会同时禁止酒馆妓女和荣耀洞；开口口塞不受此限制。</div>`,
+      actions: [
+        { label: '⛓️ 整理妖缚装备', cls: 'btn-primary', handler: () => { Dialog.close(); RestraintSystem.openManage() } },
+        { label: venue === '荣耀洞' ? '返回厕所' : '返回打工', handler: () => { Dialog.close(); backHandler() } },
+      ],
+    })
+    return true
   }
 
   /** 厕所主界面：普通厕所 + 调查隔间 + 荣耀洞（调查后解锁） */
@@ -735,6 +760,7 @@ window.CampSystem = (function () {
   function enterGlory () {
     const state = State.get()
     setCampPhase()
+    if (showServiceGearLockout('荣耀洞', renderToilet)) return
     if ((state._gloryDebt || 0) > 0 || state._gloryFreeService) { showGloryWork(); return }
     const hasLicense = !!state._prostituteLicensed
     const hasGold = state.gold >= GLORY_FEE
@@ -808,6 +834,7 @@ window.CampSystem = (function () {
   function showGloryWork () {
     const state = State.get()
     setCampPhase()
+    if (showServiceGearLockout('荣耀洞', renderToilet)) return
     const render = () => {
       const debt = Math.max(0, state._gloryDebt || 0)
       const isFree = !!state._gloryFreeService
@@ -923,6 +950,7 @@ window.CampSystem = (function () {
 
   async function performService (hole, rerender) {
     const state = State.get()
+    if (showServiceGearLockout('荣耀洞', rerender)) return
     const wasFree = !!state._gloryFreeService
     // 客人随机决定怎么用你（玩家只选了用哪个洞）
     const pool = hole === 'oral' ? ORAL_SERVICES : hole === 'vagina' ? VAGINA_SERVICES : ANAL_SERVICES
@@ -1040,6 +1068,8 @@ window.CampSystem = (function () {
   /** 被抓进监狱：无证卖淫的惩罚，需按难度攒积分出狱 */
   function enterPrison () {
     const state = State.get()
+    const prisonDevice = state.gender === 'male' ? '贞操锁' : '贞操带'
+    const lockedPart = state.gender === 'male' ? '生殖器' : '小穴'
     state._inPrison = true
     state._prisonPoints = 0
     state._wanted = false   // 已被收监，不再通缉
@@ -1059,7 +1089,7 @@ window.CampSystem = (function () {
       title: '⛓️ 营地监狱', className: 'prison-modal',
       body: `<div class="prison-intro"><div class="prison-mark" aria-hidden="true">⛓️</div>
         <p>你因犯下<b>非法卖淫罪</b>被守卫当场抓获，押进了营地监狱。</p>
-        <p>判决如下：罚你进入<b>深喉监狱</b>——你的小穴会被锁进冰冷的<b>贞操笼</b>，"你这种废物肉虫，不配使用自己的身体，就像你一样。以后你就用你的<b>嘴穴</b>来服务大家吧。"</p>
+        <p>判决如下：罚你进入<b>深喉监狱</b>——你的${lockedPart}会被冰冷的<b>${prisonDevice}</b>封锁，“你这种废物肉虫，不配使用自己的身体。以后你就用你的<b>嘴穴</b>来服务大家吧。”</p>
         <p>要出狱，你得靠提供<b>口交 / 深喉服务</b>伺候牢房里的犯人和过往的村民，攒够 <b>${target} 积分</b>才行。</p></div>`,
       actions: [
         { label: '⛓️ 进入牢房', cls: 'btn-danger', handler: () => { prisonWork() } },
@@ -1070,6 +1100,7 @@ window.CampSystem = (function () {
   /** 牢房工作界面：罪名 + 狱友 + 自选任务类型后掷 Z；攒够积分可自行选择出狱 */
   function prisonWork () {
     const state = State.get()
+    const prisonDevice = state.gender === 'male' ? '贞操锁' : '贞操带'
     const points = state._prisonPoints || 0
     const target = prisonTarget()
     const done = points >= target
@@ -1077,10 +1108,10 @@ window.CampSystem = (function () {
     if (state._prisonLife) {
       campShow({
         title: '⛓️ 营地监狱 · 永久监禁', className: 'prison-modal',
-        body: `<div class="prison-stats"><span>⛓️ 永久监禁</span><span>⚖️ 罪名 <b>非法卖淫罪</b></span><span>🔒 贞操锁焊死</span></div>
+        body: `<div class="prison-stats"><span>⛓️ 永久监禁</span><span>⚖️ 罪名 <b>非法卖淫罪</b></span><span>🔒 ${prisonDevice}焊死</span></div>
           <div class="prison-intro"><div class="prison-mark" aria-hidden="true">⛓️</div>
           <p>你越狱失败三次，被判处<b>永久监禁</b>。</p>
-          <p>守卫当众给你戴上特制的贞操笼，焊死了锁眼："这辈子，你就老老实实当牢房的肉便器吧。"</p>
+          <p>守卫当众给你戴上特制的${prisonDevice}，焊死了锁眼：“这辈子，你就老老实实待在牢房里吧。”</p>
           <p>你已经无法出狱——但你仍然被要求继续提供口交/深喉服务，供牢房里的犯人取乐。</p>
           <p class="prison-guard">狱友投来同情的目光，没人再和你说话。</p></div>`,
         actions: [
@@ -1091,7 +1122,7 @@ window.CampSystem = (function () {
     }
     campShow({
       title: '⛓️ 营地监狱 · 集体牢房', className: 'prison-modal',
-      body: `<div class="prison-stats"><span>⛓️ 出狱积分 <b>${points}/${target}</b></span><span>⚖️ 罪名 <b>非法卖淫罪</b></span><span>🔒 贞操笼已锁</span></div>
+      body: `<div class="prison-stats"><span>⛓️ 出狱积分 <b>${points}/${target}</b></span><span>⚖️ 罪名 <b>非法卖淫罪</b></span><span>🔒 ${prisonDevice}已锁</span></div>
         <div class="prison-cell">
           <div class="camp-character"><i>🧔</i><div><b>五名囚犯挤在牢房里，表情阴郁。</b><p>“我们不过是偷了块面包、欠了点酒钱，就被关了进来。”其中一个压低声音，“这明显不公……嘘，守卫来了。”</p></div></div>
           <p class="prison-guard">“不要再说话了！是时候开始工作了！”</p>
@@ -1458,6 +1489,7 @@ window.CampSystem = (function () {
   /** 出狱 */
   function prisonRelease () {
     const state = State.get()
+    const prisonDevice = state.gender === 'male' ? '贞操锁' : '贞操带'
     state._inPrison = false
     state._prisonPoints = 0
     state._prisonEscapeFails = 0
@@ -1474,7 +1506,7 @@ window.CampSystem = (function () {
     campShow({
       title: '⛓️ 监狱 · 释放', className: 'prison-modal',
       body: `<div class="prison-intro"><div class="prison-mark" aria-hidden="true">🔓</div>
-        <p>你终于攒够了 <b>${prisonTarget()} 积分</b>，守卫解开了你的贞操笼和手铐。</p>
+        <p>你终于攒够了 <b>${prisonTarget()} 积分</b>，守卫解开了你的${prisonDevice}和手铐。</p>
         <p>"出去吧。下次再敢无证卖淫，可就不是蹲几天这么简单了。"</p>
         <p>你拖着酸软的膝盖爬出牢房，重见天日。</p></div>`,
       actions: [
@@ -2061,6 +2093,7 @@ window.CampSystem = (function () {
         <div class="tavern-grid">
           <button class="tavern-card tavern-card-barkeep" data-tavern="barkeep"><i>💃</i><span><b>酒馆老板娘</b><small>酒单、闲聊与工作机会</small></span><em>去吧台</em></button>
           <button class="tavern-card tavern-card-captain" data-tavern="captain"><i>🛡️</i><span><b>守卫队队长</b><small>军官的架子与门道</small></span><em>搭话</em></button>
+          <button class="tavern-card tavern-card-enchanter" data-tavern="enchanter"><i>🧙</i><span><b>附魔师</b><small>装备充能、灵魂石与附魔知识</small></span><em>搭话</em></button>
           ${state._mercenary ? '' : `<button class="tavern-card tavern-card-futa" data-tavern="futa"><i>⚔️</i><span><b>角落的女战士</b><small>沉默寡言，独自喝着不动的酒</small></span><em>搭话</em></button>`}
           <button class="tavern-card tavern-card-guest ${guestGone ? 'is-empty' : ''}" data-tavern="guest"><i>${guestGone ? '🪑' : '🎲'}</i><span><b>${guestGone ? '空着的赌桌' : '爱赌的老顾客'}</b><small>${guestGone ? '打赢敌人后他会带着 50G 回来' : `还剩 ${state._tavernGuest}G 可赢`}</small></span><em>${guestGone ? '查看' : '开一局'}</em></button>
         </div>`,
@@ -2073,6 +2106,7 @@ window.CampSystem = (function () {
         else if (opt === 'barkeep') tavernBarkeep()
         else if (opt === 'captain') tavernCaptain()
         else if (opt === 'futa') tavernFuta()
+        else if (opt === 'enchanter') enchanter()
       }
     })
   }
@@ -2584,19 +2618,170 @@ window.CampSystem = (function () {
     })
   }
 
-  /** 梦幻商店当前分类 */
-  let ddCat = 'insert'
+  const SOUL_GEMS = [
+    { id: 'petty_soul_gem', icon: '💠', name: '微型灵魂石', price: 60, charge: 1, desc: '恢复 1 点防护充能' },
+    { id: 'lesser_soul_gem', icon: '🔹', name: '次级灵魂石', price: 110, charge: 2, desc: '恢复 2 点防护充能' },
+    { id: 'common_soul_gem', icon: '💎', name: '普通灵魂石', price: 180, charge: 99, desc: '将一件插入装备恢复至满充' },
+  ]
 
-  /** 梦幻商店（妖缚商行，营地内）：分类导航 + 插入类妖缚装备 + 妆容/媚奴/束缚/解锁工具 */
+  /** 酒馆附魔师：对话、充能和灵魂石商店。 */
+  function enchanter () {
+    const state = State.get()
+    const charged = ['anal', 'vagina'].reduce((sum, slot) => {
+      const info = typeof RestraintSystem !== 'undefined' ? RestraintSystem.insertionCharge(slot) : null
+      return sum + (info ? info.current : 0)
+    }, 0)
+    const maximum = ['anal', 'vagina'].reduce((sum, slot) => {
+      const info = typeof RestraintSystem !== 'undefined' ? RestraintSystem.insertionCharge(slot) : null
+      return sum + (info ? info.max : 0)
+    }, 0)
+    campShow({
+      title: '🧙 附魔师', className: 'enchanter-modal',
+      body: `<div class="camp-character"><i>🧙</i><div><b>“灵魂会消散，附魔也会枯竭。”</b><p>附魔师放下刻刀，目光扫过你佩戴的装置："想继续让它替你挡住攻击，就把灵魂石和金币放到桌上。"</p></div></div>
+        <div class="camp-stats"><span>💎 ${state.gold}G</span><span>⚡ 防护充能 ${charged}/${maximum}</span><span>🔷 灵魂石 ${SOUL_GEMS.reduce((n, gem) => n + (state.inventory.consumables[gem.id] || 0), 0)} 颗</span></div>
+        <div class="camp-grid">
+          <button class="camp-opt" data-enchanter="charge"><i>⚡</i><span><b>装备充能</b><small>付金币或消耗已装满的灵魂石</small></span><em>${maximum > charged ? '可充能' : maximum > 0 ? '已充满' : '未装备'}</em></button>
+          <button class="camp-opt" data-enchanter="shop"><i>💎</i><span><b>购买灵魂石</b><small>微型、次级与普通灵魂石</small></span><em>查看商品</em></button>
+          <button class="camp-opt" data-enchanter="chat"><i>💬</i><span><b>对话</b><small>询问灵魂石与附魔的知识</small></span><em>交谈</em></button>
+        </div>`,
+      actions: [{ label: '返回酒馆', handler: renderTavern }],
+    })
+    document.querySelectorAll('[data-enchanter]').forEach(btn => {
+      btn.onclick = () => {
+        const action = btn.dataset.enchanter
+        if (action === 'charge') enchanterRecharge()
+        else if (action === 'shop') enchanterSoulShop()
+        else enchanterChat()
+      }
+    })
+  }
+
+  function enchanterRecharge () {
+    const state = State.get()
+    const slots = ['anal', 'vagina'].filter(slot => RestraintSystem.insertionDevice(slot))
+    const cards = slots.length ? slots.map(slot => {
+      const entry = RestraintSystem.insertionDevice(slot)
+      const info = RestraintSystem.insertionCharge(slot)
+      const missing = Math.max(0, info.max - info.current)
+      const goldCost = missing * 30
+      const methods = [
+        `<button class="btn restr-btn" data-recharge-slot="${slot}" data-recharge-method="gold" ${missing > 0 && state.gold >= goldCost ? '' : 'disabled'}>💰 ${missing > 0 ? `充满 · ${goldCost}G` : '已经充满'}</button>`,
+        ...SOUL_GEMS.map(gem => `<button class="btn restr-btn" data-recharge-slot="${slot}" data-recharge-method="${gem.id}" ${missing > 0 && (state.inventory.consumables[gem.id] || 0) > 0 ? '' : 'disabled'}>${gem.icon} ${gem.name} ×${state.inventory.consumables[gem.id] || 0}</button>`),
+      ].join('')
+      return `<div class="restr-card"><i>${RestraintSystem.SLOT_ICONS[slot]}</i><span><b>${entry.def.name}</b><small>${RestraintSystem.SLOT_NAMES[slot]} · 每次抵挡消耗 1 点</small><span class="restr-charge${info.current <= 0 ? ' is-empty' : ''}">⚡ ${info.current}/${info.max}</span></span><div class="restr-actions">${methods}</div></div>`
+    }).join('') : '<p class="camp-muted">你没有穿戴任何可充能的插入装备。先去梦幻商店购买并穿戴，再来找我。</p>'
+    campShow({
+      title: '⚡ 附魔师 · 装备充能', className: 'enchanter-modal',
+      body: `<div class="camp-character"><i>⚡</i><div><b>“付金币，我替你直接完成；有灵魂石也可以。”</b><p>金币服务按缺失充能计算，每点 30G。买下的灵魂石也能放进背包，在野外自行使用。</p></div></div><div class="restr-grid">${cards}</div>`,
+      actions: [{ label: '返回附魔师', handler: enchanter }],
+    })
+    document.querySelectorAll('[data-recharge-slot]').forEach(btn => {
+      btn.onclick = () => {
+        const slot = btn.dataset.rechargeSlot
+        const method = btn.dataset.rechargeMethod
+        const info = RestraintSystem.insertionCharge(slot)
+        if (!info) return
+        const missing = Math.max(0, info.max - info.current)
+        if (missing <= 0) return
+        let added = 0
+        if (method === 'gold') {
+          const cost = missing * 30
+          if (state.gold < cost) return
+          state.gold -= cost
+          added = missing
+        } else {
+          const gem = SOUL_GEMS.find(item => item.id === method)
+          if (!gem || (state.inventory.consumables[gem.id] || 0) <= 0) return
+          state.inventory.consumables[gem.id]--
+          added = Math.min(missing, gem.charge)
+        }
+        const result = RestraintSystem.setInsertionCharge(slot, info.current + added)
+        EventBus.emit('ui:log', { text: `⚡ ${RestraintSystem.SLOT_NAMES[slot]}装备恢复 ${added} 点防护充能（${result.current}/${result.max}）。`, type: 'good' })
+        EventBus.emit('state:changed', state)
+        enchanterRecharge()
+      }
+    })
+  }
+
+  function enchanterSoulShop () {
+    const state = State.get()
+    const cards = SOUL_GEMS.map(gem => {
+      const count = state.inventory.consumables[gem.id] || 0
+      const canBuy = state.gold >= gem.price
+      return `<button class="merchant-item${canBuy ? '' : ' is-unaffordable'}" data-soul-buy="${gem.id}" ${canBuy ? '' : 'disabled'}><span class="merchant-item-icon">${gem.icon}</span><span class="merchant-item-info"><b>${gem.name}</b><small>${gem.desc} · 可在野外从背包使用</small></span><span class="merchant-item-price">${canBuy ? `<b>${gem.price}G</b><small>×${count}</small>` : '<small>金币不足</small>'}</span></button>`
+    }).join('')
+    campShow({
+      title: '💎 附魔师 · 灵魂石', className: 'enchanter-modal',
+      body: `<section class="merchant-hero dream-shop-hero"><span aria-hidden="true">💎</span><div><small>FILLED SOUL GEMS</small><h3>装满灵魂的附魔媒介</h3><p>购买后放进背包；回城可交给附魔师使用，也能在野外自行给装备充能。</p></div></section><div class="merchant-stats"><span>💎 ${state.gold}G</span><span>🔷 已持有 ${SOUL_GEMS.reduce((n, gem) => n + (state.inventory.consumables[gem.id] || 0), 0)} 颗</span></div><div class="merchant-catalog">${cards}</div>`,
+      actions: [{ label: '返回附魔师', handler: enchanter }],
+    })
+    document.querySelectorAll('[data-soul-buy]').forEach(btn => {
+      btn.onclick = () => {
+        const gem = SOUL_GEMS.find(item => item.id === btn.dataset.soulBuy)
+        if (!gem || state.gold < gem.price) return
+        state.gold -= gem.price
+        state.inventory.consumables[gem.id] = (state.inventory.consumables[gem.id] || 0) + 1
+        EventBus.emit('ui:log', { text: `💎 买下${gem.name}。`, type: 'good' })
+        EventBus.emit('state:changed', state)
+        enchanterSoulShop()
+      }
+    })
+  }
+
+  const ENCHANTER_CHATS = [
+    '“灵魂石只是容器。越完整的灵魂，能维持的附魔越久。”',
+    '“原版天际的宫廷法师会出售灵魂石；至于替客人充能，是我在雾灯镇自己的生意。”',
+    '“装置挡下攻击时，里面的灵魂力量会替你承受冲击。耗尽以后，它就只剩原本的用途了。”',
+  ]
+  function enchanterChat () {
+    const line = ENCHANTER_CHATS[Math.floor(Math.random() * ENCHANTER_CHATS.length)]
+    campShow({
+      title: '💬 附魔师', className: 'enchanter-modal',
+      body: `<div class="camp-character"><i>🧙</i><div><b>${line}</b><p>桌上的灵魂石在烛光下泛着幽蓝色光芒。</p></div></div>`,
+      actions: [{ label: '再聊聊', handler: enchanterChat }, { label: '返回附魔师', handler: enchanter }],
+    })
+  }
+
+  /** 梦幻商店当前分类：全部分类保持在同一层级。 */
+  let dreamShopCat = 'insert'
+
+  /** 梦幻商店（妖缚商行，营地内）：所有商品使用同一层分类，一步直达。 */
   function ddShop () {
     const state = State.get()
-    const all = (RESTRAINTS || []).filter(r => !r.story && !(r.femaleOnly && state.gender === 'male'))
+    const all = (RESTRAINTS || []).filter(r => !r.story && !(r.femaleOnly && state.gender === 'male') && !(r.maleOnly && state.gender !== 'male'))
     const isMale = state.gender === 'male'
     const itemIcon = r => {
       if (typeof RestraintSystem === 'undefined') return '⛓️'
-      return (RestraintSystem.COSMETIC_ICONS && RestraintSystem.COSMETIC_ICONS[r.slot]) || RestraintSystem.SLOT_ICONS[r.slot] || '⛓️'
+      return RestraintSystem.SLOT_ICONS[r.slot] || '⛓️'
     }
+
     const slotText = slots => slots.map(s => ({ anal: '菊穴', vagina: '小穴' }[s] || s)).join(' / ')
+
+    const insertSizeText = r => {
+      if (!Number.isFinite(r.sizeCm)) return '未标注'
+      if (r.id.includes('butt_plug') || r.dildo) return `${r.sizeCm} cm${r.sizeCm >= 5.2 ? '以上' : '以下'}`
+      return `${r.sizeCm} cm`
+    }
+
+    const rpgCardMeta = r => {
+      const part = typeof RestraintSystem !== 'undefined' ? (RestraintSystem.SLOT_NAMES[r.slot] || r.slot) : r.slot
+      const fixed = {
+        lipstick: { tone: 'cosmetic', kind: '妆容装备', part: '口唇', stats: [['类型', '口唇妆容'], ['锁具', '不可上锁']], hint: '可以与全套妆容同时装备', special: '酒馆妓女：口交服务 +20 金币' },
+        makeup: { tone: 'cosmetic', kind: '妆容装备', part: '面部', stats: [['类型', '全脸妆容'], ['锁具', '不可上锁']], hint: '可以与口红同时装备', special: '酒馆妓女：口交服务 +30 金币' },
+        leather_gag: { tone: 'mouth', kind: '口部装备', part: '嘴部', stats: [['束缚难度', `${r.difficulty} 级`]], hint: '堵住嘴，口交任务无法完成；战斗口交攻击承受单倍伤害', special: '酒馆妓女：不触发口塞加成', warning: '上锁后：酒馆妓女与荣耀洞均不可用' },
+        deepthroat_gag: { tone: 'mouth', kind: '口部装备', part: '嘴部', stats: [['束缚难度', `${r.difficulty} 级`]], hint: '固定张口与深喉姿势，口交任务无法完成', special: '酒馆妓女：不触发口塞加成', warning: '上锁后：酒馆妓女与荣耀洞均不可用' },
+        slut_gag: { tone: 'mouth', kind: '口部装备', part: '嘴部', stats: [['束缚难度', `${r.difficulty} 级`]], hint: '同时佩戴项圈时，插入任务提升到 180 BPM', special: '酒馆妓女与荣耀洞可用；插入任务 160 BPM · 金币 ×2', warning: '开口结构：上锁后仍可进行性服务', allowLockedService: true },
+      }[r.id]
+      if (fixed) return fixed
+      return {
+        tone: r.buff ? 'service' : 'restraint',
+        kind: r.buff ? '服务装备' : (r.heavy ? '重型妖缚装备' : '妖缚装备'),
+        part,
+        stats: [['束缚难度', `${r.difficulty || 1} 级`]],
+        hint: r.heavy ? '重型装备，挣脱与解除更加困难' : '可以穿戴，也可以使用普通锁主动上锁',
+        special: r.desc,
+      }
+    }
 
     /** 普通商品卡（妆容/媚奴/束缚） */
     const renderCard = r => {
@@ -2605,9 +2790,17 @@ window.CampSystem = (function () {
       const owned = ownedCount > 0 || (state._ownedRestraints || []).includes(r.id) || wornThis || (state._prostituteGear && state._prostituteGear[r.id === 'chastity_device' ? 'chastity' : r.id])
       const full = owned
       const canBuy = state.gold >= r.price && !full
-      return `<button class="merchant-item${full ? ' is-owned' : ''}${!full && !canBuy ? ' is-unaffordable' : ''}" data-restr="${r.id}" ${full || !canBuy ? 'disabled' : ''}>
-        <span class="merchant-item-icon">${itemIcon(r)}</span>
-        <span class="merchant-item-info"><b>${r.name}</b><small>${r.desc}</small></span>
+      const meta = rpgCardMeta(r)
+      const detailHtml = `<span class="rpg-gear-kicker">${meta.kind} · ${meta.part}</span>
+          <b class="rpg-gear-name">${r.name}</b>
+          <span class="rpg-gear-rule"></span>
+          ${meta.stats.map(([label, value]) => `<span class="rpg-gear-stat"><em>${label}</em><strong>${value}</strong></span>`).join('')}
+          <small class="rpg-gear-hint">${meta.hint}</small>
+          <span class="rpg-gear-special"><em>特殊</em><strong>${meta.special}</strong></span>
+          ${meta.warning ? `<span class="rpg-gear-warning${meta.allowLockedService ? ' is-allowed' : ''}">${meta.allowLockedService ? '✓' : '🔒'} ${meta.warning}</span>` : ''}`
+      return `<button class="merchant-item rpg-gear-card rpg-gear-${meta.tone}${full ? ' is-owned' : ''}${!full && !canBuy ? ' is-unaffordable' : ''}" data-restr="${r.id}" ${full || !canBuy ? 'disabled' : ''}>
+        <span class="merchant-item-icon rpg-gear-icon">${itemIcon(r)}</span>
+        <span class="merchant-item-info rpg-gear-info">${detailHtml}</span>
         <span class="merchant-item-price">${full ? '✓ 已拥有' : canBuy ? `<b>${r.price}G</b>` : '<small>金币不足</small>'}</span>
       </button>`
     }
@@ -2620,70 +2813,70 @@ window.CampSystem = (function () {
       const canBuy = state.gold >= r.price && !full
       const unit = r.dildo ? '根' : (r.stackable ? '颗' : '个')
       const countText = `${r.dildo ? (isMale ? '男性最多 1 根 · ' : '') : ''}已有 ${ownedCount}/${maxOwn}${unit}`
-      const spec = `<small>${r.sizeCm} cm · ${slotText(r.allowedSlots)} · 抵挡 ${r.block} 次 · 接客 +${r.prostituteBonus}G</small>`
-      return `<button class="merchant-item${full ? ' is-owned' : ''}${!full && !canBuy ? ' is-unaffordable' : ''}" data-restr="${r.id}" ${full || !canBuy ? 'disabled' : ''}>
-        <span class="merchant-item-icon">🍑</span>
-        <span class="merchant-item-info"><b>${r.name}</b>${spec}</span>
+      const chargeCount = r.stackable ? `${r.block} 次/颗` : `${r.block} 次`
+      const bonusText = `酒馆妓女：+${r.prostituteBonus} 金币${r.stackable ? '/颗' : ''}`
+      return `<button class="merchant-item rpg-gear-card${full ? ' is-owned' : ''}${!full && !canBuy ? ' is-unaffordable' : ''}" data-restr="${r.id}" ${full || !canBuy ? 'disabled' : ''}>
+        <span class="merchant-item-icon rpg-gear-icon">🍑</span>
+        <span class="merchant-item-info rpg-gear-info">
+          <span class="rpg-gear-kicker">插入装备 · ${slotText(r.allowedSlots)}</span>
+          <b class="rpg-gear-name">${r.name}</b>
+          <span class="rpg-gear-rule"></span>
+          <span class="rpg-gear-stat"><em>尺寸</em><strong>${insertSizeText(r)}</strong></span>
+          <span class="rpg-gear-stat"><em>防护充能</em><strong>可充能 ${chargeCount}</strong></span>
+          <small class="rpg-gear-hint">每点充能完全抵挡一次对应部位的攻击：0 伤害、0 效果</small>
+          <span class="rpg-gear-special"><em>特殊</em><strong>${bonusText}</strong></span>
+          <span class="rpg-gear-warning">🔒 上锁后：酒馆妓女与荣耀洞均不可用</span>
+        </span>
         <span class="merchant-item-price">${full ? '已达上限' : canBuy ? `<b>${r.price}G</b><small>${countText}</small>` : `<small>金币不足</small>`}</span>
       </button>`
     }
 
-    const insertPlugs = all.filter(r => r.insert && !r.dildo && !r.vibrate).map(renderInsertCard).join('')
-    const insertDildos = all.filter(r => r.dildo).map(renderInsertCard).join('')
-    const insertVibes = all.filter(r => r.insert && r.vibrate).map(renderInsertCard).join('')
-    const cosmeticCards = all.filter(r => r.cosmetic).map(renderCard).join('')
-    const buffCards = all.filter(r => r.buff && !r.insert && !r.cosmetic).map(renderCard).join('')
-    const restrCards = all.filter(r => !r.buff && !r.insert && !r.cosmetic).map(renderCard).join('')
-    const toolCards = [
+    const tools = [
+      { id: 'restraint_lock', name: '普通锁', price: 80, icon: '🔒', desc: '在妖缚装备栏中主动锁住一件已穿戴的装置' },
       { id: 'restraint_key', name: '普通钥匙', price: 200, icon: '🔑', desc: '解开一把普通上锁的妖缚装置' },
       { id: 'master_key', name: '万能钥匙', price: 500, icon: '🗝️', desc: '解开任意非剧情/非诅咒的上锁装置' },
       { id: 'lockpick', name: '开锁工具', price: 150, icon: '🛠️', desc: '60% 概率撬开一把普通上锁的装置，失败则损耗' },
       { id: 'curse_remover', name: '驱咒符', price: 250, icon: '🧿', desc: '解除一件被诅咒锁住的妖缚装置' },
-    ].map(t => {
+    ]
+    const renderToolCard = t => {
       const ownedCount = state.inventory.consumables[t.id] || 0
       const canBuy = state.gold >= t.price
-      return `<button class="merchant-item${!canBuy ? ' is-unaffordable' : ''}" data-tool="${t.id}" ${canBuy ? '' : 'disabled'}>
-        <span class="merchant-item-icon">${t.icon}</span>
-        <span class="merchant-item-info"><b>${t.name}</b><small>${t.desc}</small></span>
+      return `<button class="merchant-item rpg-gear-card rpg-gear-tool${!canBuy ? ' is-unaffordable' : ''}" data-tool="${t.id}" ${canBuy ? '' : 'disabled'}>
+        <span class="merchant-item-icon rpg-gear-icon">${t.icon}</span>
+        <span class="merchant-item-info rpg-gear-info"><span class="rpg-gear-kicker">解锁工具 · 消耗品</span><b class="rpg-gear-name">${t.name}</b><span class="rpg-gear-rule"></span><span class="rpg-gear-stat"><em>当前持有</em><strong>${ownedCount}</strong></span><span class="rpg-gear-special"><em>用途</em><strong>${t.desc}</strong></span></span>
         <span class="merchant-item-price">${canBuy ? `<b>${t.price}G</b><small>×${ownedCount}</small>` : '<small>金币不足</small>'}</span>
       </button>`
-    }).join('')
+    }
 
     const CATS = [
-      { key: 'insert', label: '🍑 插入用品' },
-      { key: 'cosmetic', label: '💄 妆容用品' },
-      { key: 'buff', label: '🎀 媚奴用品' },
-      { key: 'restr', label: '⛓️ 束缚装备' },
-      { key: 'tools', label: '🔑 解锁工具' },
+      { key: 'insert', icon: '🍑', label: '插入', title: '插入用品', desc: '肛塞、假阳具、跳蛋与震动棒', items: all.filter(r => r.insert), render: renderInsertCard },
+      { key: 'cosmetic', icon: '💄', label: '妆容', title: '妆容装备', desc: '口红与全套妆容，可同时佩戴', items: all.filter(r => r.cosmetic), render: renderCard },
+      { key: 'mouth', icon: '👄', label: '口部', title: '口部装备', desc: '不同口塞具有不同的任务限制与加成', items: all.filter(r => r.slot === 'mouth'), render: renderCard },
+      { key: 'neck', icon: '🔗', label: '项圈', title: '颈部装备', desc: '奴隶项圈与接客加成项圈', items: all.filter(r => r.slot === 'neck'), render: renderCard },
+      { key: 'sensory', icon: '🎀', label: '眼胸', title: '眼部与胸部', desc: '眼罩、乳夹、蝴蝶夹与链式乳夹', items: all.filter(r => ['eyes', 'chest'].includes(r.slot)), render: renderCard },
+      { key: 'arms', icon: '⛓️', label: '手臂', title: '手臂束缚', desc: '手铐与反绑束臂器', items: all.filter(r => ['arms', 'arms_heavy'].includes(r.slot)), render: renderCard },
+      { key: 'torso', icon: '🩱', label: '躯干', title: '躯干与服装', desc: '束腰、情趣内衣与乳胶衣', items: all.filter(r => ['torso', 'outfit'].includes(r.slot)), render: renderCard },
+      { key: 'waist', icon: '🔒', label: '腰部', title: '腰部装备', desc: state.gender === 'male' ? '男性贞操锁' : '女性贞操带', items: all.filter(r => r.slot === 'waist'), render: renderCard },
+      { key: 'legs', icon: '👠', label: '腿足', title: '腿部与鞋履', desc: '脚镣、脚链与不同高度的高跟鞋', items: all.filter(r => ['legs', 'feet', 'ankles'].includes(r.slot)), render: renderCard },
+      { key: 'tools', icon: '🔑', label: '工具', title: '锁具与解锁工具', desc: '普通锁、钥匙、开锁工具与驱咒符', items: tools, render: renderToolCard },
     ]
-    const navHtml = `<div class="dream-nav">${CATS.map(c => `<button class="dream-nav-btn${ddCat === c.key ? ' is-active' : ''}" data-cat="${c.key}">${c.label}</button>`).join('')}</div>`
-
-    let contentHtml = ''
-    if (ddCat === 'insert') {
-      contentHtml = `<section class="dream-shop-section"><h4><span>🍑</span> 肛塞</h4><div class="merchant-catalog dream-shop-catalog">${insertPlugs || '<p class="camp-muted">无</p>'}</div></section>
-        <section class="dream-shop-section"><h4><span>🍆</span> 普通假阳具</h4><div class="merchant-catalog dream-shop-catalog">${insertDildos || '<p class="camp-muted">无</p>'}</div></section>
-        <section class="dream-shop-section"><h4><span>📳</span> 震动用品</h4><div class="merchant-catalog dream-shop-catalog">${insertVibes || '<p class="camp-muted">无</p>'}</div></section>`
-    } else if (ddCat === 'cosmetic') {
-      contentHtml = `<section class="dream-shop-section"><h4><span>💄</span> 妆容用品 <small>口交加成</small></h4><div class="merchant-catalog dream-shop-catalog">${cosmeticCards || '<p class="camp-muted">无</p>'}</div></section>`
-    } else if (ddCat === 'buff') {
-      contentHtml = `<section class="dream-shop-section"><h4><span>🎀</span> 媚奴用品 <small>接客加成</small></h4><div class="merchant-catalog dream-shop-catalog">${buffCards || '<p class="camp-muted">无</p>'}</div></section>`
-    } else if (ddCat === 'restr') {
-      contentHtml = `<section class="dream-shop-section"><h4><span>⛓️</span> 束缚装备 <small>可自行穿戴</small></h4><div class="merchant-catalog dream-shop-catalog">${restrCards || '<p class="camp-muted">无</p>'}</div></section>`
-    } else {
-      contentHtml = `<section class="dream-shop-section"><h4><span>🔑</span> 解锁工具 <small>消耗品</small></h4><div class="merchant-catalog dream-shop-catalog">${toolCards}</div></section>`
-    }
+    if (!CATS.some(c => c.key === dreamShopCat)) dreamShopCat = 'insert'
+    const activeCat = CATS.find(c => c.key === dreamShopCat)
+    const navHtml = `<div class="dream-category-grid" aria-label="梦幻商店商品分类">${CATS.map(c => `<button class="dream-category-btn${dreamShopCat === c.key ? ' is-active' : ''}" data-shop-cat="${c.key}" aria-current="${dreamShopCat === c.key ? 'true' : 'false'}"><i>${c.icon}</i><span>${c.label}</span><small>${c.items.length}</small></button>`).join('')}</div>`
+    const activeCards = activeCat.items.map(activeCat.render).join('')
+    const contentHtml = `<section class="dream-shop-section dream-active-section"><h4><span>${activeCat.icon}</span><b>${activeCat.title}</b><small>${activeCat.desc}</small></h4><div class="merchant-catalog dream-shop-catalog">${activeCards || '<p class="camp-muted">该分类暂无商品</p>'}</div></section>`
 
     Dialog.show({
       title: '🔮 梦幻商店 · 妖缚商行', className: 'inventory-modal dream-shop-modal',
-      body: `<section class="merchant-hero dream-shop-hero"><span aria-hidden="true">🔮</span><div><small>DREAM EMPORIUM · 妖缚商行</small><h3>“梦里的好东西，我这都有。”</h3><p>营地深处的神秘商行，插入类妖缚装备、妆容、媚奴用品与钥匙一应俱全。</p></div></section>
+      body: `<section class="merchant-hero dream-shop-hero dream-shop-hero-compact"><span aria-hidden="true">🔮</span><div><small>DREAM EMPORIUM · 妖缚商行</small><h3>选择分类，直接购买。</h3><p>所有商品使用同一层分类；灰色表示金币不足或已经拥有。</p></div></section>
         <div class="merchant-stats"><span>💎 ${state.gold}G</span><span>⛓️ 已锁 ${typeof RestraintSystem !== 'undefined' ? RestraintSystem.countLocked() : 0} 件</span><span>💰 战斗金币加成 ${typeof RestraintSystem !== 'undefined' ? Math.round(RestraintSystem.goldBonus() * 100) : 0}%</span></div>
         ${navHtml}
         ${contentHtml}`,
       actions: [{ label: '返回营地', handler: () => { Dialog.close(); open() } }],
     })
-    document.querySelectorAll('[data-cat]').forEach(btn => {
+    document.querySelectorAll('[data-shop-cat]').forEach(btn => {
       btn.onclick = () => {
-        ddCat = btn.dataset.cat
+        dreamShopCat = btn.dataset.shopCat
         Dialog.close()
         ddShop()
       }
@@ -2721,7 +2914,7 @@ window.CampSystem = (function () {
     document.querySelectorAll('[data-tool]').forEach(btn => {
       btn.onclick = () => {
         const id = btn.dataset.tool
-        const tool = { restraint_key: { name: '普通钥匙', price: 200 }, master_key: { name: '万能钥匙', price: 500 }, lockpick: { name: '开锁工具', price: 150 }, curse_remover: { name: '驱咒符', price: 250 } }[id]
+        const tool = { restraint_lock: { name: '普通锁', price: 80 }, restraint_key: { name: '普通钥匙', price: 200 }, master_key: { name: '万能钥匙', price: 500 }, lockpick: { name: '开锁工具', price: 150 }, curse_remover: { name: '驱咒符', price: 250 } }[id]
         if (!tool || state.gold < tool.price) return
         state.gold -= tool.price
         state.inventory.consumables[id] = (state.inventory.consumables[id] || 0) + 1
@@ -2962,6 +3155,8 @@ window.CampSystem = (function () {
   /** 打工界面：服务员（暂不开放）/ 妓女 */
   function tavernWork () {
     const state = State.get()
+    const lockedService = lockedServiceGear()
+    const serviceBlocked = lockedService.length > 0
     const workStatus = state._prostituteLicensed
       ? `${prostituteTitle(state._prostituteLevel).icon} ${state._prostituteLevel} 级`
       : '需许可证'
@@ -2970,10 +3165,14 @@ window.CampSystem = (function () {
       body: `<section class="work-hero"><span aria-hidden="true">💃</span><div><small>THE MIST LANTERN · 招工中</small><h3>“想赚金币？挑个能做的活。”</h3><p>当前持有 <b>${state.gold}G</b></p></div></section>
       <div class="work-grid">
         <button class="work-card is-locked" type="button" disabled><i>🍽️</i><span><b>酒馆服务员</b><small>端茶倒水，收拾客桌</small></span><em>尚未开放</em></button>
-        <button class="work-card is-active" type="button" data-work="prostitute"><i>💋</i><span><b>酒馆接客</b><small>按客人的要求完成计时任务</small></span><em>${workStatus}</em></button>
+        <button class="work-card ${serviceBlocked ? 'is-locked' : 'is-active'}" type="button" ${serviceBlocked ? 'disabled' : 'data-work="prostitute"'}><i>${serviceBlocked ? '🔒' : '💋'}</i><span><b>酒馆接客</b><small>${serviceBlocked ? '必须先解开口部或插入装备上的锁' : '按客人的要求完成计时任务'}</small></span><em>${serviceBlocked ? '禁止上工' : workStatus}</em></button>
       </div>
+      ${serviceBlocked ? `<div class="work-rule">🔒 老板娘拒绝让你上工：${serviceGearNames(lockedService)}仍处于上锁状态。</div>` : ''}
       <p class="work-footnote">任务中途刷新会保留当前进度；未完成会欠老板娘 30G。</p>`,
-      actions: [{ label: '返回老板娘', handler: () => { Dialog.close(); tavernBarkeep() } }],
+      actions: [
+        ...(serviceBlocked ? [{ label: '⛓️ 整理妖缚装备', cls: 'btn-primary', handler: () => { Dialog.close(); RestraintSystem.openManage() } }] : []),
+        { label: '返回老板娘', handler: () => { Dialog.close(); tavernBarkeep() } },
+      ],
     })
     const prostituteBtn = document.querySelector('[data-work="prostitute"]')
     if (prostituteBtn) prostituteBtn.onclick = () => { Dialog.close(); prostitute() }
@@ -2982,7 +3181,7 @@ window.CampSystem = (function () {
   /** 妓女：许可证 → 换衣 → 找顾客 */
   /** 妓女等级称号 */
   function prostituteTitle (level) {
-    if (level >= 100) return { name: '头牌妓畜', icon: '👑', note: '必须全程佩戴贞操笼，服务时必须发出呻吟' }
+    if (level >= 100) return { name: '头牌妓畜', icon: '👑', note: '必须全程佩戴贞操装备，服务时必须发出呻吟' }
     if (level >= 70) return { name: '职业妓女', icon: '💼', note: '服务时必须发出呻吟' }
     if (level >= 30) return { name: '顺从的妓女', icon: '🫦', note: '服务时必须发出呻吟' }
     if (level >= 10) return { name: '新手妓女', icon: '🐣', note: '' }
@@ -3004,6 +3203,7 @@ window.CampSystem = (function () {
 
   function prostitute () {
     const state = State.get()
+    if (showServiceGearLockout('酒馆', tavernWork)) return
     if (!state._prostituteLicensed) {
       campShow({
         title: '💋 接客许可证', className: 'tavern-work-modal',
@@ -3064,15 +3264,19 @@ window.CampSystem = (function () {
     const debtHtml = inDebt
       ? `<div class="work-debt">💸 欠款 <b>${debt}G</b><small>收入会优先还债；还清前不能离开或换衣</small></div>`
       : ''
-    // 已装备的媚奴用品（妖缚 buff 装置）
+    // 已装备且会影响接客的服务类妖缚装备
     const BUFF_GEAR = [
       { id: 'lipstick', name: '口红', icon: '💄', desc: '口交服务额外 +20G' },
       { id: 'makeup', name: '全套妆容', icon: '💎', desc: '口交服务额外 +30G' },
-      { id: 'heels', name: '高跟鞋', icon: '👠', desc: '没有实际效果，但穿着被操的感觉无敌' },
+      { id: 'heels', name: '8cm 高跟鞋', icon: '👠', desc: '服务类鞋履' },
+      { id: 'heels_10', name: '10cm 高跟鞋', icon: '👠', desc: '服务类鞋履' },
+      { id: 'heels_12', name: '12cm 高跟鞋', icon: '👠', desc: '服务类鞋履' },
+      { id: 'heels_14', name: '14cm 高跟鞋', icon: '👠', desc: '服务类鞋履' },
+      { id: 'ballet_heels', name: '芭蕾舞高跟鞋', icon: '🩰', desc: '重型服务类鞋履' },
       { id: 'lingerie', name: '情趣内衣', icon: '🩲', desc: '每项接客任务获得的等级翻倍' },
       { id: 'latex', name: '乳胶衣', icon: '🖤', desc: '每项接客任务获得的金币和等级都翻倍' },
-      { id: 'slut_collar', name: '媚奴项圈', icon: '🐕', desc: '插入任务强制 120 BPM，等级翻倍' },
-      { id: 'slut_gag', name: '媚奴口塞', icon: '🤐', desc: '插入任务强制 160/180 BPM，金币翻倍' },
+      { id: 'slut_collar', name: '项圈', icon: '🐕', desc: '插入任务强制 120 BPM，等级翻倍' },
+      { id: 'slut_gag', name: '开口口塞', icon: '🤐', desc: '唯一触发口塞加成：160/180 BPM，金币翻倍' },
     ]
     const ownedList = (typeof RestraintSystem !== 'undefined')
       ? BUFF_GEAR.filter(g => RestraintSystem.hasDevice(g.id))
@@ -3090,8 +3294,8 @@ window.CampSystem = (function () {
       })
     }
     const gearHtml = ownedList.length
-      ? `<div class="work-gear"><small>💄 已装备媚奴用品（妖缚）</small><div class="work-gear-list">${ownedList.map(g => `<span title="${g.desc}">${g.icon} ${g.name}</span>`).join('')}</div></div>`
-      : `<div class="work-gear"><small>💄 已装备媚奴用品（妖缚）</small><div class="work-gear-list work-gear-empty">尚未装备任何用品</div></div>`
+      ? `<div class="work-gear"><small>🎀 已装备的服务类妖缚装备</small><div class="work-gear-list">${ownedList.map(g => `<span title="${g.desc}">${g.icon} ${g.name}</span>`).join('')}</div></div>`
+      : `<div class="work-gear"><small>🎀 已装备的服务类妖缚装备</small><div class="work-gear-list work-gear-empty">尚未装备任何服务用品</div></div>`
     campShow({
       title: '💋 今夜营业', className: 'tavern-work-modal',
       body: `${debtHtml}<section class="work-profile"><div class="work-rank"><i>${title.icon}</i><span><small>当前称号</small><b>${title.name}</b></span><em>Lv.${state._prostituteLevel}</em></div>
@@ -3101,6 +3305,7 @@ window.CampSystem = (function () {
         <p class="work-footnote">掷 Z 决定客人的要求。完成计时任务可获得金币和等级，跳过视为失败。</p>`,
       actions: [
         { label: inDebt ? '🔍 继续接客还债' : '🔍 寻找顾客', cls: 'btn-primary', handler: () => { Dialog.close(); findCustomer() } },
+        { label: '⛓️ 整理妖缚装备', handler: () => { Dialog.close(); RestraintSystem.openManage() } },
         // 全裸时无法换回衣服（本来就没衣服）；欠款时无法退出
         ...((!inDebt && !StatusSystem.has('naked')) ? [{ label: '👗 换回衣服', handler: () => { Dialog.close(); state._prostituteDressed = false; EventBus.emit('state:changed', state); tavernWork() } }] : []),
       ],
@@ -3536,12 +3741,12 @@ window.CampSystem = (function () {
 
     // 用战斗任务弹窗逐段执行：BPM + 计时 + 完成任务/跳过
     let failed = false
-    // 媚奴用品（妖缚 buff 装置）
+    // 服务类妖缚装备：只有指定款式触发对应加成。
     const R = (typeof RestraintSystem !== 'undefined') ? RestraintSystem : null
     const gear = {
       lipstick: !!R && R.hasDevice('lipstick'),
       makeup: !!R && R.hasDevice('makeup'),
-      heels: !!R && R.hasDevice('heels'),
+      heels: !!R && ['heels', 'heels_10', 'heels_12', 'heels_14', 'ballet_heels'].some(id => R.hasDevice(id)),
       lingerie: !!R && R.hasDevice('lingerie'),
       latex: !!R && R.hasDevice('latex'),
       collar: !!R && R.hasDevice('slut_collar'),
@@ -3554,7 +3759,7 @@ window.CampSystem = (function () {
       EventBus.emit('ui:log', { text: '🤐 口塞堵着嘴，你只能含混地干呕——口交服务做不了！', type: 'danger' })
       failed = true
     }
-    // 媚奴项圈：插入任务强制 120 BPM；媚奴口塞：插入任务强制 160（+项圈 180）BPM
+    // 服务项圈：插入任务强制 120 BPM；只有开口口塞触发 160（+项圈 180）BPM。
     let forceBpm = 0
     if (isInsert && !failed) {
       if (gear.gag) forceBpm = gear.collar ? 180 : 160
@@ -3603,7 +3808,7 @@ window.CampSystem = (function () {
       if (gear.latex) goldMult *= 2
       // 媚奴口塞：插入任务金币翻倍
       if (gear.gag && isInsert) goldMult *= 2
-      // 插入类 DD 装备：菊穴和小穴可同时穿戴，加成按当前装备累加。
+      // 插入类妖缚装备：菊穴和小穴可同时穿戴，加成按当前装备累加。
       if (gear.insertionBonus && isInsert) goldBonus += gear.insertionBonus
     }
     // 等级翻倍（封顶 ×2）

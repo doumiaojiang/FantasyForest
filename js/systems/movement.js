@@ -223,20 +223,40 @@ window.AmbushSystem = {
         effAttack = { ...attack, desc: attack.desc.replace(/菊穴/g, '小穴'), name: attack.name }
         attackPart = 'vagina'
       }
+      if (!attackPart && /口交|深喉|吞吐|口穴|嘴穴|操嘴/.test(effAttack.desc || '')) attackPart = 'oral'
+
+      let chargedBlocked = false
+      if (typeof RestraintSystem !== 'undefined') {
+        const targetResult = RestraintSystem.resolveMonsterOrifice(attackPart)
+        targetResult.events.forEach(text => EventBus.emit('ui:log', { text, type: text.startsWith('💥') ? 'danger' : 'good' }))
+        if (targetResult.mode === 'blocked') {
+          chargedBlocked = true
+          effAttack = { ...effAttack, dmg: 0, status: null, special: null, turns: 0, level: 0 }
+        } else if (targetResult.mode === 'redirect') {
+          const partName = { oral: '嘴穴', anal: '菊穴', vagina: '小穴' }[targetResult.part]
+          effAttack = { ...effAttack, name: `${effAttack.name} · 改攻${partName}`, desc: `${enemy.name}发现原本的部位无法使用，立刻改为攻击你的${partName}；攻击强度与持续时间不变。`, special: null }
+          attackPart = targetResult.part
+        } else if (targetResult.mode === 'spank') {
+          effAttack = { ...effAttack, name: '打屁股', desc: `${enemy.name}找不到能使用的部位，只好把你按住狠狠打屁股。`, status: null, special: null, turns: 0, level: 0 }
+          attackPart = 'body'
+        }
+      }
       EventBus.emit('ui:log', { text: `🌫️ ${enemy.name} 突袭并使用「${effAttack.name}」！`, type: 'danger' })
 
       // 显示攻击任务（口塞下口交类做不了，硬挨一记）
       const gaggedOral = typeof RestraintSystem !== 'undefined' && RestraintSystem.hasGag() && /口交|深喉|吞吐|口穴|嘴穴/.test(effAttack.desc)
-      if (gaggedOral) {
+      if (chargedBlocked) {
+        EventBus.emit('ui:log', { text: '⚡ 防护充能完全挡住伏击，不需要执行任务。', type: 'good' })
+      } else if (gaggedOral) {
         EventBus.emit('ui:log', { text: '🤐 口塞堵着嘴，你做不了口交任务，硬挨了伏击攻击（单倍伤害）。', type: 'danger' })
       } else {
         await AmbushSystem.showTask(enemy, effAttack)
       }
 
       // 伏击怪物只执行本轮一次攻击，不进入普通战斗，也不保留 HP。
-      let damage = effAttack.dmg || 0
-      let blocked = false
-      if (state._ambush && state._ambush.blocked > 0) {
+      let damage = chargedBlocked ? 0 : (effAttack.dmg || 0)
+      let blocked = chargedBlocked
+      if (!blocked && state._ambush && state._ambush.blocked > 0) {
         if (ShopSystem.consumeBlockForPart(attackPart)) {
           damage = 0
           blocked = true

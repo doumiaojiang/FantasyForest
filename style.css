@@ -37,6 +37,14 @@
   --red: #ff6b6b;
   --green: #6bff9b;
 
+  /* RPG 装备提示卡 */
+  --rpg-gear-bg: #100d18;
+  --rpg-gear-border: #68517f;
+  --rpg-gear-name: #c98cff;
+  --rpg-gear-stat: #eee7f4;
+  --rpg-gear-special: #70e69a;
+  --rpg-gear-muted: #9a8ca6;
+
   --hp-fill: linear-gradient(90deg, #ff5d7a, #ff9db0);
   --hp-track: #3a2430;
 
@@ -2530,6 +2538,15 @@ body:has(.age-gate:not(.age-gate-hidden)) { overflow: hidden; }
 .restr-card > i { font-size: 1.3rem; }
 .restr-card b { color: var(--inventory-text); font-size: .84rem; display: block; }
 .restr-card small { color: #a09088; font-size: .66rem; line-height: 1.45; display: block; margin-top: 2px; }
+.restr-charge { display: inline-flex; align-items: center; margin-top: 7px; padding: 3px 8px; border: 1px solid rgba(113,206,255,.28); border-radius: 999px; background: rgba(70,155,210,.12); color: #9edfff; font-size: .66rem; font-weight: 700; line-height: 1.35; }
+.restr-charge.is-empty { border-color: rgba(160,144,136,.22); background: rgba(160,144,136,.08); color: #8f8580; }
+.restr-card.rpg-equipped-card {
+  border-color: rgba(201,140,255,.32);
+  background: linear-gradient(145deg, rgba(37,27,52,.82), rgba(12,10,18,.78));
+  box-shadow: inset 3px 0 0 rgba(201,140,255,.48), inset 0 1px 0 rgba(255,255,255,.035);
+}
+.rpg-gear-details { display: grid; gap: 4px; margin-top: 3px; }
+.rpg-gear-details .restr-charge { justify-self: start; margin-top: 3px; }
 .restr-lock { font-style: normal; font-size: .66rem; color: #ffb3a0; background: rgba(220,90,70,.14); padding: 3px 8px; border-radius: 99px; white-space: nowrap; }
 .restr-open { font-style: normal; font-size: .66rem; color: #9fd8b0; background: rgba(90,190,130,.14); padding: 3px 8px; border-radius: 99px; white-space: nowrap; }
 .restr-actions { grid-column: 1 / -1; display: flex; flex-wrap: wrap; gap: 6px; }
@@ -2799,41 +2816,110 @@ body:has(.age-gate:not(.age-gate-hidden)) { overflow: hidden; }
 /* =========================================================
    19. 更新日志
    ========================================================= */
-.changelog-modal { max-width: 520px; }
-.changelog-modal .modal-body { max-height: 70vh; overflow-y: auto; }
-.modal-box.changelog-modal { border-color: rgba(211, 169, 255, .3); background: linear-gradient(155deg, rgba(42, 27, 56, .98), rgba(18, 18, 27, .99) 55%, rgba(17, 30, 27, .98)); }
-.changelog-hero { position: relative; overflow: hidden; padding: 15px; border: 1px solid rgba(211,169,255,.18); border-radius: 12px; background: radial-gradient(circle at 90% 10%, rgba(176,107,255,.18), transparent 38%), rgba(255,255,255,.025); text-align: center; }
-.changelog-hero > span { display: inline-block; padding: 2px 7px; border-radius: 99px; background: rgba(255,209,102,.12); color: var(--gold); font-size: .52rem; font-weight: 900; letter-spacing: .13em; }
-.changelog-hero small { display: block; margin-top: 5px; color: #84798f; font-size: .58rem; }
-.changelog-hero h3 { margin: 4px 0; color: #f2e6fa; font-size: 1.05rem; }
-.changelog-hero p { color: #958a9d; font-size: .66rem; }
-.changelog-list { display: grid; gap: 8px; margin-top: 10px; }
-.changelog-section { padding: 10px 11px; border: 1px solid rgba(255,255,255,.07); border-radius: 10px; background: rgba(8,10,14,.32); }
-.changelog-section-title { display: flex; align-items: center; gap: 7px; margin-bottom: 6px; }
-.changelog-section-title i { width: 28px; height: 28px; display: grid; place-items: center; border-radius: 7px; background: rgba(176,107,255,.1); font-style: normal; }
-.changelog-section-title b { color: #dcbcff; font-size: .76rem; }
-.changelog-section ul { display: grid; gap: 4px; margin: 0; padding-left: 17px; color: #b0a7b4; font-size: .68rem; line-height: 1.55; }
-.changelog-section li::marker { color: var(--accent-bright); }
-.changelog-thanks { margin-top: 10px; color: #7f7685; font-size: .62rem; text-align: center; }
+.modal-box.changelog-modal {
+  width: min(700px, 100%); max-width: 700px; max-height: min(88dvh, 850px);
+  display: flex; flex-direction: column; overflow: hidden; padding: 0;
+  border-color: rgba(211, 169, 255, .28);
+  background:
+    radial-gradient(circle at 92% 0, rgba(159, 91, 214, .16), transparent 34%),
+    linear-gradient(155deg, rgba(31, 25, 43, .99), rgba(15, 17, 25, .99) 58%, rgba(16, 27, 24, .98));
+  box-shadow: 0 28px 90px rgba(0,0,0,.72), inset 0 1px rgba(255,255,255,.05);
+}
+.changelog-modal > .modal-title {
+  flex: 0 0 auto; margin: 0; padding: 17px 22px 14px;
+  border-bottom: 1px solid rgba(211,169,255,.14); color: #ead7fb; font-size: 1.05rem;
+}
+.changelog-modal > .modal-body {
+  flex: 1 1 auto; min-height: 0; margin: 0; padding: 18px 22px 20px;
+  overflow-y: auto; overscroll-behavior: contain; scrollbar-gutter: stable;
+}
+.changelog-modal > .modal-actions {
+  flex: 0 0 auto; padding: 12px 18px; border-top: 1px solid rgba(211,169,255,.13);
+  background: rgba(10,12,18,.9); backdrop-filter: blur(12px);
+}
+.changelog-modal > .modal-actions .btn { min-width: 128px; }
+.changelog-hero {
+  position: relative; overflow: hidden; padding: 22px 24px;
+  border: 1px solid rgba(211,169,255,.2); border-radius: 15px;
+  background:
+    radial-gradient(circle at 92% 5%, rgba(184,114,239,.2), transparent 42%),
+    linear-gradient(135deg, rgba(88,51,111,.22), rgba(28,31,38,.62));
+  box-shadow: inset 0 1px rgba(255,255,255,.035);
+}
+.changelog-meta { display: flex; align-items: center; gap: 9px; margin-bottom: 10px; }
+.changelog-meta span {
+  padding: 4px 9px; border: 1px solid rgba(255,209,102,.24); border-radius: 99px;
+  background: rgba(255,209,102,.1); color: var(--gold); font-size: .62rem; font-weight: 850;
+}
+.changelog-meta small { color: #c5a6df; font-size: .62rem; font-weight: 800; letter-spacing: .1em; }
+.changelog-meta time { margin-left: auto; color: #8d8295; font-size: .67rem; }
+.changelog-hero h3 { margin: 0; color: #f4eafb; font-size: 1.28rem; line-height: 1.35; }
+.changelog-hero p { margin: 7px 0 0; color: #aaa0b1; font-size: .78rem; line-height: 1.55; }
+.changelog-list { display: grid; gap: 11px; margin-top: 13px; }
+.changelog-section {
+  padding: 14px 16px 15px; border: 1px solid rgba(255,255,255,.075); border-radius: 12px;
+  background: linear-gradient(135deg, rgba(255,255,255,.034), rgba(5,8,12,.26));
+}
+.changelog-section-title { display: flex; align-items: center; gap: 10px; margin-bottom: 9px; }
+.changelog-section-title i {
+  width: 34px; height: 34px; flex: 0 0 34px; display: grid; place-items: center;
+  border: 1px solid rgba(193,117,255,.16); border-radius: 9px;
+  background: rgba(176,107,255,.1); font-size: 1.05rem; font-style: normal;
+}
+.changelog-section-title b { color: #dfc6f4; font-size: .88rem; }
+.changelog-section ul { display: grid; gap: 7px; margin: 0; padding-left: 20px; color: #bbb2c0; font-size: .78rem; line-height: 1.65; }
+.changelog-section li { padding-left: 2px; }
+.changelog-section li::marker { color: #bb7cf0; }
+.changelog-footer {
+  display: grid; justify-items: center; gap: 5px; margin-top: 16px; padding: 14px;
+  border-top: 1px solid rgba(255,255,255,.07); color: #877e8d; text-align: center;
+}
+.changelog-footer b { color: #aaa0b0; font-size: .7rem; font-weight: 650; }
+.changelog-footer small { font-size: .64rem; }
+.changelog-footer a { color: #c99aee; text-decoration: none; }
+.changelog-footer a:hover { color: #e4c8f8; text-decoration: underline; }
 
 /* 历史版本折叠 */
-.changelog-history { margin-top: 12px; }
+.changelog-history { margin-top: 15px; }
 .changelog-history summary {
-  padding: 8px 10px; border: 1px solid rgba(211,169,255,.2); border-radius: 8px;
-  background: rgba(255,255,255,.03); color: var(--accent-bright); font-size: .72rem;
-  cursor: pointer; text-align: center; user-select: none;
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  padding: 11px 13px; border: 1px solid rgba(211,169,255,.16); border-radius: 10px;
+  background: rgba(255,255,255,.025); color: #d2b3e9; cursor: pointer; user-select: none;
 }
-.changelog-history summary:hover { background: rgba(211,169,255,.08); }
-.changelog-history .changelog-version { margin-top: 10px; }
-.changelog-history .changelog-hero { opacity: .85; }
-.changelog-history .changelog-hero span { background: rgba(255,255,255,.1); color: #9b92a0; }
+.changelog-history summary span { font-size: .76rem; font-weight: 750; }
+.changelog-history summary small { color: #84798c; font-size: .64rem; }
+.changelog-history summary:hover { border-color: rgba(211,169,255,.3); background: rgba(211,169,255,.065); }
+.changelog-history .changelog-version { margin-top: 13px; padding-top: 13px; border-top: 1px solid rgba(255,255,255,.06); }
+.changelog-history .changelog-hero { padding: 15px 17px; background: rgba(255,255,255,.022); }
+.changelog-history .changelog-hero h3 { font-size: .98rem; }
+.changelog-history .changelog-hero p { display: none; }
+.changelog-history .changelog-meta span { border-color: rgba(255,255,255,.1); background: rgba(255,255,255,.05); color: #918798; }
+
+@media (max-width: 560px) {
+  .modal-layer:has(.changelog-modal) { padding: 6px; }
+  .modal-box.changelog-modal { max-height: calc(100dvh - 12px); border-radius: 13px; }
+  .changelog-modal > .modal-title { padding: 13px 14px 11px; font-size: .94rem; }
+  .changelog-modal > .modal-body { padding: 12px 11px 15px; scrollbar-gutter: auto; }
+  .changelog-modal > .modal-actions { padding: 9px 11px calc(9px + env(safe-area-inset-bottom, 0px)); }
+  .changelog-modal > .modal-actions .btn { width: 100%; min-width: 0; }
+  .changelog-hero { padding: 15px 14px; border-radius: 12px; }
+  .changelog-meta { flex-wrap: wrap; gap: 6px; margin-bottom: 8px; }
+  .changelog-meta time { width: 100%; margin-left: 0; }
+  .changelog-hero h3 { font-size: 1.05rem; }
+  .changelog-hero p { font-size: .72rem; }
+  .changelog-list { gap: 8px; margin-top: 9px; }
+  .changelog-section { padding: 11px 10px 12px; }
+  .changelog-section-title { gap: 8px; margin-bottom: 7px; }
+  .changelog-section-title i { width: 30px; height: 30px; flex-basis: 30px; }
+  .changelog-section-title b { font-size: .8rem; }
+  .changelog-section ul { gap: 6px; padding-left: 18px; font-size: .72rem; line-height: 1.58; }
+  .changelog-history summary small { display: none; }
+  .changelog-footer { margin-top: 12px; padding: 11px 5px; }
+}
 
 @media (max-width: 420px) {
   .title-utility-actions { gap: 6px; }
   .title-btn-rules { padding-inline: 7px; font-size: .64rem; }
-  .changelog-modal .modal-body { max-height: 66vh; }
-  .changelog-hero { padding: 11px; }
-  .changelog-section { padding: 8px; }
 }
 
 /* =========================================================
@@ -3091,16 +3177,58 @@ body:has(.age-gate:not(.age-gate-hidden)) { overflow: hidden; }
   font-size: .61rem;
   line-height: 1.55;
 }
-/* 梦幻商店分类导航 */
-.dream-nav { display: flex; flex-wrap: wrap; gap: 6px; margin: 10px 0 2px; }
-.dream-nav-btn { flex: 1 1 auto; min-width: 0; padding: 8px 10px; border: 1px solid rgba(198, 156, 255, .18); border-radius: 9px; background: rgba(121, 73, 157, .07); color: #b9aabd; font-size: .7rem; font-weight: 700; cursor: pointer; transition: border-color .15s, background .15s, color .15s; }
-.dream-nav-btn:hover { border-color: rgba(205, 155, 255, .45); }
-.dream-nav-btn.is-active { border-color: rgba(205, 155, 255, .65); background: rgba(141, 89, 179, .28); color: #f1e6fb; }
-@media (max-width: 520px) {
-  .dream-nav { gap: 5px; }
-  .dream-nav-btn { flex: 1 1 46%; padding: 9px 6px; font-size: .66rem; }
+/* 梦幻商店：单层商品分类 */
+.dream-shop-hero-compact {
+  grid-template-columns: 44px 1fr;
+  gap: 9px;
+  padding: 10px 12px;
 }
-.dream-shop-section { margin-top: 13px; }
+.dream-shop-hero-compact > span { width: 42px; height: 42px; font-size: 1.35rem; }
+.dream-shop-hero-compact h3 { margin-block: 2px; font-size: .8rem; }
+.dream-shop-hero-compact p { font-size: .58rem; }
+.dream-category-grid {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 5px;
+  margin: 9px 0 3px;
+}
+.dream-category-btn {
+  display: grid;
+  grid-template-columns: 17px 1fr auto;
+  align-items: center;
+  gap: 3px;
+  min-width: 0;
+  padding: 7px 6px;
+  border: 1px solid rgba(198, 156, 255, .14);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, .025);
+  color: #a997b2;
+  font-size: .6rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: border-color .15s, background .15s, color .15s, transform .15s;
+}
+.dream-category-btn i { font-style: normal; text-align: center; }
+.dream-category-btn span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; text-align: left; }
+.dream-category-btn small {
+  display: inline-grid;
+  min-width: 15px;
+  height: 15px;
+  place-items: center;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, .07);
+  color: #8f7b9b;
+  font-size: .48rem;
+}
+.dream-category-btn:hover { border-color: rgba(205, 155, 255, .38); color: #e1d4e7; transform: translateY(-1px); }
+.dream-category-btn.is-active {
+  border-color: rgba(205, 155, 255, .62);
+  background: rgba(141, 89, 179, .25);
+  color: #f4eaff;
+}
+.dream-category-btn.is-active small { background: rgba(225, 190, 255, .18); color: #ead5fb; }
+.dream-shop-section { margin-top: 11px; }
+.dream-active-section { padding-top: 2px; }
 .dream-shop-section h4 {
   display: flex;
   align-items: center;
@@ -3115,6 +3243,101 @@ body:has(.age-gate:not(.age-gate-hidden)) { overflow: hidden; }
 .dream-shop-modal .merchant-item { border-color: rgba(198, 156, 255, .15); background: linear-gradient(135deg, rgba(151,83,207,.08), rgba(255,255,255,.015)); }
 .dream-shop-modal .merchant-item:hover:not(:disabled) { border-color: rgba(205, 155, 255, .5); background: rgba(93, 49, 123, .24); }
 .dream-shop-modal .merchant-item-icon { background: rgba(198, 156, 255, .09); }
+.merchant-item.rpg-gear-card {
+  grid-template-columns: 46px minmax(0, 1fr) auto;
+  align-items: start;
+  gap: 10px;
+  padding: 11px;
+  border-color: rgba(201,140,255,.34);
+  background:
+    radial-gradient(circle at 0 0, rgba(118,64,163,.22), transparent 44%),
+    linear-gradient(145deg, rgba(28,21,40,.96), var(--rpg-gear-bg));
+  box-shadow: inset 3px 0 0 rgba(201,140,255,.58), inset 0 1px 0 rgba(255,255,255,.04), 0 7px 18px rgba(0,0,0,.18);
+}
+.merchant-item.rpg-gear-card:hover:not(:disabled):not(.is-unaffordable) {
+  border-color: rgba(214,169,255,.65);
+  background:
+    radial-gradient(circle at 0 0, rgba(142,76,194,.29), transparent 46%),
+    linear-gradient(145deg, rgba(34,25,49,.98), #120e1b);
+}
+.rpg-gear-card .rpg-gear-icon {
+  width: 44px;
+  height: 44px;
+  border: 1px solid rgba(201,140,255,.28);
+  border-radius: 7px;
+  background: linear-gradient(145deg, rgba(137,79,183,.22), rgba(21,16,29,.8));
+  box-shadow: inset 0 0 12px rgba(177,102,235,.12);
+}
+.rpg-gear-info { gap: 4px; }
+.rpg-gear-kicker {
+  color: var(--rpg-gear-muted);
+  font-size: .49rem;
+  font-weight: 800;
+  letter-spacing: .12em;
+  line-height: 1.2;
+}
+.merchant-item-info .rpg-gear-name,
+.restr-card .rpg-gear-name {
+  color: var(--rpg-gear-name);
+  font-size: .82rem;
+  line-height: 1.25;
+  text-shadow: 0 0 12px rgba(201,140,255,.2);
+}
+.rpg-gear-rule { height: 1px; margin: 1px 0; background: linear-gradient(90deg, rgba(201,140,255,.32), transparent); }
+.rpg-gear-stat {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  color: var(--rpg-gear-stat);
+  font-size: .58rem;
+  line-height: 1.35;
+}
+.rpg-gear-stat em { color: var(--rpg-gear-muted); font-style: normal; }
+.rpg-gear-stat strong { color: inherit; font-weight: 700; text-align: right; }
+.merchant-item-info .rpg-gear-hint,
+.restr-card .rpg-gear-hint { margin: 0; color: #81778b; font-size: .51rem; line-height: 1.35; }
+.rpg-gear-special {
+  display: grid;
+  gap: 1px;
+  margin-top: 2px;
+  padding-top: 5px;
+  border-top: 1px solid rgba(112,230,154,.15);
+  font-size: .55rem;
+  line-height: 1.35;
+}
+.rpg-gear-special em { color: #91869a; font-style: normal; font-size: .48rem; font-weight: 800; letter-spacing: .12em; }
+.rpg-gear-special strong { color: var(--rpg-gear-special); font-weight: 750; }
+.rpg-gear-warning { display: block; margin-top: 3px; padding: 4px 6px; border: 1px solid rgba(255,117,117,.2); border-radius: 5px; background: rgba(143,48,48,.11); color: #ffaaa0; font-size: .5rem; font-weight: 750; line-height: 1.35; }
+.rpg-gear-warning.is-allowed { border-color: rgba(112,230,154,.2); background: rgba(44,125,76,.11); color: #83e7a7; }
+.rpg-gear-card .merchant-item-price { padding-top: 2px; }
+.rpg-gear-card .merchant-item-price b { color: var(--gold); font-size: .76rem; }
+.merchant-item.rpg-gear-card.is-owned,
+.merchant-item.rpg-gear-card.is-unaffordable { box-shadow: inset 3px 0 0 rgba(120,112,126,.22); }
+.merchant-item.rpg-gear-cosmetic {
+  border-color: rgba(255,145,204,.32);
+  box-shadow: inset 3px 0 0 rgba(255,145,204,.55), inset 0 1px 0 rgba(255,255,255,.04), 0 7px 18px rgba(0,0,0,.18);
+}
+.rpg-gear-cosmetic .rpg-gear-name { color: #ff9dce; }
+.rpg-gear-cosmetic .rpg-gear-icon { border-color: rgba(255,145,204,.25); background: linear-gradient(145deg, rgba(180,64,126,.22), rgba(24,15,24,.8)); }
+.merchant-item.rpg-gear-mouth {
+  border-color: rgba(224,176,108,.31);
+  box-shadow: inset 3px 0 0 rgba(224,176,108,.5), inset 0 1px 0 rgba(255,255,255,.04), 0 7px 18px rgba(0,0,0,.18);
+}
+.rpg-gear-mouth .rpg-gear-name { color: #e7b874; }
+.rpg-gear-mouth .rpg-gear-icon { border-color: rgba(224,176,108,.25); background: linear-gradient(145deg, rgba(151,102,48,.22), rgba(24,18,14,.8)); }
+.rpg-gear-mouth .rpg-gear-special strong { color: #e7b874; }
+.merchant-item.rpg-gear-service { border-color: rgba(112,214,154,.27); box-shadow: inset 3px 0 0 rgba(112,214,154,.46), inset 0 1px 0 rgba(255,255,255,.04), 0 7px 18px rgba(0,0,0,.18); }
+.rpg-gear-service .rpg-gear-name { color: #8ae2ad; }
+.rpg-gear-service .rpg-gear-icon { border-color: rgba(112,214,154,.22); background: linear-gradient(145deg, rgba(54,135,88,.2), rgba(14,23,18,.8)); }
+.merchant-item.rpg-gear-restraint { border-color: rgba(255,150,121,.24); box-shadow: inset 3px 0 0 rgba(220,112,83,.42), inset 0 1px 0 rgba(255,255,255,.04), 0 7px 18px rgba(0,0,0,.18); }
+.rpg-gear-restraint .rpg-gear-name { color: #f0a083; }
+.rpg-gear-restraint .rpg-gear-special strong { color: #e6a58d; }
+.rpg-gear-restraint .rpg-gear-icon { border-color: rgba(220,112,83,.2); background: linear-gradient(145deg, rgba(127,59,42,.2), rgba(24,16,14,.8)); }
+.merchant-item.rpg-gear-tool { border-color: rgba(102,180,235,.27); box-shadow: inset 3px 0 0 rgba(102,180,235,.46), inset 0 1px 0 rgba(255,255,255,.04), 0 7px 18px rgba(0,0,0,.18); }
+.rpg-gear-tool .rpg-gear-name { color: #8fd0ff; }
+.rpg-gear-tool .rpg-gear-special strong { color: #91ccef; }
+.rpg-gear-tool .rpg-gear-icon { border-color: rgba(102,180,235,.22); background: linear-gradient(145deg, rgba(48,105,145,.2), rgba(13,20,27,.8)); }
 .merchant-offers { display: grid; gap: 7px; margin-top: 9px; }
 .merchant-offer { grid-template-columns: 38px 1fr auto; }
 .merchant-offer > i { width: 38px; height: 38px; }
@@ -3124,6 +3347,10 @@ body:has(.age-gate:not(.age-gate-hidden)) { overflow: hidden; }
 .merchant-offer.is-plain { opacity: .72; }
 
 @media (max-width: 520px) {
+  .dream-category-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 5px; }
+  .dream-category-btn { padding: 8px 7px; font-size: .59rem; }
+  .dream-active-section h4 { flex-wrap: wrap; }
+  .dream-active-section h4 small { width: 100%; margin-left: 28px; }
   .merchant-hero, .merchant-flirt-intro { grid-template-columns: 44px 1fr; gap: 8px; padding: 10px; }
   .merchant-hero > span, .merchant-flirt-intro > span { width: 42px; height: 42px; font-size: 1.35rem; }
   .merchant-hero h3, .merchant-flirt-intro h3 { font-size: .76rem; }
@@ -3138,6 +3365,10 @@ body:has(.age-gate:not(.age-gate-hidden)) { overflow: hidden; }
   .merchant-item-icon { width: 30px; height: 30px; font-size: 1rem; }
   .merchant-item-info b { font-size: .66rem; }
   .merchant-item-info small { font-size: .51rem; }
+  .merchant-item.rpg-gear-card { grid-template-columns: 40px minmax(0, 1fr) auto; gap: 8px; padding: 10px 9px; }
+  .rpg-gear-card .rpg-gear-icon { width: 38px; height: 38px; }
+  .merchant-item-info .rpg-gear-name, .restr-card .rpg-gear-name { font-size: .76rem; }
+  .rpg-gear-stat { font-size: .56rem; }
   .dream-shop-catalog { grid-template-columns: 1fr; }
   .dream-shop-note { font-size: .55rem; }
   .merchant-offer { grid-template-columns: 32px 1fr; padding: 8px; }

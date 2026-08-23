@@ -45,6 +45,7 @@ window.ShopSystem = (function () {
     ITEMS.consumables.forEach(item => {
       if (item.id === 'twig') return   // 树枝只能由小鹿剧情获得
       if (item.id === 'guard_pass') return   // 免检查卷只能由卫兵任务获得
+      if (['restraint_lock', 'restraint_key', 'master_key', 'lockpick', 'curse_remover', 'petty_soul_gem', 'lesser_soul_gem', 'common_soul_gem'].includes(item.id)) return // 妖缚工具和灵魂石有专属商人
       _stock[item.id] = isRespawnShop ? 99 : 2
     })
 
@@ -229,8 +230,11 @@ window.ShopSystem = (function () {
     const item = ItemLib.get(itemId)
     if (!item) return { ok: false, msg: '物品不存在' }
     if (itemId === 'twig') return { ok: false, msg: '树枝是武器，不能直接使用' }
-    if (itemId === 'restraint_key' || itemId === 'master_key' || itemId === 'lockpick' || itemId === 'curse_remover') {
-      return { ok: false, msg: '钥匙/开锁工具/驱咒符请在妖缚装置页面使用（HUD ⛓️）' }
+    if (itemId === 'restraint_lock' || itemId === 'restraint_key' || itemId === 'master_key' || itemId === 'lockpick' || itemId === 'curse_remover') {
+      return { ok: false, msg: '锁具、钥匙、开锁工具和驱咒符请在妖缚装置页面使用（HUD ⛓️）' }
+    }
+    if (itemId === 'petty_soul_gem' || itemId === 'lesser_soul_gem' || itemId === 'common_soul_gem') {
+      return { ok: false, msg: '请先选择要充能的菊穴或小穴装备' }
     }
 
     // 满血时不能使用治疗类道具（避免浪费）
@@ -245,6 +249,63 @@ window.ShopSystem = (function () {
     return { ok: true, item }
   }
 
+  function isSoulGem (itemId) {
+    return ['petty_soul_gem', 'lesser_soul_gem', 'common_soul_gem'].includes(itemId)
+  }
+
+  /** 使用一颗灵魂石给指定插入装备充能；城镇与野外均可。 */
+  function useSoulGem (itemId, slot) {
+    const state = State.get()
+    const item = ItemLib.get(itemId)
+    if (!item || !isSoulGem(itemId)) return { ok: false, msg: '这不是可用的灵魂石' }
+    if ((state.inventory.consumables[itemId] || 0) <= 0) return { ok: false, msg: '没有该灵魂石' }
+    if (typeof RestraintSystem === 'undefined') return { ok: false, msg: '妖缚装备系统尚未加载' }
+    const entry = RestraintSystem.insertionDevice(slot)
+    const info = RestraintSystem.insertionCharge(slot)
+    if (!entry || !info) return { ok: false, msg: '该部位没有可充能的插入装备' }
+    if (info.current >= info.max) return { ok: false, msg: `${entry.def.name}已经充满` }
+    const power = Math.max(1, Math.floor(Number(item.effect && item.effect.charge) || 1))
+    const added = Math.min(info.max - info.current, power)
+    state.inventory.consumables[itemId]--
+    const result = RestraintSystem.setInsertionCharge(slot, info.current + added)
+    EventBus.emit('ui:log', { text: `💎 使用${item.name}，${RestraintSystem.SLOT_NAMES[slot]}装备恢复 ${added} 点防护充能（${result.current}/${result.max}）。`, type: 'good' })
+    EventBus.emit('state:changed', state)
+    return { ok: true, item, slot, added, current: result.current, max: result.max }
+  }
+
+  /** 弹出部位选择；onDone 只在成功消耗灵魂石后调用。 */
+  function openSoulGemCharge (itemId, onDone, onCancel) {
+    const item = ItemLib.get(itemId)
+    const slots = ['anal', 'vagina'].filter(slot => {
+      const info = typeof RestraintSystem !== 'undefined' ? RestraintSystem.insertionCharge(slot) : null
+      return info && info.current < info.max
+    })
+    if (!item || !isSoulGem(itemId)) return false
+    if (!slots.length) {
+      EventBus.emit('ui:log', { text: '没有需要充能的插入装备，灵魂石未消耗。', type: 'dim' })
+      return false
+    }
+    const cards = slots.map(slot => {
+      const entry = RestraintSystem.insertionDevice(slot)
+      const info = RestraintSystem.insertionCharge(slot)
+      return `<button class="camp-opt" data-soul-slot="${slot}"><i>${RestraintSystem.SLOT_ICONS[slot]}</i><span><b>${entry.def.name}</b><small>${RestraintSystem.SLOT_NAMES[slot]} · 当前 ${info.current}/${info.max}</small></span><em>充能</em></button>`
+    }).join('')
+    Dialog.show({
+      title: `💎 使用${item.name}`,
+      body: `<p class="camp-muted">选择要注入灵魂力量的装备。满充装备不会显示，灵魂石不会被浪费。</p><div class="camp-grid">${cards}</div>`,
+      actions: [{ label: '取消', handler: () => { Dialog.close(); if (onCancel) onCancel() } }],
+    })
+    document.querySelectorAll('[data-soul-slot]').forEach(btn => {
+      btn.onclick = () => {
+        const result = useSoulGem(itemId, btn.dataset.soulSlot)
+        Dialog.close()
+        if (!result.ok) EventBus.emit('ui:log', { text: result.msg, type: 'danger' })
+        else if (onDone) onDone(result)
+      }
+    })
+    return true
+  }
+
   /** 消耗一次 DD 插入装备格挡（菊穴与小穴分别计数）。 */
   function consumeBlockForPart (part) {
     const state = State.get()
@@ -255,6 +316,15 @@ window.ShopSystem = (function () {
         if ((combat.insertionBlocks[slot] || 0) <= 0) return false
         combat.insertionBlocks[slot]--
         combat.blocked = Math.max(0, (combat.insertionBlocks.anal || 0) + (combat.insertionBlocks.vagina || 0))
+        if (!state._insertionCharges || typeof state._insertionCharges !== 'object') state._insertionCharges = {}
+        state._insertionCharges[slot] = combat.insertionBlocks[slot]
+        const entry = typeof RestraintSystem !== 'undefined' ? RestraintSystem.insertionDevice(slot) : null
+        const slotName = slot === 'anal' ? '菊穴' : '小穴'
+        const left = combat.insertionBlocks[slot]
+        EventBus.emit('ui:log', {
+          text: `⚡ ${entry ? entry.def.name : slotName + '插入装备'}消耗 1 点防护充能，剩余 ${left} 点${left <= 0 ? '（已耗尽，请回城充能）' : ''}。`,
+          type: left > 0 ? 'good' : 'dim',
+        })
         return true
       }
       if (part === 'anal' || part === 'vagina') return consumeSlot(part)
@@ -320,5 +390,5 @@ window.ShopSystem = (function () {
     return { ok: true }
   }
 
-  return { open, buy, equip, unequip, close, useConsumable, consumeBlockForPart, getStock, buyClothes, reviveMercenary }
+  return { open, buy, equip, unequip, close, useConsumable, isSoulGem, useSoulGem, openSoulGemCharge, consumeBlockForPart, getStock, buyClothes, reviveMercenary }
 })()
