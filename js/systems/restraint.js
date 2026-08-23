@@ -371,11 +371,14 @@ window.RestraintSystem = (function () {
       const d = get(slot)
       const def = d && defOf(d.id)
       if (!d) {
-        // 空槽：有已拥有的装置则提供重新穿戴
-        const ownedId = ownedIds.find(id => { const od = defOf(id); return od && od.slot === slot })
-        if (ownedId) {
-          const od = defOf(ownedId)
-          return `<div class="restr-card restr-empty"><i>${SLOT_ICONS[slot]}</i><span><b>${SLOT_NAMES[slot]}</b><small>${od.name}（已拥有）</small></span><button class="btn restr-btn" data-act="wear" data-id="${ownedId}">📿 穿戴</button></div>`
+        // 空槽：列出该槽位所有已拥有的装置，可选穿戴
+        const ownedHere = ownedIds.filter(id => { const od = defOf(id); return od && od.slot === slot })
+        if (ownedHere.length) {
+          const wearBtns = ownedHere.map(oid => {
+            const od = defOf(oid)
+            return `<button class="btn restr-btn" data-act="wear" data-id="${oid}">📿 ${od.name}</button>`
+          }).join('')
+          return `<div class="restr-card restr-empty"><i>${SLOT_ICONS[slot]}</i><span><b>${SLOT_NAMES[slot]}</b><small>已拥有 ${ownedHere.map(id => defOf(id).name).join('、')}</small></span><div class="restr-actions">${wearBtns}</div></div>`
         }
         return `<div class="restr-card restr-empty"><i>${SLOT_ICONS[slot]}</i><span><b>${SLOT_NAMES[slot]}</b><small>空</small></span></div>`
       }

@@ -2355,8 +2355,8 @@ window.CampSystem = (function () {
     const state = State.get()
     const devices = (RESTRAINTS || []).filter(r => !r.story)
     const deviceCards = devices.map(r => {
-      const worn = typeof RestraintSystem !== 'undefined' && RestraintSystem.isWorn(r.slot)
-      const owned = worn || (state._ownedRestraints || []).includes(r.id) || (state._prostituteGear && state._prostituteGear[r.id === 'chastity_device' ? 'chastity' : r.id])
+      const wornThis = typeof RestraintSystem !== 'undefined' && RestraintSystem.get(r.slot) && RestraintSystem.get(r.slot).id === r.id
+      const owned = (state._ownedRestraints || []).includes(r.id) || wornThis || (state._prostituteGear && state._prostituteGear[r.id === 'chastity_device' ? 'chastity' : r.id])
       const canBuy = state.gold >= r.price && !owned
       return `<button class="merchant-item${owned ? ' is-owned' : ''}${!owned && !canBuy ? ' is-unaffordable' : ''}" data-restr="${r.id}" ${owned || !canBuy ? 'disabled' : ''}>
         <span class="merchant-item-icon">${typeof RestraintSystem !== 'undefined' ? RestraintSystem.SLOT_ICONS[r.slot] : '⛓️'}</span>

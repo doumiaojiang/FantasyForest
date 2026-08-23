@@ -79,6 +79,7 @@ window.BattleUI = (function () {
       `
       document.getElementById('btn-skip').onclick = () => {
         // 跳过同样消耗 1 回合，眩晕倒计时递减
+        if (typeof RestraintSystem !== 'undefined') RestraintSystem.tickTimers()
         StatusSystem.tickInBattle()
         // 状态伤害（中毒/再生反转）可能致死，统一走死亡流程
         if (State.get().hp <= 0) {
@@ -287,6 +288,8 @@ window.BattleUI = (function () {
     btns.innerHTML = ''
     hint.textContent = '🎲 掷骰中……'
 
+    // 攻击同样消耗 1 回合：定时锁 + 状态计时递减
+    if (typeof RestraintSystem !== 'undefined') RestraintSystem.tickTimers()
     StatusSystem.tickInBattle()
 
     // 状态伤害（中毒/再生反转）可能让玩家死亡，先检查

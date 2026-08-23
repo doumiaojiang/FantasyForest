@@ -411,8 +411,12 @@ window.State = (function () {
           valid[slot] = { ...d, locked: !!d.locked, escapeBonus: Math.max(0, Math.min(30, Math.floor(finite(d.escapeBonus, 0)))), jammed: !!d.jammed }
         }
       })
-      if (state._prisonChastity && !valid.waist) {
-        valid.waist = { id: 'prison_chastity', slot: 'waist', locked: true, lockType: 'story', difficulty: 5, material: 'metal', source: 'prison', escapeBonus: 0, jammed: false }
+      if (state._prisonChastity) {
+        // 在押（含旧档）：腰部一律换成监狱剧情锁，原装置存回 _prisonWaistPrev 出狱还原
+        if (!valid.waist || valid.waist.id !== 'prison_chastity') {
+          state._prisonWaistPrev = valid.waist || null
+          valid.waist = { id: 'prison_chastity', slot: 'waist', locked: true, lockType: 'story', difficulty: 5, material: 'metal', source: 'prison', escapeBonus: 0, jammed: false }
+        }
       }
       // 酒馆贞操笼迁移成腰部普通装置；已购买（含旧档）记录进 ownedRestraints，可重复穿戴
       if ((state._prostituteGear && state._prostituteGear.chastity) && !valid.waist) {
