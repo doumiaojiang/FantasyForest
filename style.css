@@ -3091,6 +3091,15 @@ body:has(.age-gate:not(.age-gate-hidden)) { overflow: hidden; }
   font-size: .61rem;
   line-height: 1.55;
 }
+/* 梦幻商店分类导航 */
+.dream-nav { display: flex; flex-wrap: wrap; gap: 6px; margin: 10px 0 2px; }
+.dream-nav-btn { flex: 1 1 auto; min-width: 0; padding: 8px 10px; border: 1px solid rgba(198, 156, 255, .18); border-radius: 9px; background: rgba(121, 73, 157, .07); color: #b9aabd; font-size: .7rem; font-weight: 700; cursor: pointer; transition: border-color .15s, background .15s, color .15s; }
+.dream-nav-btn:hover { border-color: rgba(205, 155, 255, .45); }
+.dream-nav-btn.is-active { border-color: rgba(205, 155, 255, .65); background: rgba(141, 89, 179, .28); color: #f1e6fb; }
+@media (max-width: 520px) {
+  .dream-nav { gap: 5px; }
+  .dream-nav-btn { flex: 1 1 46%; padding: 9px 6px; font-size: .66rem; }
+}
 .dream-shop-section { margin-top: 13px; }
 .dream-shop-section h4 {
   display: flex;

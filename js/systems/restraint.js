@@ -59,6 +59,17 @@ window.RestraintSystem = (function () {
 
   function allowedSlotsOf (def) { return def && Array.isArray(def.allowedSlots) ? def.allowedSlots : (def ? [def.slot] : []) }
 
+  /** 该装置在当前性别下的最大拥有数（男性一律 1） */
+  function effectiveMaxOwn (def) {
+    const max = def && def.maxOwn ? def.maxOwn : 1
+    return State.get().gender === 'male' ? 1 : max
+  }
+
+  /** 已穿戴在某部位的该装置数量 */
+  function wornCountOf (id) {
+    return SLOT_ORDER.concat(COSMETIC_SLOTS).filter(slot => { const d = get(slot); return d && d.id === id }).length
+  }
+
   /** 检查装置是否能穿到指定部位。 */
   function canEquip (slot, id) {
     const def = defOf(id)
@@ -67,7 +78,10 @@ window.RestraintSystem = (function () {
     const state = State.get()
     if ((def.femaleOnly || slot === 'vagina') && state.gender === 'male') return { ok: false, msg: '男性没有可用的小穴槽位' }
     if (slot === 'vagina' && hasWaistChastity()) return { ok: false, msg: '小穴被贞操装置阻挡，无法插入装备' }
-    if (hasDevice(id)) return { ok: false, msg: `${def.name}已经装备在其他部位` }
+    // 已装备数量小于已拥有数量时，允许同 ID 装备到另一部位（如女性同尺寸 2 根假阳具）
+    if (wornCountOf(id) >= ownedCount(id)) {
+      return { ok: false, msg: wornCountOf(id) > 0 ? `${def.name}已全部穿戴（${wornCountOf(id)}/${ownedCount(id)}）` : `${def.name}已经装备在其他部位` }
+    }
     return { ok: true }
   }
 
@@ -319,24 +333,29 @@ window.RestraintSystem = (function () {
     const def = defOf(id)
     const state = State.get()
     const owned = Array.isArray(state._ownedRestraints) && state._ownedRestraints.includes(id)
-    if (!def || !def.stackable) return (owned || hasDevice(id)) ? 1 : 0
-    state._ownedRestraintCounts = state._ownedRestraintCounts && typeof state._ownedRestraintCounts === 'object' ? state._ownedRestraintCounts : {}
-    const saved = Math.max(0, Math.floor(Number(state._ownedRestraintCounts[id]) || 0))
-    return Math.min(def.maxStack || 99, Math.max((owned || hasDevice(id)) ? 1 : 0, saved))
+    if (!def) return (owned || hasDevice(id)) ? 1 : 0
+    if (def.stackable || (def.maxOwn && def.maxOwn > 1)) {
+      state._ownedRestraintCounts = state._ownedRestraintCounts && typeof state._ownedRestraintCounts === 'object' ? state._ownedRestraintCounts : {}
+      const saved = Math.max(0, Math.floor(Number(state._ownedRestraintCounts[id]) || 0))
+      const max = def.stackable ? (def.maxStack || 99) : effectiveMaxOwn(def)
+      return Math.min(max, Math.max((owned || hasDevice(id)) ? 1 : 0, saved))
+    }
+    return (owned || hasDevice(id)) ? 1 : 0
   }
   function grant (id, amount = 1) {
     const def = defOf(id)
     if (!def || def.story) return { ok: false, msg: '装置不存在或不能获得' }
     const state = State.get()
     state._ownedRestraints = Array.isArray(state._ownedRestraints) ? state._ownedRestraints : []
-    if (def.stackable) {
+    if (def.stackable || (def.maxOwn && def.maxOwn > 1)) {
       state._ownedRestraintCounts = state._ownedRestraintCounts && typeof state._ownedRestraintCounts === 'object' ? state._ownedRestraintCounts : {}
       const before = ownedCount(id)
-      const after = Math.min(def.maxStack || 99, before + Math.max(1, Math.floor(Number(amount) || 1)))
+      const max = def.stackable ? (def.maxStack || 99) : effectiveMaxOwn(def)
+      const after = Math.min(max, before + Math.max(1, Math.floor(Number(amount) || 1)))
       if (!state._ownedRestraints.includes(id)) state._ownedRestraints.push(id)
       state._ownedRestraintCounts[id] = after
       EventBus.emit('state:changed', state)
-      return { ok: true, owned: before >= (def.maxStack || 99), full: after >= (def.maxStack || 99), count: after, added: after - before, def }
+      return { ok: true, owned: before >= max, full: after >= max, count: after, added: after - before, def }
     }
     if (state._ownedRestraints.includes(id) || hasDevice(id)) return { ok: true, owned: true, def }
     state._ownedRestraints.push(id)
@@ -549,8 +568,8 @@ window.RestraintSystem = (function () {
       const d = get(slot)
       const def = d && defOf(d.id)
       if (!d) {
-        // 空槽：列出该槽位所有已拥有的装置，可选穿戴
-        const ownedHere = ownedIds.filter(id => { const od = defOf(id); return od && allowedSlotsOf(od).includes(slot) && !hasDevice(id) })
+        // 空槽：列出该槽位所有已拥有且尚未全部穿戴的装置，可选穿戴
+        const ownedHere = ownedIds.filter(id => { const od = defOf(id); return od && allowedSlotsOf(od).includes(slot) && wornCountOf(id) < ownedCount(id) })
         if (ownedHere.length) {
           const blockedHint = slot === 'vagina' && state.gender === 'male'
             ? '男性不可用'
@@ -558,8 +577,10 @@ window.RestraintSystem = (function () {
           const wearBtns = ownedHere.map(oid => {
             const od = defOf(oid)
             const check = canEquip(slot, oid)
-            const countLabel = od.stackable ? ` ×${ownedCount(oid)}` : ''
-            return `<button class="btn restr-btn" data-act="wear" data-slot="${slot}" data-id="${oid}" ${check.ok ? '' : 'disabled'} title="${check.ok ? `装备到${SLOT_NAMES[slot]}` : check.msg}">📿 ${od.name}${countLabel}${check.ok ? '' : ' · 不可用'}</button>`
+            const countLabel = (od.stackable || (od.maxOwn && od.maxOwn > 1)) ? ` ×${ownedCount(oid)}` : ''
+            const worn = wornCountOf(oid)
+            const multiHint = (od.maxOwn && od.maxOwn > 1 && worn > 0) ? `<small>已装备 ${worn}/${ownedCount(oid)}，可在另一槽位继续装备</small>` : ''
+            return `<button class="btn restr-btn" data-act="wear" data-slot="${slot}" data-id="${oid}" ${check.ok ? '' : 'disabled'} title="${check.ok ? `装备到${SLOT_NAMES[slot]}` : check.msg}">📿 ${od.name}${countLabel}${check.ok ? '' : ' · 不可用'}</button>${multiHint}`
           }).join('')
           return `<div class="restr-card restr-empty has-owned"><i>${SLOT_ICONS[slot]}</i><span><b>${SLOT_NAMES[slot]}</b><small>${blockedHint ? `${blockedHint} · ` : ''}已拥有 ${ownedHere.map(id => defOf(id).name).join('、')}</small></span><div class="restr-actions">${wearBtns}</div></div>`
         }
@@ -593,7 +614,7 @@ window.RestraintSystem = (function () {
       const d = get(slot)
       const def = d && defOf(d.id)
       if (!d) {
-        const ownedHere = ownedIds.filter(id => { const od = defOf(id); return od && od.cosmetic && allowedSlotsOf(od).includes(slot) && !hasDevice(id) })
+        const ownedHere = ownedIds.filter(id => { const od = defOf(id); return od && od.cosmetic && allowedSlotsOf(od).includes(slot) && wornCountOf(id) < ownedCount(id) })
         if (ownedHere.length) {
           const wearBtns = ownedHere.map(oid => {
             const od = defOf(oid)
@@ -655,6 +676,7 @@ window.RestraintSystem = (function () {
     hasGag, hasHandcuffs, hasLegCuffs, hasCollar, hasArmbinder, hasBlindfold, hasWaistChastity, hasHandsBlocked, hasVibrating,
     hasNipple, hasCorset, hasAnkleChains, hasDevice, ownedCount, grant, adjustStack,
     allowedSlotsOf, canEquip, insertionDevice, insertionBlocks, insertionProstituteBonus,
+    effectiveMaxOwn, wornCountOf,
     settings, toggleTrap, removeAllUnlocked, bodyDiagram,
     openManage, openSettings,
   }

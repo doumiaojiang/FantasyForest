@@ -142,9 +142,27 @@ window.RESTRAINTS = [
     effect: 'insert_block',
   },
   {
-    id: 'dildo', name: '双用假阳具', slot: 'anal', allowedSlots: ['anal', 'vagina'], material: 'silicone', price: 150, difficulty: 2,
-    insert: true, sizeCm: 4.0, block: 2, prostituteBonus: 15,
-    desc: '可选择插入菊穴或小穴：每场战斗抵挡对应部位 2 次攻击及其效果；插入类接客 +15G。',
+    id: 'small_dildo', name: '小号假阳具', slot: 'anal', allowedSlots: ['anal', 'vagina'], material: 'silicone', price: 100, difficulty: 1,
+    insert: true, dildo: true, maxOwn: 2, sizeCm: 2.5, block: 1, prostituteBonus: 10,
+    desc: '2.5 cm · 可插入菊穴或小穴：每场抵挡对应部位 1 次攻击；插入类接客 +10G。',
+    effect: 'insert_block',
+  },
+  {
+    id: 'medium_dildo', name: '中号假阳具', slot: 'anal', allowedSlots: ['anal', 'vagina'], material: 'silicone', price: 140, difficulty: 1,
+    insert: true, dildo: true, maxOwn: 2, sizeCm: 3.5, block: 2, prostituteBonus: 15,
+    desc: '3.5 cm · 可插入菊穴或小穴：每场抵挡对应部位 2 次攻击；插入类接客 +15G。',
+    effect: 'insert_block',
+  },
+  {
+    id: 'dildo', name: '大号假阳具', slot: 'anal', allowedSlots: ['anal', 'vagina'], material: 'silicone', price: 180, difficulty: 2,
+    insert: true, dildo: true, maxOwn: 2, sizeCm: 4.2, block: 3, prostituteBonus: 20,
+    desc: '4.2 cm · 可插入菊穴或小穴：每场抵挡对应部位 3 次攻击；插入类接客 +20G。',
+    effect: 'insert_block',
+  },
+  {
+    id: 'giant_dildo', name: '巨型假阳具', slot: 'anal', allowedSlots: ['anal', 'vagina'], material: 'silicone', price: 240, difficulty: 3,
+    insert: true, dildo: true, maxOwn: 2, sizeCm: 5.2, block: 4, prostituteBonus: 30, heavy: true,
+    desc: '5.2 cm · 可插入菊穴或小穴：每场抵挡对应部位 4 次攻击；插入类接客 +30G。',
     effect: 'insert_block',
   },
 ]

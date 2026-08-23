@@ -2584,30 +2584,56 @@ window.CampSystem = (function () {
     })
   }
 
-  /** 梦幻商店（妖缚商行，营地内）：插入类妖缚装备 + 妆容用品 + 媚奴用品 + 束缚装置 + 钥匙/开锁工具 */
+  /** 梦幻商店当前分类 */
+  let ddCat = 'insert'
+
+  /** 梦幻商店（妖缚商行，营地内）：分类导航 + 插入类妖缚装备 + 妆容/媚奴/束缚/解锁工具 */
   function ddShop () {
     const state = State.get()
     const all = (RESTRAINTS || []).filter(r => !r.story && !(r.femaleOnly && state.gender === 'male'))
+    const isMale = state.gender === 'male'
     const itemIcon = r => {
       if (typeof RestraintSystem === 'undefined') return '⛓️'
       return (RestraintSystem.COSMETIC_ICONS && RestraintSystem.COSMETIC_ICONS[r.slot]) || RestraintSystem.SLOT_ICONS[r.slot] || '⛓️'
     }
+    const slotText = slots => slots.map(s => ({ anal: '菊穴', vagina: '小穴' }[s] || s)).join(' / ')
+
+    /** 普通商品卡（妆容/媚奴/束缚） */
     const renderCard = r => {
-      const wornThis = typeof RestraintSystem !== 'undefined' && RestraintSystem.hasDevice(r.id)
       const ownedCount = typeof RestraintSystem !== 'undefined' ? RestraintSystem.ownedCount(r.id) : 0
+      const wornThis = typeof RestraintSystem !== 'undefined' && RestraintSystem.hasDevice(r.id)
       const owned = ownedCount > 0 || (state._ownedRestraints || []).includes(r.id) || wornThis || (state._prostituteGear && state._prostituteGear[r.id === 'chastity_device' ? 'chastity' : r.id])
-      const full = r.stackable ? ownedCount >= (r.maxStack || 99) : owned
+      const full = owned
       const canBuy = state.gold >= r.price && !full
       return `<button class="merchant-item${full ? ' is-owned' : ''}${!full && !canBuy ? ' is-unaffordable' : ''}" data-restr="${r.id}" ${full || !canBuy ? 'disabled' : ''}>
         <span class="merchant-item-icon">${itemIcon(r)}</span>
         <span class="merchant-item-info"><b>${r.name}</b><small>${r.desc}</small></span>
-        <span class="merchant-item-price">${r.stackable ? (full ? `✓ 已有 ${ownedCount}/${r.maxStack}颗` : `<b>${r.price}G/颗</b><small>已有 ${ownedCount}/${r.maxStack} 颗</small>`) : (owned ? '✓ 已拥有' : `<b>${r.price}G</b>`)}</span>
+        <span class="merchant-item-price">${full ? '✓ 已拥有' : canBuy ? `<b>${r.price}G</b>` : '<small>金币不足</small>'}</span>
       </button>`
     }
-    const insertCards = all.filter(r => r.insert).map(renderCard).join('')
+
+    /** 插入用品卡：肛塞/假阳具/震动 */
+    const renderInsertCard = r => {
+      const ownedCount = typeof RestraintSystem !== 'undefined' ? RestraintSystem.ownedCount(r.id) : 0
+      const maxOwn = r.dildo ? RestraintSystem.effectiveMaxOwn(r) : (r.stackable ? (r.maxStack || 99) : 1)
+      const full = ownedCount >= maxOwn
+      const canBuy = state.gold >= r.price && !full
+      const unit = r.dildo ? '根' : (r.stackable ? '颗' : '个')
+      const countText = `${r.dildo ? (isMale ? '男性最多 1 根 · ' : '') : ''}已有 ${ownedCount}/${maxOwn}${unit}`
+      const spec = `<small>${r.sizeCm} cm · ${slotText(r.allowedSlots)} · 抵挡 ${r.block} 次 · 接客 +${r.prostituteBonus}G</small>`
+      return `<button class="merchant-item${full ? ' is-owned' : ''}${!full && !canBuy ? ' is-unaffordable' : ''}" data-restr="${r.id}" ${full || !canBuy ? 'disabled' : ''}>
+        <span class="merchant-item-icon">🍑</span>
+        <span class="merchant-item-info"><b>${r.name}</b>${spec}</span>
+        <span class="merchant-item-price">${full ? '已达上限' : canBuy ? `<b>${r.price}G</b><small>${countText}</small>` : `<small>金币不足</small>`}</span>
+      </button>`
+    }
+
+    const insertPlugs = all.filter(r => r.insert && !r.dildo && !r.vibrate).map(renderInsertCard).join('')
+    const insertDildos = all.filter(r => r.dildo).map(renderInsertCard).join('')
+    const insertVibes = all.filter(r => r.insert && r.vibrate).map(renderInsertCard).join('')
     const cosmeticCards = all.filter(r => r.cosmetic).map(renderCard).join('')
     const buffCards = all.filter(r => r.buff && !r.insert && !r.cosmetic).map(renderCard).join('')
-    const restrCards = all.filter(r => !r.buff && !r.insert).map(renderCard).join('')
+    const restrCards = all.filter(r => !r.buff && !r.insert && !r.cosmetic).map(renderCard).join('')
     const toolCards = [
       { id: 'restraint_key', name: '普通钥匙', price: 200, icon: '🔑', desc: '解开一把普通上锁的妖缚装置' },
       { id: 'master_key', name: '万能钥匙', price: 500, icon: '🗝️', desc: '解开任意非剧情/非诅咒的上锁装置' },
@@ -2619,20 +2645,48 @@ window.CampSystem = (function () {
       return `<button class="merchant-item${!canBuy ? ' is-unaffordable' : ''}" data-tool="${t.id}" ${canBuy ? '' : 'disabled'}>
         <span class="merchant-item-icon">${t.icon}</span>
         <span class="merchant-item-info"><b>${t.name}</b><small>${t.desc}</small></span>
-        <span class="merchant-item-price"><b>${t.price}G</b><small>×${ownedCount}</small></span>
+        <span class="merchant-item-price">${canBuy ? `<b>${t.price}G</b><small>×${ownedCount}</small>` : '<small>金币不足</small>'}</span>
       </button>`
     }).join('')
+
+    const CATS = [
+      { key: 'insert', label: '🍑 插入用品' },
+      { key: 'cosmetic', label: '💄 妆容用品' },
+      { key: 'buff', label: '🎀 媚奴用品' },
+      { key: 'restr', label: '⛓️ 束缚装备' },
+      { key: 'tools', label: '🔑 解锁工具' },
+    ]
+    const navHtml = `<div class="dream-nav">${CATS.map(c => `<button class="dream-nav-btn${ddCat === c.key ? ' is-active' : ''}" data-cat="${c.key}">${c.label}</button>`).join('')}</div>`
+
+    let contentHtml = ''
+    if (ddCat === 'insert') {
+      contentHtml = `<section class="dream-shop-section"><h4><span>🍑</span> 肛塞</h4><div class="merchant-catalog dream-shop-catalog">${insertPlugs || '<p class="camp-muted">无</p>'}</div></section>
+        <section class="dream-shop-section"><h4><span>🍆</span> 普通假阳具</h4><div class="merchant-catalog dream-shop-catalog">${insertDildos || '<p class="camp-muted">无</p>'}</div></section>
+        <section class="dream-shop-section"><h4><span>📳</span> 震动用品</h4><div class="merchant-catalog dream-shop-catalog">${insertVibes || '<p class="camp-muted">无</p>'}</div></section>`
+    } else if (ddCat === 'cosmetic') {
+      contentHtml = `<section class="dream-shop-section"><h4><span>💄</span> 妆容用品 <small>口交加成</small></h4><div class="merchant-catalog dream-shop-catalog">${cosmeticCards || '<p class="camp-muted">无</p>'}</div></section>`
+    } else if (ddCat === 'buff') {
+      contentHtml = `<section class="dream-shop-section"><h4><span>🎀</span> 媚奴用品 <small>接客加成</small></h4><div class="merchant-catalog dream-shop-catalog">${buffCards || '<p class="camp-muted">无</p>'}</div></section>`
+    } else if (ddCat === 'restr') {
+      contentHtml = `<section class="dream-shop-section"><h4><span>⛓️</span> 束缚装备 <small>可自行穿戴</small></h4><div class="merchant-catalog dream-shop-catalog">${restrCards || '<p class="camp-muted">无</p>'}</div></section>`
+    } else {
+      contentHtml = `<section class="dream-shop-section"><h4><span>🔑</span> 解锁工具 <small>消耗品</small></h4><div class="merchant-catalog dream-shop-catalog">${toolCards}</div></section>`
+    }
+
     Dialog.show({
       title: '🔮 梦幻商店 · 妖缚商行', className: 'inventory-modal dream-shop-modal',
-      body: `<section class="merchant-hero dream-shop-hero"><span aria-hidden="true">🔮</span><div><small>DREAM EMPORIUM · 妖缚商行</small><h3>“梦里的好东西，我这都有。”</h3><p>营地深处的神秘商行，插入装备、皮绳、锁具、媚奴用品与钥匙一应俱全。</p></div></section>
+      body: `<section class="merchant-hero dream-shop-hero"><span aria-hidden="true">🔮</span><div><small>DREAM EMPORIUM · 妖缚商行</small><h3>“梦里的好东西，我这都有。”</h3><p>营地深处的神秘商行，插入类妖缚装备、妆容、媚奴用品与钥匙一应俱全。</p></div></section>
         <div class="merchant-stats"><span>💎 ${state.gold}G</span><span>⛓️ 已锁 ${typeof RestraintSystem !== 'undefined' ? RestraintSystem.countLocked() : 0} 件</span><span>💰 战斗金币加成 ${typeof RestraintSystem !== 'undefined' ? Math.round(RestraintSystem.goldBonus() * 100) : 0}%</span></div>
-        <p class="dream-shop-note">插入类妖缚装备和媚奴用品都归入妖缚装备栏，可自由穿脱并提供接客加成；小穴被贞操装置封住时不能插入装备。</p>
-        <section class="dream-shop-section"><h4><span>🍑</span> 插入类妖缚装备 <small>格挡攻击 · 接客加成</small></h4><div class="merchant-catalog dream-shop-catalog">${insertCards}</div></section>
-        ${cosmeticCards ? `<section class="dream-shop-section"><h4><span>💄</span> 妆容用品 <small>口交加成</small></h4><div class="merchant-catalog dream-shop-catalog">${cosmeticCards}</div></section>` : ''}
-        ${buffCards ? `<section class="dream-shop-section"><h4><span>💄</span> 媚奴用品 <small>接客加成</small></h4><div class="merchant-catalog dream-shop-catalog">${buffCards}</div></section>` : ''}
-        ${restrCards ? `<section class="dream-shop-section"><h4><span>⛓️</span> 束缚装置 <small>可自行穿戴</small></h4><div class="merchant-catalog dream-shop-catalog">${restrCards}</div></section>` : ''}
-        <section class="dream-shop-section"><h4><span>🔑</span> 解锁工具 <small>消耗品</small></h4><div class="merchant-catalog dream-shop-catalog">${toolCards}</div></section>`,
+        ${navHtml}
+        ${contentHtml}`,
       actions: [{ label: '返回营地', handler: () => { Dialog.close(); open() } }],
+    })
+    document.querySelectorAll('[data-cat]').forEach(btn => {
+      btn.onclick = () => {
+        ddCat = btn.dataset.cat
+        Dialog.close()
+        ddShop()
+      }
     })
     document.querySelectorAll('[data-restr]').forEach(btn => {
       btn.onclick = () => {
@@ -2640,20 +2694,25 @@ window.CampSystem = (function () {
         const def = RESTRAINTS.find(r => r.id === id)
         if (!def) return
         if (state.gold < def.price) return
-        if (def.stackable && RestraintSystem.ownedCount(def.id) >= (def.maxStack || 99)) return
+        if (def.stackable || (def.maxOwn && def.maxOwn > 1)) {
+          if (RestraintSystem.ownedCount(def.id) >= (def.stackable ? (def.maxStack || 99) : RestraintSystem.effectiveMaxOwn(def))) return
+        } else if (RestraintSystem.ownedCount(def.id) > 0) return
         state.gold -= def.price
         const grantResult = RestraintSystem.grant(def.id, 1)
         const possibleSlots = typeof RestraintSystem !== 'undefined'
           ? RestraintSystem.allowedSlotsOf(def).filter(slot => !RestraintSystem.get(slot) && RestraintSystem.canEquip(slot, def.id).ok)
           : []
-        // 单一可用槽位直接穿戴；双用假阳具有多个选择时留在装备栏由玩家决定。
+        // 单一可用槽位直接穿戴；多可用槽位（如假阳具菊穴+小穴）留在装备栏由玩家决定。
         const equipResult = possibleSlots.length === 1
           ? RestraintSystem.equip(possibleSlots[0], def.id, { locked: false, source: 'dream_shop' })
           : null
         const equipped = !!(equipResult && equipResult.ok)
+        const isDildo = !!def.dildo
         const logText = def.stackable
           ? (equipped ? `🔮 你买下并塞入了 1 颗${def.name}。` : `🔮 你买下了 1 颗${def.name}（现有 ${grantResult.count} 颗）；可在妖缚装备栏调整塞入数量。`)
-          : (equipped ? `🔮 你买下并戴上了${def.name}（已拥有，可随时脱下重穿）。` : `🔮 你买下了${def.name}；可在妖缚装备栏中选择可用部位穿戴。`)
+          : isDildo
+            ? (equipped ? `🔮 你买下并戴上了${def.name}（${grantResult.count}/${RestraintSystem.effectiveMaxOwn(def)} 根）。` : `🔮 你买下了${def.name}（${grantResult.count}/${RestraintSystem.effectiveMaxOwn(def)} 根）；可在妖缚装备栏选择菊穴/小穴穿戴。`)
+            : (equipped ? `🔮 你买下并戴上了${def.name}（已拥有，可随时脱下重穿）。` : `🔮 你买下了${def.name}；可在妖缚装备栏中选择可用部位穿戴。`)
         EventBus.emit('ui:log', { text: logText, type: 'good' })
         EventBus.emit('state:changed', state)
         ddShop()
