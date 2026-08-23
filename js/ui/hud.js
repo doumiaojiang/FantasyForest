@@ -102,7 +102,7 @@ function render (state) {
     // 妖缚装置入口
     // 妖缚装置入口（常驻，点了开装备栏/设置）
     const restrChip = (typeof RestraintSystem !== 'undefined')
-      ? `<span class="status-chip restr-chip active" title="妖缚装置：点击打开装备栏与设置">⛓️ 妖缚 ${RestraintSystem.countWorn()}</span>`
+      ? `<span class="status-chip restr-chip active" title="妖缚装置：点击打开装备栏与设置" id="hud-restr">⛓️ 妖缚 ${RestraintSystem.countWorn()}</span>`
       : ''
     statusEl.innerHTML = wantedChip + restrChip + state.statuses.map(s => {
       const def = STATUS_EFFECTS[s.id]
