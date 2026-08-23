@@ -91,6 +91,7 @@ window.State = (function () {
       _prisonChastity: false,           // 是否佩戴监狱专用贞操带/贞操锁（false/true）
       _wanted: false,                   // 越狱后是否处于通缉状态（守卫/队长会查你）
       _teleports: ['camp'],             // 已激活的传送阵 id 列表（营地始终激活）
+      _restraints: {},                  // 妖缚装置 { slot: { id, locked, lockType, difficulty, material, source, escapeBonus, jammed } }
       _freeMeatBrand: false,            // 大腿上"免费肉便器"烙印（铁匠解锁后永久）
       _blacksmithContract: false,       // 与铁匠签的契约：每次进铺子要先服务
       _gloryDiscovered: false,          // 是否已发现荣耀洞（调查隔间后）
@@ -396,6 +397,26 @@ window.State = (function () {
       if (!state._teleports.includes('camp')) state._teleports.unshift('camp')
     } else {
       state._teleports = ['camp']
+    }
+    // 妖缚装置迁移：监狱贞操锁 / 酒馆贞操装置并入腰部槽
+    if (typeof window.RESTRAINTS !== 'undefined') {
+      const r = state._restraints && typeof state._restraints === 'object' && !Array.isArray(state._restraints) ? state._restraints : {}
+      const valid = {}
+      Object.keys(r).forEach(slot => {
+        const d = r[slot]
+        if (d && d.id && RESTRAINTS.some(x => x.id === d.id && x.slot === slot)) {
+          valid[slot] = { ...d, locked: !!d.locked, escapeBonus: Math.max(0, Math.min(30, Math.floor(finite(d.escapeBonus, 0)))), jammed: !!d.jammed }
+        }
+      })
+      if (state._prisonChastity && !valid.waist) {
+        valid.waist = { id: 'prison_chastity', slot: 'waist', locked: true, lockType: 'story', difficulty: 5, material: 'metal', source: 'prison', escapeBonus: 0, jammed: false }
+      }
+      if ((state._prostituteGear && state._prostituteGear.chastity) && !valid.waist) {
+        valid.waist = { id: 'chastity_device', slot: 'waist', locked: false, lockType: 'common', difficulty: 3, material: 'metal', source: 'tavern', escapeBonus: 0, jammed: false }
+      }
+      state._restraints = valid
+    } else {
+      state._restraints = {}
     }
     state._freeMeatBrand = !!state._freeMeatBrand
     state._blacksmithContract = !!state._blacksmithContract

@@ -83,6 +83,20 @@ window.TrapSystem = {
     }
 
     EventBus.emit('state:changed', state)
+
+    // 妖缚：森林陷阱有概率锁上一件普通装置（同一时间最多一件上锁）
+    if (typeof RestraintSystem !== 'undefined' && RestraintSystem.countLocked() === 0 && RestraintSystem.countWorn() < 5 && Math.random() < 0.3) {
+      const pool = RESTRAINTS.filter(r => !r.story)
+      const pick = pool[Math.floor(Math.random() * pool.length)]
+      if (!RestraintSystem.isWorn(pick.slot)) {
+        const res = RestraintSystem.equip(pick.slot, pick.id, { locked: true, source: 'forest_trap' })
+        if (res.ok) {
+          resultText += `<br>⛓️ 陷阱机关猛地收紧——你被<b>${pick.name}</b>锁住了！用钥匙、挣扎或找铁匠解开它。`
+          resultTone = 'danger'
+        }
+      }
+    }
+
     await TrapSystem.showResult(trap, z, resultText, resultTone)
     state.phase = 'idle'
     EventBus.emit('state:changed', state)

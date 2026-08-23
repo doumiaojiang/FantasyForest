@@ -341,6 +341,13 @@ window.BattleUI = (function () {
 
     EventBus.emit('ui:log', { text: `[${_enemy.name}] ${effAttack.desc}`, type: 'danger' })
 
+    // 口塞：口交/深喉类攻击做不了，硬挨一记（单倍伤害，不翻倍）
+    if (typeof RestraintSystem !== 'undefined' && RestraintSystem.hasGag() && /口交|深喉|吞吐|口穴|嘴穴/.test(effAttack.desc)) {
+      EventBus.emit('ui:log', { text: '🤐 口塞堵着嘴，你没法完成口交任务，硬挨了一记（单倍伤害）。', type: 'danger' })
+      applyEnemyDamage(false)
+      return
+    }
+
     // 哥布林深插：每只哥布林各干 15 秒（120 BPM）
     if (attack.special === 'goblin_deep') {
       const gobCount = State.get()._battle.targets.filter(t => t.type === 'goblin').length
@@ -815,18 +822,23 @@ window.BattleUI = (function () {
       return sum + (target.type === 'boss-minion' ? (target.dmgPerTurn || 0) : 0)
     }, 0)
 
+    // 口塞：口交/深喉类召唤攻击做不了，硬挨一记（单倍伤害）
+    const gaggedOral = typeof RestraintSystem !== 'undefined' && RestraintSystem.hasGag() && /口交|深喉|吞吐|口穴|嘴穴/.test(effAttack.desc)
+
     // 任务弹窗
-    const failed = await showTaskDialog({
-      enemyName: `🌲 ${summoned.name}`,
-      attackName: attack.name,
-      desc: attack.desc,
-      bpm,
-      seconds,
-      dmg: previewMainDmg + previewMinionDmg,
-      status: attack.status,
-      statusTurns: attack.turns ? attack.turns * 2 : 0,
-      dildoName: DildoSystem.describe(summoned.id),
-    })
+    const failed = gaggedOral
+      ? (() => { EventBus.emit('ui:log', { text: '🤐 口塞堵着嘴，你没法完成口交任务，硬挨了召唤攻击（单倍伤害）。', type: 'danger' }); return false })()
+      : await showTaskDialog({
+          enemyName: `🌲 ${summoned.name}`,
+          attackName: attack.name,
+          desc: attack.desc,
+          bpm,
+          seconds,
+          dmg: previewMainDmg + previewMinionDmg,
+          status: attack.status,
+          statusTurns: attack.turns ? attack.turns * 2 : 0,
+          dildoName: DildoSystem.describe(summoned.id),
+        })
 
     // 结算（BOSS规则）
     let mainDmg = previewMainDmg
@@ -1158,13 +1170,19 @@ window.BattleUI = (function () {
 
   function showItemMenu () {
     const state = State.get()
+    // 手铐：双手被铐住，无法使用物品
+    if (typeof RestraintSystem !== 'undefined' && RestraintSystem.hasHandcuffs()) {
+      EventBus.emit('ui:log', { text: '⛓️ 手铐锁着你的双手，够不到背包里的东西！', type: 'danger' })
+      showPlayerTurn()
+      return
+    }
     // 本回合已用 1 个物品：只允许"取下巨肛塞"（塞入的巨肛塞可随时取回），禁止再用其他道具
     if (state._battle && state._battle.itemUsedThisTurn && !state._plugActive) {
       EventBus.emit('ui:log', { text: '本回合已经使用过 1 个物品，下次再战！', type: 'dim' })
       return
     }
     const items = Object.entries(state.inventory.consumables)
-      .filter(([id, v]) => v > 0 && id !== 'weapon_upgrade_material' && id !== 'twig')
+      .filter(([id, v]) => v > 0 && id !== 'weapon_upgrade_material' && id !== 'twig' && id !== 'restraint_key' && id !== 'master_key' && id !== 'lockpick')
     // 已用 1 个物品时：清空可用道具，只保留取下巨肛塞入口
     const usableItems = state._battle && state._battle.itemUsedThisTurn ? [] : items
     // 无可用道具且未塞巨肛塞 → 无需打开菜单

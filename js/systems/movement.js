@@ -224,8 +224,13 @@ window.AmbushSystem = {
       }
       EventBus.emit('ui:log', { text: `🌫️ ${enemy.name} 突袭并使用「${effAttack.name}」！`, type: 'danger' })
 
-      // 显示攻击任务
-      await AmbushSystem.showTask(enemy, effAttack)
+      // 显示攻击任务（口塞下口交类做不了，硬挨一记）
+      const gaggedOral = typeof RestraintSystem !== 'undefined' && RestraintSystem.hasGag() && /口交|深喉|吞吐|口穴|嘴穴/.test(effAttack.desc)
+      if (gaggedOral) {
+        EventBus.emit('ui:log', { text: '🤐 口塞堵着嘴，你做不了口交任务，硬挨了伏击攻击（单倍伤害）。', type: 'danger' })
+      } else {
+        await AmbushSystem.showTask(enemy, effAttack)
+      }
 
       // 伏击怪物只执行本轮一次攻击，不进入普通战斗，也不保留 HP。
       let damage = effAttack.dmg || 0

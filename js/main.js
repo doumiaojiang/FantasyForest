@@ -1100,6 +1100,12 @@
     let steps = MovementSystem.rollStep()
     let injuredDmg = 0
 
+    // 脚镣：移动步数 -1（最低 1 格）
+    if (typeof RestraintSystem !== 'undefined' && RestraintSystem.hasLegCuffs() && steps > 1) {
+      steps = Math.max(1, steps - 1)
+      EventBus.emit('ui:log', { text: '🦶 脚镣拖着你的步子，只挪动了一截（步数 -1）。', type: 'danger' })
+    }
+
     // 受伤状态：移动减速 + 扣血
     if (StatusSystem.has('injured')) {
       const injuredEffect = state.statuses.find(s => s.id === 'injured')

@@ -33,6 +33,16 @@ window.LootSystem = (function () {
     // 贪婪恶魔翻倍
     if (StatusSystem.has('greed_demon')) result.gold *= 2
 
+    // 妖缚：上锁装置金币加成（每件 +5%，上限 +30%）
+    if (typeof RestraintSystem !== 'undefined') {
+      const bonus = RestraintSystem.goldBonus()
+      if (bonus > 0) {
+        const add = Math.floor(result.gold * bonus)
+        result.gold += add
+        EventBus.emit('ui:log', { text: `⛓️ 妖缚装置让战利品多了 ${add}G（+${Math.round(bonus * 100)}%）。`, type: 'good' })
+      }
+    }
+
     state.gold += result.gold
 
     // 掷 Z 额外掉落（魅魔已触发过临死反击则重掷 4；外部传入 rollOverride 时共用结果）

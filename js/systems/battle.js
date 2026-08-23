@@ -383,6 +383,11 @@ window.AttackResolver = {
 
     let dmg = Math.round(baseDmg * mult)
 
+    // 手铐：武器伤害降低
+    if (mult > 0 && typeof RestraintSystem !== 'undefined' && RestraintSystem.hasHandcuffs()) {
+      dmg = Math.max(1, Math.round(dmg * 0.7))
+    }
+
     // 力量宝珠：只在命中时附加武器基础伤害（未命中不造成伤害）
     if (battle.orbBoost && mult > 0) { dmg += baseDmg; battle.orbBoost = false }
     if (battle.orbBoost && mult === 0) battle.orbBoost = false   // 未命中：宝珠消耗但不生效

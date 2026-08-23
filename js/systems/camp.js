@@ -261,9 +261,22 @@ window.CampSystem = (function () {
           }
         } }])
     } else if (r < 60) {
-      // 放行
-      guardMsg('🛡️ 卫兵拦住你', '<div class="glory-section"><h3><span>“啊，老熟人了，过去吧。”</span><small>卫兵挥挥手放行</small></h3></div>',
-        [{ label: '出城', cls: 'btn-primary', handler: () => { Dialog.close(); doLeaveCamp() } }])
+      // 放行（佩戴奴隶项圈则被当成奴畜盘查）
+      if (typeof RestraintSystem !== 'undefined' && RestraintSystem.hasCollar()) {
+        guardMsg('🛡️ 卫兵拦住你', `<div class="glory-section"><h3><span>“项圈？哪家的奴畜也敢到处跑。”</span><small>卫兵拽了拽你脖子上的项圈，一脸戏谑</small></h3>
+          <p class="camp-muted">“想过去？交 <b>50G</b> 贡品，或者跪下来把老子伺候舒坦了。”</p></div>`,
+          [
+            ...(state.gold >= 50 ? [{ label: '💸 交 50G 贡品', cls: 'btn-primary', handler: () => {
+              state.gold -= 50
+              EventBus.emit('ui:log', { text: '🐕 交了 50G 贡品，卫兵牵着项圈放你出城。', type: 'danger' })
+              EventBus.emit('state:changed', state); Dialog.close(); doLeaveCamp()
+            } }] : []),
+            { label: '👄 服务卫兵', cls: 'btn-danger', handler: () => { Dialog.close(); guardBlowjob() } },
+          ])
+      } else {
+        guardMsg('🛡️ 卫兵拦住你', '<div class="glory-section"><h3><span>“啊，老熟人了，过去吧。”</span><small>卫兵挥挥手放行</small></h3></div>',
+          [{ label: '出城', cls: 'btn-primary', handler: () => { Dialog.close(); doLeaveCamp() } }])
+      }
     } else if (r < 65) {
       // 没收衣服 → 全裸
       guardMsg('🛡️ 卫兵拦住你', `<div class="glory-section"><h3><span>“${state.gender === 'male' ? '男雌婊也敢穿这么少出城？' : '妓女也敢穿这么少出城？'}衣服留下！”</span><small>卫兵一把扯下你的衣服</small></h3>
@@ -796,8 +809,11 @@ window.CampSystem = (function () {
     state._wanted = false   // 已被收监，不再通缉
     state.phase = 'camp'
     EventBus.emit('state:changed', state)
-    // 监狱专用贞操带/贞操锁：小穴被锁死（作为装备）
+    // 监狱专用贞操带/贞操锁：小穴被锁死（作为装备 + 妖缚腰部槽剧情锁）
     state._prisonChastity = true
+    if (typeof RestraintSystem !== 'undefined' && !RestraintSystem.isWorn('waist')) {
+      RestraintSystem.equip('waist', 'prison_chastity', { locked: true, lockType: 'story', difficulty: 5, source: 'prison' })
+    }
     if (!StatusSystem.has('chastity')) StatusSystem.apply('chastity', 99999)
     const target = prisonTarget()
     campShow({
@@ -850,11 +866,12 @@ window.CampSystem = (function () {
     })
   }
 
-  /** 越狱：25% 成功率；失败累积惩罚，第 3 次永久监禁 */
+  /** 越狱：25% 成功率（佩戴奴隶项圈 -10%）；失败累积惩罚，第 3 次永久监禁 */
   function prisonEscape () {
     const state = State.get()
+    const threshold = 25 - (typeof RestraintSystem !== 'undefined' && RestraintSystem.hasCollar() ? 10 : 0)
     const roll = Math.floor(Math.random() * 100)
-    if (roll < 25) {
+    if (roll < threshold) {
       // 成功越狱：出狱但贞操锁不解开，且成为通缉犯
       state._inPrison = false
       state._prisonPoints = 0
@@ -1207,6 +1224,10 @@ window.CampSystem = (function () {
     state._prisonEscapeFails = 0
     state._prisonEscapePenalty = 0
     state._prisonChastity = false   // 正常出狱：解锁监狱贞操装备
+    if (typeof RestraintSystem !== 'undefined') {
+      const waist = RestraintSystem.get('waist')
+      if (waist && waist.id === 'prison_chastity') RestraintSystem.remove('waist')
+    }
     if (StatusSystem.has('chastity')) StatusSystem.remove('chastity')
     EventBus.emit('state:changed', state)
     campShow({
@@ -1610,6 +1631,7 @@ window.CampSystem = (function () {
         <div class="camp-grid">
           <button class="camp-opt" data-bs="buy"><i>🛒</i><span><b>商店</b><small>武器与饰品</small></span><em>进店</em></button>
           <button class="camp-opt" data-bs="chat"><i>💬</i><span><b>聊天</b><small>听铁匠唠唠</small></span><em>搭话</em></button>
+          ${(typeof RestraintSystem !== 'undefined' && RestraintSystem.countLocked() > 0) ? `<button class="camp-opt" data-bs="unlockrestr"><i>⛓️</i><span><b>解开妖缚装置</b><small>付费开锁，金属装置也能拆</small></span><em>${RestraintSystem.countLocked()} 件</em></button>` : ''}
           ${state._prisonChastity ? `<button class="camp-opt" data-bs="unlock"><i>🔓</i><span><b>解锁监狱贞操装备</b><small>求铁匠打开你身上的锁</small></span><em>求解锁</em></button>` : ''}
         </div>`,
       actions: [{ label: '返回营地', handler: () => { Dialog.close(); open() } }],
@@ -1620,7 +1642,39 @@ window.CampSystem = (function () {
         Dialog.close()
         if (opt === 'buy') blacksmithBuy()
         else if (opt === 'chat') blacksmithChat()
+        else if (opt === 'unlockrestr') blacksmithUnlockRestraint()
         else if (opt === 'unlock') blacksmithUnlock()
+      }
+    })
+  }
+
+  /** 铁匠付费开锁：为妖缚装置开锁（金属也能拆，卡死装置收费更高） */
+  function blacksmithUnlockRestraint () {
+    const state = State.get()
+    const locked = (typeof RestraintSystem !== 'undefined' ? RestraintSystem.SLOT_ORDER : []).filter(slot => RestraintSystem.isLocked(slot))
+    const cards = locked.length
+      ? locked.map(slot => {
+        const d = RestraintSystem.get(slot)
+        const def = RestraintSystem.defOf(d.id)
+        const cost = d.jammed ? RestraintSystem.npcUnlockCost(slot) * 2 : RestraintSystem.npcUnlockCost(slot)
+        const canPay = state.gold >= cost
+        return `<button class="camp-opt camp-opt-teleport" data-ul="${slot}" ${canPay ? '' : 'disabled'}>
+          <i>${RestraintSystem.SLOT_ICONS[slot]}</i><span><b>${def.name}</b><small>${RestraintSystem.SLOT_NAMES[slot]} · ${d.jammed ? '卡死（双倍收费）' : '上锁'}</small></span><em>${canPay ? `${cost}G` : '钱不够'}</em></button>`
+      }).join('')
+      : '<p class="camp-muted">你身上没有上锁的妖缚装置。</p>'
+    campShow({
+      title: '⛓️ 铁匠 · 开锁', className: 'blacksmith-modal',
+      body: `<div class="camp-character"><i>🔨</i><div><b>“锁在身上的玩意儿？我拆得动。”</b><p>铁匠抄起钳子和锤子："金属的我也能开，卡死的翻倍收费。"</p></div></div>
+        <div class="camp-grid">${cards}</div>`,
+      actions: [{ label: '返回铁匠', handler: () => { Dialog.close(); blacksmithShop() } }],
+    })
+    document.querySelectorAll('[data-ul]').forEach(btn => {
+      btn.onclick = () => {
+        const slot = btn.dataset.ul
+        const result = RestraintSystem.npcUnlock(slot)
+        if (result && !result.ok) EventBus.emit('ui:log', { text: result.msg, type: 'danger' })
+        EventBus.emit('state:changed', state)
+        blacksmithUnlockRestraint()
       }
     })
   }
@@ -1708,6 +1762,10 @@ window.CampSystem = (function () {
     // 服务完成：签订契约 + 解锁
     state.gold -= 500
     state._prisonChastity = false
+    if (typeof RestraintSystem !== 'undefined') {
+      const waist = RestraintSystem.get('waist')
+      if (waist && waist.id === 'prison_chastity') RestraintSystem.remove('waist')
+    }
     state._freeMeatBrand = true
     state._blacksmithContract = true   // 永久契约：以后每次进铺子都要先服务
     if (StatusSystem.has('chastity')) StatusSystem.remove('chastity')
@@ -2268,6 +2326,7 @@ window.CampSystem = (function () {
         <div class="camp-grid">
           <button class="camp-opt" data-tavern="drink"><i>🍷</i><span><b>买酒</b><small>喝完有劲也有代价</small></span><em>开喝</em></button>
           <button class="camp-opt" data-tavern="chat"><i>💬</i><span><b>聊天</b><small>听老板娘说些有的没的</small></span><em>${workUnlocked ? '熟络' : '搭话'}</em></button>
+          <button class="camp-opt camp-opt-teleport" data-tavern="restraints"><i>⛓️</i><span><b>妖缚器具</b><small>项圈/口塞/手铐/脚镣/贞操装置 + 开锁工具</small></span><em>出售</em></button>
           ${workBtn}
         </div>`,
       actions: [{ label: '返回酒馆', handler: () => { Dialog.close(); renderTavern() } }],
@@ -2278,7 +2337,71 @@ window.CampSystem = (function () {
         Dialog.close()
         if (opt === 'drink') tavernDrink()
         else if (opt === 'chat') barkeepChat()
+        else if (opt === 'restraints') barkeepRestraints()
         else if (opt === 'work') tavernWork()
+      }
+    })
+  }
+
+  /** 妖缚器具商店：出售普通装置 + 钥匙/开锁工具 */
+  function barkeepRestraints () {
+    const state = State.get()
+    const devices = (RESTRAINTS || []).filter(r => !r.story)
+    const deviceCards = devices.map(r => {
+      const worn = typeof RestraintSystem !== 'undefined' && RestraintSystem.isWorn(r.slot)
+      const owned = worn || (state._prostituteGear && state._prostituteGear[r.id === 'chastity_device' ? 'chastity' : r.id])
+      const canBuy = state.gold >= r.price && !owned
+      return `<button class="merchant-item${owned ? ' is-owned' : ''}${!owned && !canBuy ? ' is-unaffordable' : ''}" data-restr="${r.id}" ${owned || !canBuy ? 'disabled' : ''}>
+        <span class="merchant-item-icon">${r.effect === 'chastity' ? '🔒' : r.effect === 'gag' ? '🤐' : r.effect === 'collar' ? '🐕' : r.effect === 'handcuffs' ? '⛓️' : '🦶'}</span>
+        <span class="merchant-item-info"><b>${r.name}</b><small>${r.desc}</small></span>
+        <span class="merchant-item-price">${owned ? '✓ 已拥有' : `<b>${r.price}G</b>`}</span>
+      </button>`
+    }).join('')
+    const toolCards = [
+      { id: 'restraint_key', name: '普通钥匙', price: 200, icon: '🔑', desc: '解开一把普通上锁的妖缚装置' },
+      { id: 'master_key', name: '万能钥匙', price: 500, icon: '🗝️', desc: '解开任意非剧情的上锁装置' },
+      { id: 'lockpick', name: '开锁工具', price: 150, icon: '🛠️', desc: '60% 概率撬开一把普通上锁的装置，失败则损耗' },
+    ].map(t => {
+      const ownedCount = state.inventory.consumables[t.id] || 0
+      const canBuy = state.gold >= t.price
+      return `<button class="merchant-item${!canBuy ? ' is-unaffordable' : ''}" data-tool="${t.id}" ${canBuy ? '' : 'disabled'}>
+        <span class="merchant-item-icon">${t.icon}</span>
+        <span class="merchant-item-info"><b>${t.name}</b><small>${t.desc}</small></span>
+        <span class="merchant-item-price"><b>${t.price}G</b><small>×${ownedCount}</small></span>
+      </button>`
+    }).join('')
+    campShow({
+      title: '⛓️ 妖缚器具 · 吧台货箱', className: 'tavern-merchant-modal',
+      body: `<section class="merchant-hero"><span aria-hidden="true">⛓️</span><div><small>RESTRAINT SUPPLIER · 吧台暗格</small><h3>“稀奇物件，我这都有。”</h3><p>老板娘掀开吧台下的暗格，皮绳、锁具、钥匙叮当作响。</p></div></section>
+        <div class="merchant-stats"><span>💎 ${state.gold}G</span><span>⛓️ 已锁 ${typeof RestraintSystem !== 'undefined' ? RestraintSystem.countLocked() : 0} 件</span><span>💰 战斗金币加成 ${typeof RestraintSystem !== 'undefined' ? Math.round(RestraintSystem.goldBonus() * 100) : 0}%</span></div>
+        <p class="work-footnote">以下为可自行穿戴的普通装置（可随时脱下）；被怪物/陷阱上锁的不在此列。</p>
+        <div class="merchant-catalog">${deviceCards}</div>
+        <div class="merchant-catalog">${toolCards}</div>`,
+      actions: [{ label: '返回老板娘', handler: () => { Dialog.close(); tavernBarkeep() } }],
+    })
+    document.querySelectorAll('[data-restr]').forEach(btn => {
+      btn.onclick = () => {
+        const id = btn.dataset.restr
+        const def = RESTRAINTS.find(r => r.id === id)
+        if (!def) return
+        if (state.gold < def.price) return
+        state.gold -= def.price
+        if (typeof RestraintSystem !== 'undefined') RestraintSystem.equip(def.slot, def.id, { locked: false, source: 'tavern' })
+        EventBus.emit('ui:log', { text: `⛓️ 你主动戴上了${def.name}（可随时脱下）。`, type: 'good' })
+        EventBus.emit('state:changed', state)
+        barkeepRestraints()
+      }
+    })
+    document.querySelectorAll('[data-tool]').forEach(btn => {
+      btn.onclick = () => {
+        const id = btn.dataset.tool
+        const tool = { restraint_key: { name: '普通钥匙', price: 200 }, master_key: { name: '万能钥匙', price: 500 }, lockpick: { name: '开锁工具', price: 150 } }[id]
+        if (!tool || state.gold < tool.price) return
+        state.gold -= tool.price
+        state.inventory.consumables[id] = (state.inventory.consumables[id] || 0) + 1
+        EventBus.emit('ui:log', { text: `🔑 买下${tool.name}。`, type: 'good' })
+        EventBus.emit('state:changed', state)
+        barkeepRestraints()
       }
     })
   }

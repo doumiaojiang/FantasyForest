@@ -99,7 +99,11 @@ function render (state) {
     const wantedChip = state._wanted
       ? '<span class="status-chip active" title="通缉：越狱在逃，出城会被卫兵查，找队长会被抓">⚠️ 通缉</span>'
       : ''
-    statusEl.innerHTML = wantedChip + state.statuses.map(s => {
+    // 妖缚装置入口
+    const restrChip = (typeof RestraintSystem !== 'undefined' && RestraintSystem.countWorn() > 0)
+      ? `<span class="status-chip restr-chip active" title="妖缚装置：点击管理">⛓️ 妖缚 ${RestraintSystem.countWorn()}</span>`
+      : ''
+    statusEl.innerHTML = wantedChip + restrChip + state.statuses.map(s => {
       const def = STATUS_EFFECTS[s.id]
       const icon = def ? def.icon : '❓'
       const name = def ? def.name : s.id
@@ -108,6 +112,10 @@ function render (state) {
       const level = s.level ? ` Lv${s.level}` : ''
       return `<span class="status-chip active" title="${name}: ${desc} (剩余 ${turns} 回合${level})">${icon} ${name} (${turns})${level}</span>`
     }).join('')
+
+    // 妖缚入口点击
+    const restrEl = document.getElementById('hud-restr')
+    if (restrEl) restrEl.onclick = () => RestraintSystem.openManage()
 
     // 佣兵（主角下方）
     if (mercenaryEl) {

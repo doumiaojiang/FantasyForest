@@ -94,6 +94,21 @@ window.ITEMS = {
       desc: '卫兵给的通行凭据，出城时免于卫兵检查，直接放行',
       effect: { special: 'guard_pass' },
     },
+    {
+      id: 'restraint_key', name: '普通钥匙', type: 'consumable', price: 200,
+      desc: '解开一把普通上锁的妖缚装置（剧情锁无效）',
+      effect: { special: 'restraint_key' },
+    },
+    {
+      id: 'master_key', name: '万能钥匙', type: 'consumable', price: 500,
+      desc: '解开任意非剧情的上锁妖缚装置',
+      effect: { special: 'master_key' },
+    },
+    {
+      id: 'lockpick', name: '开锁工具', type: 'consumable', price: 150,
+      desc: '60% 概率解开一把普通上锁的妖缚装置，失败则损耗',
+      effect: { special: 'lockpick' },
+    },
   ],
 
   /* ============ 装备 ============ */

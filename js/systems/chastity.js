@@ -10,10 +10,12 @@ window.ChastitySystem = (function () {
   const CATEGORY = 'chastity'
   const NAME = '贞操装置'
 
-  /** 是否佩戴了任一贞操装置（商店贞操笼 / 监狱贞操锁） */
+  /** 是否佩戴了任一贞操装置（腰部妖缚槽 / 监狱贞操锁 / 酒馆贞操笼） */
   function isWorn () {
     const state = State.get()
     if (!state) return false
+    // 妖缚腰部槽（贞操装置 / 监狱贞操锁）
+    if (typeof RestraintSystem !== 'undefined' && RestraintSystem.hasWaistChastity()) return true
     if (state._prisonChastity) return true
     return !!(state._prostituteGear && state._prostituteGear.chastity)
   }

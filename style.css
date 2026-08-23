@@ -2444,6 +2444,27 @@ body:has(.age-gate:not(.age-gate-hidden)) { overflow: hidden; }
 .camp-opt-blacksmith em { background: rgba(140,150,160,.18); color: #c8d0d8; }
 .camp-opt-prison em { background: rgba(180,80,80,.16); color: #e8a0a0; }
 .camp-opt-teleport em { background: rgba(96,140,255,.15); color: #9db8ff; }
+.restr-chip { cursor: pointer; }
+.restr-chip:hover { filter: brightness(1.2); }
+.restr-modal { max-width: 640px; }
+.modal-box.restr-modal { border-color: rgba(180,140,120,.35); background: linear-gradient(155deg, rgba(36,28,26,.98), rgba(20,16,18,.99) 55%, rgba(42,28,24,.97)); box-shadow: 0 24px 70px #000c, inset 0 1px rgba(255,200,150,.08); }
+.restr-top { display: flex; justify-content: space-between; align-items: center; gap: 8px; padding: 10px 12px; border: 1px solid rgba(180,140,120,.2); border-radius: 10px; background: rgba(180,140,120,.07); margin-bottom: 10px; }
+.restr-top span { color: #e6d8cc; font-size: .82rem; }
+.restr-top b { color: #ffd9a8; }
+.restr-top em { font-style: normal; color: #ffd9a8; background: rgba(255,180,100,.12); padding: 3px 9px; border-radius: 99px; font-size: .72rem; }
+.restr-grid { display: grid; grid-template-columns: 1fr; gap: 8px; }
+.restr-card { display: grid; grid-template-columns: 34px 1fr auto; gap: 10px; align-items: start; padding: 10px 12px; border: 1px solid rgba(180,140,120,.22); border-radius: 10px; background: rgba(180,140,120,.06); }
+.restr-card.restr-empty { grid-template-columns: 34px 1fr; opacity: .45; }
+.restr-card > i { font-size: 1.3rem; }
+.restr-card b { color: #f0e2d2; font-size: .84rem; display: block; }
+.restr-card small { color: #a09088; font-size: .66rem; line-height: 1.45; display: block; margin-top: 2px; }
+.restr-lock { font-style: normal; font-size: .66rem; color: #ffb3a0; background: rgba(220,90,70,.14); padding: 3px 8px; border-radius: 99px; white-space: nowrap; }
+.restr-open { font-style: normal; font-size: .66rem; color: #9fd8b0; background: rgba(90,190,130,.14); padding: 3px 8px; border-radius: 99px; white-space: nowrap; }
+.restr-actions { grid-column: 1 / -1; display: flex; flex-wrap: wrap; gap: 6px; }
+.restr-btn { font-size: .68rem; padding: 4px 10px; }
+@media (min-width: 560px) {
+  .restr-grid { grid-template-columns: 1fr 1fr; }
+}
 .camp-opt:hover, .camp-opt:focus-visible { transform: translateY(-2px); border-color: rgba(239,155,69,.55); background: rgba(70, 42, 25, .46); outline: none; }
 .camp-footnote, .camp-muted { margin-top: 10px; color: #8f8987; font-size: .67rem; line-height: 1.5; text-align: center; }
 
