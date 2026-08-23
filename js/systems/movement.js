@@ -115,6 +115,17 @@ window.NodeEvents = {
         return
 
       case TILE.SHOP:
+        // 妖缚商店（DD 商店）
+        if (tile && tile.raw === '妖缚商店') {
+          if (hint) hint.textContent = '⛓️ 妖缚商店……'
+          if (typeof CampSystem !== 'undefined' && CampSystem.ddShop) {
+            CampSystem.ddShop()
+          } else {
+            EventBus.emit('ui:log', { text: '⛓️ 妖缚商店暂时没人。', type: 'dim' })
+            GameFlow.afterEvent()
+          }
+          return
+        }
         if (hint) hint.textContent = '🏪 发现商店！'
         ShopSystem.open(tile)
         return

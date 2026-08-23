@@ -2333,7 +2333,6 @@ window.CampSystem = (function () {
         <div class="camp-grid">
           <button class="camp-opt" data-tavern="drink"><i>🍷</i><span><b>买酒</b><small>喝完有劲也有代价</small></span><em>开喝</em></button>
           <button class="camp-opt" data-tavern="chat"><i>💬</i><span><b>聊天</b><small>听老板娘说些有的没的</small></span><em>${workUnlocked ? '熟络' : '搭话'}</em></button>
-          <button class="camp-opt camp-opt-teleport" data-tavern="restraints"><i>⛓️</i><span><b>妖缚器具</b><small>项圈/口塞/手铐/脚镣/贞操装置 + 开锁工具</small></span><em>出售</em></button>
           ${workBtn}
         </div>`,
       actions: [{ label: '返回酒馆', handler: () => { Dialog.close(); renderTavern() } }],
@@ -2344,14 +2343,13 @@ window.CampSystem = (function () {
         Dialog.close()
         if (opt === 'drink') tavernDrink()
         else if (opt === 'chat') barkeepChat()
-        else if (opt === 'restraints') barkeepRestraints()
         else if (opt === 'work') tavernWork()
       }
     })
   }
 
-  /** 妖缚器具商店：媚奴用品（buff）+ 束缚装置 + 钥匙/开锁工具 */
-  function barkeepRestraints () {
+  /** 妖缚商店（DD 商店，地图上）：媚奴用品（buff）+ 束缚装置 + 钥匙/开锁工具 */
+  function ddShop () {
     const state = State.get()
     const all = (RESTRAINTS || []).filter(r => !r.story)
     const renderCard = r => {
@@ -2380,16 +2378,16 @@ window.CampSystem = (function () {
         <span class="merchant-item-price"><b>${t.price}G</b><small>×${ownedCount}</small></span>
       </button>`
     }).join('')
-    campShow({
-      title: '⛓️ 妖缚器具 · 吧台货箱', className: 'tavern-merchant-modal',
-      body: `<section class="merchant-hero"><span aria-hidden="true">⛓️</span><div><small>RESTRAINT SUPPLIER · 吧台暗格</small><h3>“稀奇物件，我这都有。”</h3><p>老板娘掀开吧台下的暗格，皮绳、锁具、钥匙叮当作响。</p></div></section>
+    Dialog.show({
+      title: '⛓️ 妖缚商店', className: 'inventory-modal restraint-modal',
+      body: `<section class="merchant-hero"><span aria-hidden="true">⛓️</span><div><small>YAOFU EMPORIUM · 妖缚商行</small><h3>“要缚具，来我这。”</h3><p>森林深处的商行，皮绳、锁具、媚奴用品、钥匙一应俱全。</p></div></section>
         <div class="merchant-stats"><span>💎 ${state.gold}G</span><span>⛓️ 已锁 ${typeof RestraintSystem !== 'undefined' ? RestraintSystem.countLocked() : 0} 件</span><span>💰 战斗金币加成 ${typeof RestraintSystem !== 'undefined' ? Math.round(RestraintSystem.goldBonus() * 100) : 0}%</span></div>
         <p class="work-footnote">媚奴用品为可自由穿脱的 buff 装置；束缚装置被怪物/陷阱上锁时需解锁。</p>
         ${buffCards ? `<p class="work-footnote" style="margin-top:10px"><b>💄 媚奴用品（接客加成）</b></p><div class="merchant-catalog">${buffCards}</div>` : ''}
         ${restrCards ? `<p class="work-footnote" style="margin-top:10px"><b>⛓️ 束缚装置（可自行穿戴）</b></p><div class="merchant-catalog">${restrCards}</div>` : ''}
         <p class="work-footnote" style="margin-top:10px"><b>🔑 解锁工具</b></p>
         <div class="merchant-catalog">${toolCards}</div>`,
-      actions: [{ label: '返回老板娘', handler: () => { Dialog.close(); tavernBarkeep() } }],
+      actions: [{ label: '离开', handler: () => { Dialog.close(); GameFlow.afterEvent() } }],
     })
     document.querySelectorAll('[data-restr]').forEach(btn => {
       btn.onclick = () => {
@@ -2404,7 +2402,7 @@ window.CampSystem = (function () {
         if (typeof RestraintSystem !== 'undefined') RestraintSystem.equip(def.slot, def.id, { locked: false, source: 'tavern' })
         EventBus.emit('ui:log', { text: `⛓️ 你买下并戴上了${def.name}（已拥有，可随时脱下重穿）。`, type: 'good' })
         EventBus.emit('state:changed', state)
-        barkeepRestraints()
+        ddShop()
       }
     })
     document.querySelectorAll('[data-tool]').forEach(btn => {
@@ -2416,7 +2414,7 @@ window.CampSystem = (function () {
         state.inventory.consumables[id] = (state.inventory.consumables[id] || 0) + 1
         EventBus.emit('ui:log', { text: `🔑 买下${tool.name}。`, type: 'good' })
         EventBus.emit('state:changed', state)
-        barkeepRestraints()
+        ddShop()
       }
     })
   }
@@ -2779,7 +2777,6 @@ window.CampSystem = (function () {
         <p class="work-footnote">掷 Z 决定客人的要求。完成计时任务可获得金币和等级，跳过视为失败。</p>`,
       actions: [
         { label: inDebt ? '🔍 继续接客还债' : '🔍 寻找顾客', cls: 'btn-primary', handler: () => { Dialog.close(); findCustomer() } },
-        { label: '⛓️ 妖缚器具（老板娘）', handler: () => { Dialog.close(); barkeepRestraints() } },
         // 全裸时无法换回衣服（本来就没衣服）；欠款时无法退出
         ...((!inDebt && !StatusSystem.has('naked')) ? [{ label: '👗 换回衣服', handler: () => { Dialog.close(); state._prostituteDressed = false; EventBus.emit('state:changed', state); tavernWork() } }] : []),
       ],
@@ -3457,5 +3454,5 @@ window.CampSystem = (function () {
     })
   }
 
-  return { open, gloryHole, renderToilet, investigateStall, enterGlory, useToilet, deer, tavern, serveMercenary }
+  return { open, gloryHole, renderToilet, investigateStall, enterGlory, useToilet, deer, tavern, serveMercenary, ddShop }
 })()

@@ -20,7 +20,7 @@ window.MapUI = (function () {
     [TILE.AMBUSH]: '伏击',
     [TILE.EVENT]: '随机事件',
     [TILE.TREASURE]: '宝箱',
-    [TILE.SHOP]: '商店',
+    [TILE.SHOP]: '商店/妖缚商店',
     [TILE.CAMP]: '林缘营地',
   }
 
@@ -77,7 +77,7 @@ window.MapUI = (function () {
         if (pos && pos.x === x && pos.y === y) cell.classList.add('tile-player')
         if (state.visited.some(v => v.x === x && v.y === y)) cell.classList.add('tile-visited')
         cell.classList.add('tile-' + tile.type)
-        cell.textContent = TILE_ICONS[tile.type] || ''
+        cell.textContent = tile.raw === '妖缚商店' ? '⛓️' : (TILE_ICONS[tile.type] || '')
         const tileName = TYPE_NAMES[tile.type] || tile.raw || '未知区域'
         const isPlayer = pos && pos.x === x && pos.y === y
         cell.title = `${isPlayer ? '当前位置 · ' : ''}${tileName} (${x},${y})`
