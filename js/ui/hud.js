@@ -107,7 +107,7 @@ function render (state) {
     const eqChip = (typeof EquipmentSystem !== 'undefined')
       ? `<span class="status-chip restr-chip active" title="装备栏：武器与饰品" id="hud-eq">🛡️ 装备 ${EquipmentSystem.wornCount()}/${EquipmentSystem.totalCount()}</span>`
       : ''
-    statusEl.innerHTML = wantedChip + restrChip + eqChip + state.statuses.map(s => {
+    statusEl.innerHTML = wantedChip + eqChip + restrChip + state.statuses.map(s => {
       const def = STATUS_EFFECTS[s.id]
       const icon = def ? def.icon : '❓'
       const name = def ? def.name : s.id
