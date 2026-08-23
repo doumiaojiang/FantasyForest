@@ -100,8 +100,9 @@ function render (state) {
       ? '<span class="status-chip active" title="通缉：越狱在逃，出城会被卫兵查，找队长会被抓">⚠️ 通缉</span>'
       : ''
     // 妖缚装置入口
-    const restrChip = (typeof RestraintSystem !== 'undefined' && RestraintSystem.countWorn() > 0)
-      ? `<span class="status-chip restr-chip active" title="妖缚装置：点击管理">⛓️ 妖缚 ${RestraintSystem.countWorn()}</span>`
+    // 妖缚装置入口（常驻，点了开装备栏/设置）
+    const restrChip = (typeof RestraintSystem !== 'undefined')
+      ? `<span class="status-chip restr-chip active" title="妖缚装置：点击打开装备栏与设置">⛓️ 妖缚 ${RestraintSystem.countWorn()}</span>`
       : ''
     statusEl.innerHTML = wantedChip + restrChip + state.statuses.map(s => {
       const def = STATUS_EFFECTS[s.id]
