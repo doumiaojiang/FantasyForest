@@ -85,13 +85,26 @@ window.TrapSystem = {
     EventBus.emit('state:changed', state)
 
     // 妖缚：森林陷阱有概率锁上一件普通装置（同一时间最多一件上锁）
-    if (typeof RestraintSystem !== 'undefined' && RestraintSystem.countLocked() === 0 && RestraintSystem.countWorn() < 5 && Math.random() < 0.3) {
+    if (typeof RestraintSystem !== 'undefined' && RestraintSystem.countLocked() === 0 && RestraintSystem.countWorn() < RestraintSystem.SLOT_ORDER.length && Math.random() < 0.3) {
       const pool = RESTRAINTS.filter(r => !r.story)
       const pick = pool[Math.floor(Math.random() * pool.length)]
       if (!RestraintSystem.isWorn(pick.slot)) {
-        const res = RestraintSystem.equip(pick.slot, pick.id, { locked: true, source: 'forest_trap' })
+        const opts = { locked: true, source: 'forest_trap' }
+        // 10% 诅咒锁 / 30% 定时锁
+        const roll = Math.random() * 100
+        if (roll < 10) opts.lockType = 'cursed'
+        else if (roll < 40) opts.lockType = 'common'
+        const res = RestraintSystem.equip(pick.slot, pick.id, opts)
         if (res.ok) {
-          resultText += `<br>⛓️ 陷阱机关猛地收紧——你被<b>${pick.name}</b>锁住了！用钥匙、挣扎或找铁匠解开它。`
+          let note = `<br>⛓️ 陷阱机关猛地收紧——你被<b>${pick.name}</b>锁住了！用钥匙、挣扎或找铁匠解开它。`
+          if (opts.lockType === 'cursed') {
+            RestraintSystem.setTimer(pick.slot, 12)
+            note = `<br>🧿 陷阱埋着<b>诅咒锁</b>——${pick.name}锁在你身上！钥匙撬不开，只能找铁匠或驱咒符（⏲️ 12 回合后自动解开）。`
+          } else if (Math.random() < 0.35) {
+            RestraintSystem.setTimer(pick.slot, 8 + Math.floor(Math.random() * 8))
+            note += `<br>⏲️ 这是定时锁：<b>${RestraintSystem.get(pick.slot).timer}</b> 回合后会自动打开。`
+          }
+          resultText += note
           resultTone = 'danger'
         }
       }

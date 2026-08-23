@@ -2465,6 +2465,12 @@ body:has(.age-gate:not(.age-gate-hidden)) { overflow: hidden; }
 @media (min-width: 560px) {
   .restr-grid { grid-template-columns: 1fr 1fr; }
 }
+.restr-struggle-pick { display: grid; gap: 8px; }
+.restr-struggle-opt { display: grid; grid-template-columns: 34px 1fr; align-items: center; gap: 10px; width: 100%; padding: 10px 12px; text-align: left; border: 1px solid rgba(180,140,120,.22); border-radius: 10px; background: rgba(180,140,120,.07); cursor: pointer; transition: border-color .15s, background .15s; }
+.restr-struggle-opt:hover { border-color: rgba(255,190,140,.5); background: rgba(200,150,110,.12); }
+.restr-struggle-opt i { font-size: 1.2rem; }
+.restr-struggle-opt b { color: #f0e2d2; font-size: .84rem; display: block; }
+.restr-struggle-opt small { color: #a09088; font-size: .66rem; }
 .camp-opt:hover, .camp-opt:focus-visible { transform: translateY(-2px); border-color: rgba(239,155,69,.55); background: rgba(70, 42, 25, .46); outline: none; }
 .camp-footnote, .camp-muted { margin-top: 10px; color: #8f8987; font-size: .67rem; line-height: 1.5; text-align: center; }
 

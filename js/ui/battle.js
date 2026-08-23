@@ -97,6 +97,7 @@ window.BattleUI = (function () {
       <button class="btn" id="btn-skip">⏭ 跳过</button>
       ${_enemy && _enemy.surrender ? '<button class="btn" id="btn-flee">🏳️ 投降</button>' : ''}
       <button class="btn" id="btn-item">🧪 物品</button>
+      ${(typeof RestraintSystem !== 'undefined' && RestraintSystem.countLocked() > 0) ? '<button class="btn" id="btn-struggle">⛓️ 挣脱</button>' : ''}
     `
 
     document.getElementById('btn-attack').onclick = () => { playerAttack() }
@@ -105,6 +106,8 @@ window.BattleUI = (function () {
     const fleeBtn = document.getElementById('btn-flee')
     if (fleeBtn) fleeBtn.onclick = () => { doSurrender() }
     document.getElementById('btn-item').onclick = () => { showItemMenu() }
+    const struggleBtn = document.getElementById('btn-struggle')
+    if (struggleBtn) struggleBtn.onclick = () => { doBattleStruggle() }
   }
 
   function doDefend () {
@@ -116,6 +119,37 @@ window.BattleUI = (function () {
   function doSkip () {
     if (!tickPlayerTurn()) return
     doEnemyTurn()
+  }
+
+  /** 战斗中挣脱：消耗本回合攻击机会，尝试挣脱一件上锁妖缚装置 */
+  function doBattleStruggle () {
+    if (typeof RestraintSystem === 'undefined') { showPlayerTurn(); return }
+    const slots = RestraintSystem.lockedSlots()
+    if (!slots.length) { showPlayerTurn(); return }
+    const html = slots.map(slot => {
+      const d = RestraintSystem.get(slot)
+      const def = RestraintSystem.defOf(d.id)
+      return `<button class="restr-struggle-opt" data-slot="${slot}"><i>${RestraintSystem.SLOT_ICONS[slot]}</i><span><b>${def.name}</b><small>${RestraintSystem.SLOT_NAMES[slot]} · ${d.lockType === 'cursed' ? '🧿 诅咒锁' : d.timer ? `⏲️ 定时锁(${d.timer})` : '🔒 上锁'}</small></span></button>`
+    }).join('')
+    Dialog.show({
+      title: '⛓️ 战斗中挣脱',
+      className: 'restr-struggle-modal',
+      body: `<div class="restr-struggle-pick">${html}</div><p class="camp-footnote">挣脱会消耗本回合攻击机会；诅咒锁挣脱无效，定时锁可等它到点自动开。</p>`,
+      actions: [{ label: '取消', handler: () => { Dialog.close(); showPlayerTurn() } }],
+    })
+    setTimeout(() => {
+      document.querySelectorAll('.restr-struggle-opt').forEach(btn => {
+        btn.onclick = () => {
+          const slot = btn.dataset.slot
+          Dialog.close()
+          const result = RestraintSystem.struggle(slot)
+          if (result.msg) EventBus.emit('ui:log', { text: result.msg, type: result.ok ? 'good' : 'danger' })
+          // 无论成败都消耗本回合
+          if (!tickPlayerTurn()) return
+          doEnemyTurn()
+        }
+      })
+    }, 0)
   }
 
   /** 攻击、防御和跳过都会消耗一个玩家回合并推进状态。 */
@@ -993,12 +1027,13 @@ window.BattleUI = (function () {
     let dmg = attack.dmg || 0
     let blocked = false
 
-    // 全裸：按难度概率被敌人暴击（普通25% / 困难35% / 残酷45%）
-    if (StatusSystem.has('naked') && !blocked) {
+    // 全裸：按难度概率被敌人暴击（普通25% / 困难35% / 残酷45%）；蒙眼罩额外 +10%
+    if ((StatusSystem.has('naked') || (typeof RestraintSystem !== 'undefined' && RestraintSystem.hasBlindfold())) && !blocked) {
       const critChance = { normal: 0.25, hard: 0.35, brutal: 0.45 }[state.difficulty] || 0.25
-      if (Math.random() < critChance) {
+      const blindBonus = (typeof RestraintSystem !== 'undefined' && RestraintSystem.hasBlindfold()) ? 0.10 : 0
+      if (Math.random() < (critChance + blindBonus)) {
         dmg *= 2
-        EventBus.emit('ui:log', { text: '👙 你全裸无防护，被敌人暴击！伤害翻倍！', type: 'danger' })
+        EventBus.emit('ui:log', { text: StatusSystem.has('naked') ? '👙 你全裸无防护，被敌人暴击！伤害翻倍！' : '😵 蒙着眼罩看不清攻击，被敌人暴击！伤害翻倍！', type: 'danger' })
       }
     }
 
@@ -1170,9 +1205,9 @@ window.BattleUI = (function () {
 
   function showItemMenu () {
     const state = State.get()
-    // 手铐：双手被铐住，无法使用物品
-    if (typeof RestraintSystem !== 'undefined' && RestraintSystem.hasHandcuffs()) {
-      EventBus.emit('ui:log', { text: '⛓️ 手铐锁着你的双手，够不到背包里的东西！', type: 'danger' })
+    // 手铐/反绑束臂器：双手被束住，无法使用物品
+    if (typeof RestraintSystem !== 'undefined' && RestraintSystem.hasHandsBlocked()) {
+      EventBus.emit('ui:log', { text: RestraintSystem.hasArmbinder() ? '🪢 双臂被反绑在身后，够不到背包！' : '⛓️ 手铐锁着你的双手，够不到背包里的东西！', type: 'danger' })
       showPlayerTurn()
       return
     }

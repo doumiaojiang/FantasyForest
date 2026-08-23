@@ -109,6 +109,11 @@ window.ITEMS = {
       desc: '60% 概率解开一把普通上锁的妖缚装置，失败则损耗',
       effect: { special: 'lockpick' },
     },
+    {
+      id: 'curse_remover', name: '驱咒符', type: 'consumable', price: 250,
+      desc: '解除一件被诅咒锁住的妖缚装置（钥匙/撬锁/挣扎都无效的锁）',
+      effect: { special: 'curse_remover' },
+    },
   ],
 
   /* ============ 装备 ============ */

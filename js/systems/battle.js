@@ -383,9 +383,17 @@ window.AttackResolver = {
 
     let dmg = Math.round(baseDmg * mult)
 
-    // 手铐：武器伤害降低
-    if (mult > 0 && typeof RestraintSystem !== 'undefined' && RestraintSystem.hasHandcuffs()) {
-      dmg = Math.max(1, Math.round(dmg * 0.7))
+    // 手铐/反绑束臂器：武器伤害降低
+    if (mult > 0 && typeof RestraintSystem !== 'undefined') {
+      if (RestraintSystem.hasArmbinder()) dmg = Math.max(1, Math.round(dmg * 0.4))
+      else if (RestraintSystem.hasHandcuffs()) dmg = Math.max(1, Math.round(dmg * 0.7))
+    }
+
+    // 震动贞操带：30% 失控颤抖，本回合落空
+    if (mult > 0 && typeof RestraintSystem !== 'undefined' && RestraintSystem.hasVibrating() && Math.random() < 0.3) {
+      mult = 0
+      dmg = 0
+      EventBus.emit('ui:log', { text: '📳 震动贞操带猛地一震，你双腿一软，攻击落空了！', type: 'danger' })
     }
 
     // 力量宝珠：只在命中时附加武器基础伤害（未命中不造成伤害）

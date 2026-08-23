@@ -251,7 +251,14 @@ window.AmbushSystem = {
         damage = Math.max(0, damage - reflected)
       }
 
-      if (!State.get()._godMode) state.hp -= damage
+      if (!State.get()._godMode) {
+        // 蒙眼罩：伏击受到的伤害 +2
+        if (typeof RestraintSystem !== 'undefined' && RestraintSystem.hasBlindfold() && damage > 0) {
+          damage += 2
+          EventBus.emit('ui:log', { text: '😵 蒙着眼罩，伏击的袭击更难躲开，额外 -2 HP。', type: 'danger' })
+        }
+        state.hp -= damage
+      }
       if (!blocked && effAttack.status) StatusSystem.apply(effAttack.status, effAttack.turns, { level: effAttack.level, source: 'enemy' })
       EventBus.emit('ui:log', {
         text: blocked ? `🛡️ 挡住了 ${enemy.name} 的伏击攻击！` : `💥 ${enemy.name} 的攻击造成 ${damage} 点伤害。`,

@@ -2352,15 +2352,16 @@ window.CampSystem = (function () {
       const owned = worn || (state._prostituteGear && state._prostituteGear[r.id === 'chastity_device' ? 'chastity' : r.id])
       const canBuy = state.gold >= r.price && !owned
       return `<button class="merchant-item${owned ? ' is-owned' : ''}${!owned && !canBuy ? ' is-unaffordable' : ''}" data-restr="${r.id}" ${owned || !canBuy ? 'disabled' : ''}>
-        <span class="merchant-item-icon">${r.effect === 'chastity' ? '🔒' : r.effect === 'gag' ? '🤐' : r.effect === 'collar' ? '🐕' : r.effect === 'handcuffs' ? '⛓️' : '🦶'}</span>
+        <span class="merchant-item-icon">${typeof RestraintSystem !== 'undefined' ? RestraintSystem.SLOT_ICONS[r.slot] : '⛓️'}</span>
         <span class="merchant-item-info"><b>${r.name}</b><small>${r.desc}</small></span>
         <span class="merchant-item-price">${owned ? '✓ 已拥有' : `<b>${r.price}G</b>`}</span>
       </button>`
     }).join('')
     const toolCards = [
       { id: 'restraint_key', name: '普通钥匙', price: 200, icon: '🔑', desc: '解开一把普通上锁的妖缚装置' },
-      { id: 'master_key', name: '万能钥匙', price: 500, icon: '🗝️', desc: '解开任意非剧情的上锁装置' },
+      { id: 'master_key', name: '万能钥匙', price: 500, icon: '🗝️', desc: '解开任意非剧情/非诅咒的上锁装置' },
       { id: 'lockpick', name: '开锁工具', price: 150, icon: '🛠️', desc: '60% 概率撬开一把普通上锁的装置，失败则损耗' },
+      { id: 'curse_remover', name: '驱咒符', price: 250, icon: '🧿', desc: '解除一件被诅咒锁住的妖缚装置' },
     ].map(t => {
       const ownedCount = state.inventory.consumables[t.id] || 0
       const canBuy = state.gold >= t.price
@@ -2395,7 +2396,7 @@ window.CampSystem = (function () {
     document.querySelectorAll('[data-tool]').forEach(btn => {
       btn.onclick = () => {
         const id = btn.dataset.tool
-        const tool = { restraint_key: { name: '普通钥匙', price: 200 }, master_key: { name: '万能钥匙', price: 500 }, lockpick: { name: '开锁工具', price: 150 } }[id]
+        const tool = { restraint_key: { name: '普通钥匙', price: 200 }, master_key: { name: '万能钥匙', price: 500 }, lockpick: { name: '开锁工具', price: 150 }, curse_remover: { name: '驱咒符', price: 250 } }[id]
         if (!tool || state.gold < tool.price) return
         state.gold -= tool.price
         state.inventory.consumables[id] = (state.inventory.consumables[id] || 0) + 1

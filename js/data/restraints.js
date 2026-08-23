@@ -37,4 +37,19 @@ window.RESTRAINTS = [
     desc: '深喉监狱的剧情锁：只能通过剧情解除（攒积分出狱或铁匠契约）。',
     effect: 'chastity', story: true,
   },
+  {
+    id: 'armbinder', name: '反绑束臂器', slot: 'arms_heavy', material: 'metal', price: 300, difficulty: 4, heavy: true,
+    desc: '双臂反绑在身后：武器伤害大幅下降，无法使用任何物品。',
+    effect: 'armbinder',
+  },
+  {
+    id: 'blindfold', name: '蒙眼罩', slot: 'eyes', material: 'leather', price: 80, difficulty: 2,
+    desc: '蒙住双眼：战斗中被暴击概率提升，伏击时受到的伤害更大。',
+    effect: 'blindfold',
+  },
+  {
+    id: 'vibrating_chastity', name: '震动贞操带', slot: 'waist', material: 'metal', price: 280, difficulty: 4, heavy: true,
+    desc: '锁死小穴（同贞操装置）且内置震动机关：战斗中 30% 概率失控颤抖，本回合攻击落空。',
+    effect: 'chastity', vibrate: true,
+  },
 ]

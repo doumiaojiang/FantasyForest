@@ -1100,6 +1100,9 @@
     let steps = MovementSystem.rollStep()
     let injuredDmg = 0
 
+    // 定时锁：每回合递减，到点自动解开
+    if (typeof RestraintSystem !== 'undefined') RestraintSystem.tickTimers()
+
     // 脚镣：移动步数 -1（最低 1 格）
     if (typeof RestraintSystem !== 'undefined' && RestraintSystem.hasLegCuffs() && steps > 1) {
       steps = Math.max(1, steps - 1)
