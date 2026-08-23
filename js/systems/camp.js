@@ -374,7 +374,7 @@ window.CampSystem = (function () {
     const hasPass = (state.inventory.consumables.guard_pass || 0) > 0
     const wearing = typeof RestraintSystem !== 'undefined' ? RestraintSystem.countWorn() : 0
     const body = `
-      <div class="guard-search-hero"><i>🛡️</i><div><small>GATE CHECK · 城门例行检查</small><b>“站住，例行检查。”</b><p>卫兵抬手挡住去路，目光在你的武器、背包和身上的束缚装置间来回扫视。<br>“最近有人往城里带违禁品。站好别动，检查一分钟。”</p></div></div>
+      <div class="guard-search-hero"><i>🛡️</i><div><small>GATE CHECK · 城门例行检查</small><b>“站住，例行检查。”</b><p>卫兵抬手挡住去路，目光在你的武器、背包和身上的束缚装置间来回扫视。<br>“最近有人往城里带违禁品。站好别动，检查一小会儿。”</p></div></div>
       <div class="guard-search-status">
         <div><span>金币</span><b>${state.gold}G</b></div>
         <div><span>妓女许可证</span><b>${state._prostituteLicensed ? '📜 持证' : '无'}</b></div>
@@ -385,7 +385,7 @@ window.CampSystem = (function () {
       ${guardDeviceComment()}
     `
     const actions = [
-      { label: '🔍 接受检查（60 秒）', cls: 'btn-primary', handler: () => { Dialog.close(); startGuardSearch(direction) } },
+      { label: '🔍 接受检查（10~30 秒）', cls: 'btn-primary', handler: () => { Dialog.close(); startGuardSearch(direction) } },
       {
         label: '💸 交 50G 快速放行', cls: 'btn-danger',
         disabled: state.gold < 50,
@@ -409,13 +409,14 @@ window.CampSystem = (function () {
     })
   }
 
-  /** 开始 60 秒搜身：记录断点 + 立即存档（防刷新绕过），复用任务倒计时 */
+  /** 开始搜身：随机 10~30 秒；记录断点 + 立即存档（防刷新绕过），复用任务倒计时 */
   async function startGuardSearch (direction) {
     const state = State.get()
-    state._guardSearchPending = { direction, startedAt: Date.now(), duration: 60 }
+    const duration = 10 + Math.floor(Math.random() * 21)   // 10 ~ 30 秒
+    state._guardSearchPending = { direction, startedAt: Date.now(), duration }
     EventBus.emit('state:changed', state)
     State.save()
-    await runGuardSearchTask(direction, 60)
+    await runGuardSearchTask(direction, duration)
   }
 
   async function runGuardSearchTask (direction, seconds) {
@@ -423,7 +424,7 @@ window.CampSystem = (function () {
       await BattleUI.showTaskDialog({
         enemyName: '🛡️ 城门卫兵',
         attackName: '例行搜身',
-        desc: '站在原地接受卫兵检查，持续 1 分钟',
+        desc: `站在原地接受卫兵检查，持续 ${seconds} 秒`,
         bpm: 0,
         seconds,
         dmg: 0,
