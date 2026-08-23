@@ -608,8 +608,10 @@ window.BattleUI = (function () {
     return { bpm, seconds }
   }
 
-  /** 显示任务弹窗，返回 true=没完成 false=已完成 */
-  function showTaskDialog ({ enemyName, attackName, desc, bpm, seconds, dmg, status, statusTurns, dildoName, noDamage }) {
+  /** 显示任务弹窗，返回 true=没完成 false=已完成
+   *  allowSkip=false 时隐藏"跳过计时器"；showFailure=false 时隐藏"没完成"；
+   *  completeLabel 自定义完成按钮文字；dialogClass 附加弹窗样式类 */
+  function showTaskDialog ({ enemyName, attackName, desc, bpm, seconds, dmg, status, statusTurns, dildoName, noDamage, allowSkip = true, showFailure = true, completeLabel = '✅ 完成任务', dialogClass = '' }) {
     return new Promise(resolve => {
       const hasTimer = seconds > 0
       const hasBpm = bpm > 0
@@ -664,15 +666,15 @@ window.BattleUI = (function () {
       // 无 BPM 也无计时器：不需要"开始任务"，直接确认完成/没完成
       const actions = (!hasTimer && !hasBpm) ? [
         {
-          label: '✅ 完成任务',
+          label: completeLabel,
           cls: 'btn-success',
           handler: () => { Dialog.close(); resolve(false) },
         },
-        {
+        ...(showFailure ? [{
           label: '❌ 没完成',
           cls: 'btn-danger',
           handler: () => { Dialog.close(); resolve(true) },
-        },
+        }] : []),
       ] : [
         {
           label: '▶️ 开始任务',
@@ -689,6 +691,7 @@ window.BattleUI = (function () {
         title: attackName && attackName !== desc ? `🎯 任务：${attackName}` : '🎯 任务',
         body: bodyHtml,
         actions,
+        className: dialogClass || undefined,
       })
 
       function beginTask () {
@@ -697,7 +700,7 @@ window.BattleUI = (function () {
         btns.forEach(b => { if (b.textContent.includes('开始任务')) b.style.display = 'none' })
         // 添加跳过计时器按钮
         const actionsDiv = (layer ? layer : document).querySelector('.modal-actions')
-        if (actionsDiv && hasTimer) {
+        if (actionsDiv && hasTimer && allowSkip) {
           const skipBtn = document.createElement('button')
           skipBtn.className = 'btn btn-danger'
           skipBtn.textContent = '⏭ 跳过计时器 (直接结算)'
@@ -778,9 +781,12 @@ window.BattleUI = (function () {
         if (!modalBox) { resolve(false); return }
         const actionsDiv = modalBox.querySelector('.modal-actions')
         if (actionsDiv) {
+          const failBtn = showFailure
+            ? `<button class="btn btn-danger task-finish-btn" data-result="fail">${noDamage ? '❌ 没完成' : '❌ 没完成 (伤害翻倍)'}</button>`
+            : ''
           actionsDiv.innerHTML = `
-            <button class="btn btn-success task-finish-btn" data-result="complete">${noDamage ? '✅ 完成任务' : `✅ 完成任务 (-${dmg} HP)`}</button>
-            <button class="btn btn-danger task-finish-btn" data-result="fail">${noDamage ? '❌ 没完成' : '❌ 没完成 (伤害翻倍)'}</button>
+            <button class="btn btn-success task-finish-btn" data-result="complete">${completeLabel}</button>
+            ${failBtn}
           `
           actionsDiv.querySelectorAll('.task-finish-btn').forEach(btn => {
             btn.onclick = () => {

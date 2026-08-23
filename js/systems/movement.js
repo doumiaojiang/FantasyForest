@@ -122,7 +122,7 @@ window.NodeEvents = {
       case TILE.CAMP:
         if (hint) hint.textContent = '⛺ 进入营地……'
         if (typeof CampSystem !== 'undefined' && CampSystem.open) {
-          CampSystem.open()
+          CampSystem.open({ gateEntry: true })
         } else {
           EventBus.emit('ui:log', { text: '⛺ 营地暂时无人。', type: 'dim' })
           GameFlow.afterEvent()

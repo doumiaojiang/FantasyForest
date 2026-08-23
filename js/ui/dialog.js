@@ -30,7 +30,7 @@ window.Dialog = (function () {
         <div class="modal-body">${body}</div>
         <div class="modal-actions">
           ${actions.map((a, i) =>
-            `<button class="btn ${a.cls || ''}" data-action="${i}">${a.label}</button>`
+            `<button class="btn ${a.cls || ''}" ${a.disabled ? 'disabled' : ''} data-action="${i}">${a.label}</button>`
           ).join('')}
         </div>
       </div>`

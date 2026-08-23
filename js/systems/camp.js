@@ -101,7 +101,7 @@ window.CampSystem = (function () {
     if (mapPanel) mapPanel.classList.remove('panel-hidden')
   }
 
-  function open () {
+  function open (opts = {}) {
     const state = State.get()
     setCampPhase()
     // 在监狱里：强制回到牢房工作，无法离开
@@ -129,6 +129,11 @@ window.CampSystem = (function () {
       prostitute()
       return
     }
+    // 仅地图移动进入营地时触发城门检查
+    if (opts.gateEntry && shouldGuardSearch('enter')) {
+      showGuardSearchPrompt('enter')
+      return
+    }
     const deerStatus = state._campDeerTaken ? '已领取' : '有礼物'
     const toiletStatus = state._gloryDiscovered ? '已解锁' : '可探索'
     const toiletHint = state._gloryDiscovered ? '普通厕所 · 隐藏隔间已发现' : '普通厕所 · 隔间有些不一样'
@@ -145,7 +150,7 @@ window.CampSystem = (function () {
           <button class="camp-opt camp-opt-tavern" data-opt="tavern"><i>🍺</i><span><b>雾灯酒馆</b><small>摇骰子、买酒</small></span><em>营业中</em></button>
           <button class="camp-opt camp-opt-blacksmith" data-opt="blacksmith"><i>🔨</i><span><b>铁匠铺</b><small>武器与饰品</small></span><em>营业中</em></button>
           <button class="camp-opt camp-opt-potion" data-opt="potion"><i>🧪</i><span><b>道具商</b><small>药品与各种消耗品</small></span><em>营业中</em></button>
-          <button class="camp-opt camp-opt-teleport" data-opt="ddshop"><i>🌀</i><span><b>梦幻商店</b><small>媚奴用品·束缚装置·解锁工具</small></span><em>出售</em></button>
+          <button class="camp-opt camp-opt-dream" data-opt="ddshop"><i>🔮</i><span><b>梦幻商店</b><small>媚奴用品·束缚装置·解锁工具</small></span><em>营业中</em></button>
           <button class="camp-opt camp-opt-glory" data-opt="glory"><i>🚻</i><span><b>公共厕所</b><small>${toiletHint}</small></span><em>${toiletStatus}</em></button>
           <button class="camp-opt camp-opt-prison" data-opt="prison"><i>⛓️</i><span><b>监狱</b><small>无证卖淫的归宿</small></span><em>${state._inPrison ? '在押' : '戒备'}</em></button>
           <button class="camp-opt camp-opt-deer" data-opt="deer"><i>🦌</i><span><b>篝火旁的鹿</b><small>旅人的初次见面礼</small></span><em>${deerStatus}</em></button>
@@ -173,6 +178,7 @@ window.CampSystem = (function () {
 
   function leaveCamp () {
     const state = State.get()
+    // 1. 强制流程（厕所/酒馆欠债）优先
     if ((state._gloryDebt || 0) > 0 || state._gloryFreeService || (state._prostituteDebt || 0) > 0) {
       if ((state._prostituteDebt || 0) > 0) {
         Dialog.close(); prostitute(); return
@@ -185,11 +191,32 @@ window.CampSystem = (function () {
       gloryClearedLeave()
       return
     }
-    // 取得妓女许可证：出城会遇到卫兵
+    // 2. 通缉犯：优先于一切检查，不能用搜身/贿赂/免检查卷逃过
+    if (state._wanted) {
+      guardWantedFlow()
+      return
+    }
+    // 3. 出城免检查卷：只出城有效，消耗 1 张直接放行
+    if ((state.inventory.consumables.guard_pass || 0) > 0) {
+      useGuardPass()
+      return
+    }
+    // 4. 本次进城已检查过 → 跳过普通搜身
+    if (state._guardCheckedThisVisit) {
+      if (state._prostituteLicensed) { guardEncounter(); return }
+      doLeaveCamp(); return
+    }
+    // 5. 新的卫兵搜身（普通玩家 35% 概率；持证玩家由 guardEncounter 表内 30% 处理）
+    if (!state._prostituteLicensed && shouldGuardSearch('exit')) {
+      showGuardSearchPrompt('exit')
+      return
+    }
+    // 6. 持证：原有出城卫兵事件
     if (state._prostituteLicensed) {
       guardEncounter()
       return
     }
+    // 7. 正常离开
     doLeaveCamp()
   }
 
@@ -199,49 +226,11 @@ window.CampSystem = (function () {
     const guardMsg = (title, body, actions) => {
       Dialog.show({ title: '🛡️ 城门口 · 卫兵', className: 'glory-modal', body, actions })
     }
-    // 持有出城免检查卷：直接放行并消耗一张
-    const guardPassCount = (state.inventory.consumables.guard_pass || 0)
-    if (guardPassCount > 0) {
-      state.inventory.consumables.guard_pass = guardPassCount - 1
-      EventBus.emit('ui:log', { text: '📜 你出示出城免检查卷，卫兵挥挥手放行（免检查卷剩余 ' + (guardPassCount - 1) + ' 张）。', type: 'good' })
-      EventBus.emit('state:changed', state)
-      Dialog.show({
-        title: '🛡️ 城门口 · 卫兵', className: 'glory-modal',
-        body: `<div class="glory-section"><h3><span>“哟，老熟人给的卷儿。”</span><small>卫兵看了一眼免检查卷，嘿嘿一笑放行</small></h3>
-          <p class="camp-muted">“既然是熟人打了招呼，就放你一马。下回洞里见了，可别装不认识。”</p></div>`,
-        actions: [{ label: '出城', cls: 'btn-primary', handler: () => { Dialog.close(); doLeaveCamp() } }],
-      })
-      return
-    }
-
-    // 通缉犯（越狱在逃）：卫兵认出你是逃犯
-    if (state._wanted) {
-      const lockClue = state._prisonChastity
-        ? '“站住——监狱的锁？你是从深喉监狱逃出来的！”'
-        : '“站住——你就是那个越狱的逃犯！”'
-      const lockClueSmall = state._prisonChastity
-        ? '卫兵一眼认出你腿间的贞操锁，挡在你面前'
-        : '卫兵对照通缉令，一眼认出你就是越狱的逃犯'
-      const serviceTip = state._prisonChastity
-        ? '要么跪下来用<b>嘴和屁股</b>把老子伺候舒坦了——锁都锁了，小穴你就别想了。'
-        : '要么跪下来把老子伺候舒坦了——销案底的事，找队长去。'
-      guardMsg('🛡️ 卫兵拦住你', `<div class="glory-section"><h3><span>${lockClue}</span><small>${lockClueSmall}</small></h3>
-        <p class="camp-muted">“想让我闭嘴？要么交 <b>150G</b> 封口费，${serviceTip}”</p></div>`,
-        [
-          ...(state.gold >= 150 ? [{ label: '💸 交 150G 封口费', cls: 'btn-primary', handler: () => {
-            state.gold -= 150
-            EventBus.emit('ui:log', { text: '💸 交了 150G 封口费，卫兵让开道放你出城。', type: 'danger' })
-            EventBus.emit('state:changed', state); Dialog.close(); doLeaveCamp()
-          } }] : []),
-          { label: state._prisonChastity ? '👄🍑 服务卫兵' : '👄 服务卫兵', cls: 'btn-danger', handler: () => { Dialog.close(); guardPrisonChastityService() } },
-        ])
-      return
-    }
 
     const roll = Dice.rollZ()
 
     // 卫兵事件概率表（用百分比模拟）
-    // 10% 罚款100 / 50% 放行 / 5% 没收衣服 / 15% 口交1分钟 / 15% 肛交1分钟 / 5% 给血药
+    // 10% 罚款100 / 30% 搜身 / 20% 放行 / 5% 没收衣服 / 15% 口交1分钟 / 15% 肛交1分钟 / 5% 给血药
     const r = Math.random() * 100
     if (r < 10) {
       // 罚款 100
@@ -262,8 +251,16 @@ window.CampSystem = (function () {
             showGloryWork()
           }
         } }])
-    } else if (r < 60) {
-      // 放行（佩戴奴隶项圈则被当成奴畜盘查）
+    } else if (r < 30) {
+      // 搜身检查（30%）；本次进城已检查过则不再搜身，直接放行
+      if (state._guardCheckedThisVisit) {
+        guardMsg('🛡️ 卫兵拦住你', '<div class="glory-section"><h3><span>“啊，老熟人了，过去吧。”</span><small>卫兵挥挥手放行</small></h3></div>',
+          [{ label: '出城', cls: 'btn-primary', handler: () => { Dialog.close(); doLeaveCamp() } }])
+      } else {
+        showGuardSearchPrompt('exit')
+      }
+    } else if (r < 50) {
+      // 放行（20%，佩戴奴隶项圈则被当成奴畜盘查）
       if (typeof RestraintSystem !== 'undefined' && RestraintSystem.hasCollar()) {
         guardMsg('🛡️ 卫兵拦住你', `<div class="glory-section"><h3><span>“项圈？哪家的奴畜也敢到处跑。”</span><small>卫兵拽了拽你脖子上的项圈，一脸戏谑</small></h3>
           <p class="camp-muted">“想过去？交 <b>50G</b> 贡品，或者跪下来把老子伺候舒坦了。”</p></div>`,
@@ -303,6 +300,202 @@ window.CampSystem = (function () {
           EventBus.emit('ui:log', { text: '🍺 卫兵给了你一瓶麦酒。', type: 'good' })
           EventBus.emit('state:changed', state); Dialog.close(); doLeaveCamp()
         } }])
+    }
+  }
+
+  /** 出示出城免检查卷：只出城有效，消耗 1 张直接放行 */
+  function useGuardPass () {
+    const state = State.get()
+    const count = state.inventory.consumables.guard_pass || 0
+    if (count <= 0) { doLeaveCamp(); return }
+    state.inventory.consumables.guard_pass = count - 1
+    EventBus.emit('ui:log', { text: '📜 你出示出城免检查卷，卫兵挥挥手放行（免检查卷剩余 ' + (count - 1) + ' 张）。', type: 'good' })
+    EventBus.emit('state:changed', state)
+    Dialog.show({
+      title: '🛡️ 城门口 · 卫兵', className: 'glory-modal',
+      body: `<div class="glory-section"><h3><span>“哟，老熟人给的卷儿。”</span><small>卫兵看了一眼免检查卷，嘿嘿一笑放行</small></h3>
+        <p class="camp-muted">“既然是熟人打了招呼，就放你一马。下回洞里见了，可别装不认识。”</p></div>`,
+      actions: [{ label: '出城', cls: 'btn-primary', handler: () => { Dialog.close(); doLeaveCamp() } }],
+    })
+  }
+
+  /** 通缉犯出城：卫兵认出逃犯（优先于普通检查，不可被贿赂/免检查卷绕过） */
+  function guardWantedFlow () {
+    const state = State.get()
+    const lockClue = state._prisonChastity
+      ? '“站住——监狱的锁？你是从深喉监狱逃出来的！”'
+      : '“站住——你就是那个越狱的逃犯！”'
+    const lockClueSmall = state._prisonChastity
+      ? '卫兵一眼认出你腿间的贞操锁，挡在你面前'
+      : '卫兵对照通缉令，一眼认出你就是越狱的逃犯'
+    const serviceTip = state._prisonChastity
+      ? '要么跪下来用<b>嘴和屁股</b>把老子伺候舒坦了——锁都锁了，小穴你就别想了。'
+      : '要么跪下来把老子伺候舒坦了——销案底的事，找队长去。'
+    Dialog.show({
+      title: '🛡️ 城门口 · 卫兵', className: 'glory-modal',
+      body: `<div class="glory-section"><h3><span>${lockClue}</span><small>${lockClueSmall}</small></h3>
+        <p class="camp-muted">“想让我闭嘴？要么交 <b>150G</b> 封口费，${serviceTip}”</p></div>`,
+      actions: [
+        ...(state.gold >= 150 ? [{ label: '💸 交 150G 封口费', cls: 'btn-primary', handler: () => {
+          state.gold -= 150
+          EventBus.emit('ui:log', { text: '💸 交了 150G 封口费，卫兵让开道放你出城。', type: 'danger' })
+          EventBus.emit('state:changed', state); Dialog.close(); doLeaveCamp()
+        } }] : []),
+        { label: state._prisonChastity ? '👄🍑 服务卫兵' : '👄 服务卫兵', cls: 'btn-danger', handler: () => { Dialog.close(); guardPrisonChastityService() } },
+      ],
+    })
+  }
+
+  /* ============ 城门卫兵搜身检查 ============ */
+
+  /** 本次是否触发卫兵搜身：进入 25%（持证 40%）；离开普通玩家 35% */
+  function shouldGuardSearch (direction) {
+    const state = State.get()
+    if (state._guardCheckedThisVisit) return false
+    if (direction === 'enter') return Math.random() < (state._prostituteLicensed ? 0.40 : 0.25)
+    return Math.random() < 0.35
+  }
+
+  /** 妖缚装置台词：多件只显示优先级最高的一句 */
+  function guardDeviceComment () {
+    if (typeof RestraintSystem === 'undefined') return ''
+    if (RestraintSystem.hasCollar()) return '<p class="guard-search-warning">“戴着项圈还敢一个人乱跑？”</p>'
+    if (RestraintSystem.hasGag()) return '<p class="guard-search-warning">“嘴都堵上了？那就老实站着。”</p>'
+    if (RestraintSystem.hasHandcuffs() || RestraintSystem.hasArmbinder()) return '<p class="guard-search-warning">“手被锁成这样，应该翻不出什么花样。”</p>'
+    if (RestraintSystem.hasWaistChastity()) return '<p class="guard-search-warning">“这锁看起来可不像普通首饰。”</p>'
+    return ''
+  }
+
+  /** 检查前对话：状态摘要 + 四个选项 */
+  function showGuardSearchPrompt (direction) {
+    const state = State.get()
+    const isEnter = direction === 'enter'
+    const hasLockpick = (state.inventory.consumables.lockpick || 0) > 0
+    const hasPass = (state.inventory.consumables.guard_pass || 0) > 0
+    const wearing = typeof RestraintSystem !== 'undefined' ? RestraintSystem.countWorn() : 0
+    const body = `
+      <div class="guard-search-hero"><i>🛡️</i><div><small>GATE CHECK · 城门例行检查</small><b>“站住，例行检查。”</b><p>卫兵抬手挡住去路，目光在你的武器、背包和身上的束缚装置间来回扫视。<br>“最近有人往城里带违禁品。站好别动，检查一分钟。”</p></div></div>
+      <div class="guard-search-status">
+        <div><span>金币</span><b>${state.gold}G</b></div>
+        <div><span>妓女许可证</span><b>${state._prostituteLicensed ? '📜 持证' : '无'}</b></div>
+        <div><span>妖缚装置</span><b>${wearing ? `⛓️ ${wearing} 件` : '无'}</b></div>
+        <div><span>开锁工具</span><b>${hasLockpick ? `🛠️ ×${state.inventory.consumables.lockpick}` : '无'}</b></div>
+        <div><span>免检查卷</span><b>${hasPass ? `📜 ×${state.inventory.consumables.guard_pass}` : '无'}</b></div>
+      </div>
+      ${guardDeviceComment()}
+    `
+    const actions = [
+      { label: '🔍 接受检查（60 秒）', cls: 'btn-primary', handler: () => { Dialog.close(); startGuardSearch(direction) } },
+      {
+        label: '💸 交 50G 快速放行', cls: 'btn-danger',
+        disabled: state.gold < 50,
+        handler: () => {
+          if (state.gold < 50) return
+          Dialog.close()
+          state.gold -= 50
+          EventBus.emit('ui:log', { text: '💸 交了 50G，卫兵痛快放行。', type: 'danger' })
+          EventBus.emit('state:changed', state)
+          finishGuardPass(direction)
+        },
+      },
+      ...(!isEnter && hasPass ? [{ label: '📜 出示免检查卷', cls: 'btn-success', handler: () => { Dialog.close(); useGuardPass() } }] : []),
+      { label: isEnter ? '← 暂不进城' : '← 返回营地', handler: () => { Dialog.close(); cancelGuardSearch(direction) } },
+    ]
+    Dialog.show({
+      title: '🛡️ 城门检查 · 卫兵',
+      className: 'guard-search-modal inventory-modal restraint-modal',
+      body,
+      actions,
+    })
+  }
+
+  /** 开始 60 秒搜身：记录断点 + 立即存档（防刷新绕过），复用任务倒计时 */
+  async function startGuardSearch (direction) {
+    const state = State.get()
+    state._guardSearchPending = { direction, startedAt: Date.now(), duration: 60 }
+    EventBus.emit('state:changed', state)
+    State.save()
+    await runGuardSearchTask(direction, 60)
+  }
+
+  async function runGuardSearchTask (direction, seconds) {
+    if (typeof BattleUI !== 'undefined' && BattleUI.showTaskDialog) {
+      await BattleUI.showTaskDialog({
+        enemyName: '🛡️ 城门卫兵',
+        attackName: '例行搜身',
+        desc: '站在原地接受卫兵检查，持续 1 分钟',
+        bpm: 0,
+        seconds,
+        dmg: 0,
+        noDamage: true,
+        allowSkip: false,
+        showFailure: false,
+        completeLabel: '✅ 检查结束',
+        dialogClass: 'guard-search-task-modal',
+      })
+    }
+    if (State.get()._guardSearchPending) {
+      State.get()._guardSearchPending = null
+      EventBus.emit('state:changed', State.get())
+    }
+    resolveGuardSearch(direction)
+  }
+
+  /** 搜身结算：只没收 1 个开锁工具，然后放行 */
+  function resolveGuardSearch (direction) {
+    const state = State.get()
+    const confiscated = (state.inventory.consumables.lockpick || 0) > 0
+    if (confiscated) {
+      state.inventory.consumables.lockpick--
+      EventBus.emit('ui:log', { text: '🛡️ 卫兵搜出并没收了 1 个开锁工具。', type: 'danger' })
+      EventBus.emit('state:changed', state)
+    }
+    Dialog.show({
+      title: '🛡️ 城门检查 · 卫兵',
+      className: 'guard-search-modal inventory-modal restraint-modal',
+      body: `<div class="guard-search-hero"><i>🛡️</i><div><small>GATE CHECK · 检查结果</small><b>${confiscated ? '“开锁工具？我可记下了。”' : '“没发现违禁品。走吧，别在门口磨蹭。”'}</b><p>${confiscated ? '卫兵把搜出的开锁工具收进口袋，侧身让你过去。' : '卫兵收起打量的目光，侧身让开道。'}</p></div>${guardDeviceComment()}</div>`,
+      actions: [{ label: direction === 'enter' ? '✅ 进城' : '✅ 出城', cls: 'btn-primary', handler: () => { Dialog.close(); finishGuardPass(direction) } }],
+    })
+  }
+
+  /** 检查通过：进入/离开统一收尾（每个分支只执行一次位置切换） */
+  function finishGuardPass (direction) {
+    const state = State.get()
+    state._guardCheckedThisVisit = true
+    EventBus.emit('state:changed', state)
+    if (direction === 'enter') {
+      open()
+    } else {
+      doLeaveCamp()
+    }
+  }
+
+  /** 放弃检查：不扣钱、不耗回合、不清除检查可能，坐标不变，下次重新判定 */
+  function cancelGuardSearch (direction) {
+    const state = State.get()
+    if (direction === 'enter') {
+      // 暂不进城：留在城门原地，恢复移动（不改变坐标）
+      state.phase = 'idle'
+      campClose()
+      EventBus.emit('state:changed', state)
+      GameFlow.afterEvent()
+    } else {
+      open()
+    }
+  }
+
+  /** 刷新恢复：搜身中断档后重开检查页面（剩余时间恢复，不重复结算） */
+  function resumeGuardSearch () {
+    const state = State.get()
+    const pending = state._guardSearchPending
+    if (!pending) return
+    const remaining = Math.max(0, pending.duration - Math.floor((Date.now() - pending.startedAt) / 1000))
+    if (remaining <= 0) {
+      state._guardSearchPending = null
+      EventBus.emit('state:changed', state)
+      resolveGuardSearch(pending.direction)
+    } else {
+      runGuardSearchTask(pending.direction, remaining)
     }
   }
 
@@ -403,6 +596,8 @@ window.CampSystem = (function () {
     }
     // 重置厕所 CD，下次进营地可再上一次
     state._toiletUsed = false
+    // 真正离开后重置本次进城检查标记（下次进城重新判定）
+    state._guardCheckedThisVisit = false
     state.phase = 'idle'
     campClose()
     // 离开营地：恢复操作栏与浮动方向键
@@ -2381,14 +2576,13 @@ window.CampSystem = (function () {
       </button>`
     }).join('')
     Dialog.show({
-      title: '🌀 梦幻商店 · 妖缚商行', className: 'inventory-modal restraint-modal',
-      body: `<section class="merchant-hero"><span aria-hidden="true">🌀</span><div><small>DREAM EMPORIUM · 妖缚商行</small><h3>“梦里的好东西，我这都有。”</h3><p>营地深处的神秘商行，皮绳、锁具、媚奴用品、钥匙一应俱全。</p></div></section>
+      title: '🔮 梦幻商店 · 妖缚商行', className: 'inventory-modal dream-shop-modal',
+      body: `<section class="merchant-hero dream-shop-hero"><span aria-hidden="true">🔮</span><div><small>DREAM EMPORIUM · 妖缚商行</small><h3>“梦里的好东西，我这都有。”</h3><p>营地深处的神秘商行，皮绳、锁具、媚奴用品、钥匙一应俱全。</p></div></section>
         <div class="merchant-stats"><span>💎 ${state.gold}G</span><span>⛓️ 已锁 ${typeof RestraintSystem !== 'undefined' ? RestraintSystem.countLocked() : 0} 件</span><span>💰 战斗金币加成 ${typeof RestraintSystem !== 'undefined' ? Math.round(RestraintSystem.goldBonus() * 100) : 0}%</span></div>
-        <p class="work-footnote">媚奴用品为可自由穿脱的 buff 装置；束缚装置被怪物/陷阱上锁时需解锁。</p>
-        ${buffCards ? `<p class="work-footnote" style="margin-top:10px"><b>💄 媚奴用品（接客加成）</b></p><div class="merchant-catalog">${buffCards}</div>` : ''}
-        ${restrCards ? `<p class="work-footnote" style="margin-top:10px"><b>⛓️ 束缚装置（可自行穿戴）</b></p><div class="merchant-catalog">${restrCards}</div>` : ''}
-        <p class="work-footnote" style="margin-top:10px"><b>🔑 解锁工具</b></p>
-        <div class="merchant-catalog">${toolCards}</div>`,
+        <p class="dream-shop-note">媚奴用品可以自由穿脱；束缚装置一旦被怪物或陷阱上锁，就需要对应工具解开。</p>
+        ${buffCards ? `<section class="dream-shop-section"><h4><span>💄</span> 媚奴用品 <small>接客加成</small></h4><div class="merchant-catalog dream-shop-catalog">${buffCards}</div></section>` : ''}
+        ${restrCards ? `<section class="dream-shop-section"><h4><span>⛓️</span> 束缚装置 <small>可自行穿戴</small></h4><div class="merchant-catalog dream-shop-catalog">${restrCards}</div></section>` : ''}
+        <section class="dream-shop-section"><h4><span>🔑</span> 解锁工具 <small>消耗品</small></h4><div class="merchant-catalog dream-shop-catalog">${toolCards}</div></section>`,
       actions: [{ label: '返回营地', handler: () => { Dialog.close(); open() } }],
     })
     document.querySelectorAll('[data-restr]').forEach(btn => {
@@ -2401,8 +2595,14 @@ window.CampSystem = (function () {
         // 记录已购买（可重复穿戴）
         state._ownedRestraints = state._ownedRestraints || []
         if (!state._ownedRestraints.includes(def.id)) state._ownedRestraints.push(def.id)
-        if (typeof RestraintSystem !== 'undefined') RestraintSystem.equip(def.slot, def.id, { locked: false, source: 'tavern' })
-        EventBus.emit('ui:log', { text: `⛓️ 你买下并戴上了${def.name}（已拥有，可随时脱下重穿）。`, type: 'good' })
+        const equipResult = typeof RestraintSystem !== 'undefined'
+          ? RestraintSystem.equip(def.slot, def.id, { locked: false, source: 'dream_shop' })
+          : null
+        const equipped = !!(equipResult && equipResult.ok)
+        const logText = equipped
+          ? `🔮 你买下并戴上了${def.name}（已拥有，可随时脱下重穿）。`
+          : `🔮 你买下了${def.name}，但对应部位已有装备；可在妖缚装备栏中更换。`
+        EventBus.emit('ui:log', { text: logText, type: 'good' })
         EventBus.emit('state:changed', state)
         ddShop()
       }
@@ -3456,5 +3656,5 @@ window.CampSystem = (function () {
     })
   }
 
-  return { open, gloryHole, renderToilet, investigateStall, enterGlory, useToilet, deer, tavern, serveMercenary, ddShop }
+  return { open, gloryHole, renderToilet, investigateStall, enterGlory, useToilet, deer, tavern, serveMercenary, ddShop, resumeGuardSearch }
 })()

@@ -780,6 +780,9 @@
       ShopSystem.open(null)
     } else if (state.phase === 'camp') {
       CampSystem.open()
+    } else if (state._guardSearchPending && typeof CampSystem !== 'undefined' && CampSystem.resumeGuardSearch) {
+      // 城门搜身断点：恢复剩余倒计时并继续检查（不重复结算）
+      CampSystem.resumeGuardSearch()
     } else {
       // 恢复移动存档：剩余步数 + 来源格 + 转向状态
       if (state._moveState && (state._moveState.steps || 0) > 0) {
@@ -1361,7 +1364,7 @@
       if (typeof CampSystem !== 'undefined' && CampSystem.open) {
         const st = State.get()
         if (st) st._campReturnPos = { x: fromX, y: fromY }
-        CampSystem.open()
+        CampSystem.open({ gateEntry: true })
       }
       return 'stopped'
     }
