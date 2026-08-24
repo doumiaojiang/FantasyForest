@@ -24,6 +24,21 @@ window.CampSystem = (function () {
     { id: 'vfast', icon: '🌸', name: '快速抽插', pay: 15, desc: '狂风暴雨般猛操你的小穴' },
     { id: 'vhard', icon: '🌸', name: '全力操干', pay: 20, desc: '双腿大开被狠狠操干，最后浇进滚烫的精液' },
   ]
+  /** 荣耀洞足交服务池：固定 60 秒，随机等概率抽取 */
+  const FOOT_SERVICES = [
+    { id: 'foot_60', icon: '🦶', name: '缓慢足交', bpm: 60, seconds: 60, pay: 8 },
+    { id: 'foot_90', icon: '🦶', name: '标准足交', bpm: 90, seconds: 60, pay: 11 },
+    { id: 'foot_120', icon: '👠', name: '快速足交', bpm: 120, seconds: 60, pay: 14 },
+    { id: 'foot_150', icon: '👠', name: '激烈足交', bpm: 150, seconds: 60, pay: 17 },
+    { id: 'foot_180', icon: '🔥', name: '极限足交', bpm: 180, seconds: 60, pay: 20 },
+  ]
+  /** 高跟鞋足交加成（仅检查脚部槽实际穿戴，未穿戴不生效；不含芭蕾舞高跟鞋） */
+  const HEEL_BONUSES = {
+    heels: { pay: 2, insideChance: 25 },
+    heels_10: { pay: 3, insideChance: 35 },
+    heels_12: { pay: 5, insideChance: 45 },
+    heels_14: { pay: 7, insideChance: 60 },
+  }
   function setCampPhase () {
     const state = State.get()
     if (state.phase !== 'camp') {
@@ -918,6 +933,12 @@ window.CampSystem = (function () {
       const vaginaBtn = canUseVagina
         ? `<button class="glory-hole-btn" data-hole="vagina"><i>🌸</i><span><b>把小穴凑过去</b><small>张开双腿任客人使用</small></span></button>`
         : ''
+      // 足交服务（玩家主动选择，不进入白嫖指定池；可在 MCM 关闭）
+      const footEnabled = (state._glorySettings || {}).footService !== false
+      const footBtn = footEnabled
+        ? `<button class="glory-hole-btn" data-hole="foot"><i>👠</i><span><b>伸出双脚</b><small>用双脚和鞋履为客人服务</small></span></button>`
+        : ''
+      const footHint = footEnabled ? `<div class="glory-foot-hint">${footServiceHint()}</div>` : ''
       // 白嫖时：客人随机指定一个洞（指名），玩家不能选
       let namedHole = ''
       if (isFree) {
@@ -944,7 +965,9 @@ window.CampSystem = (function () {
             <button class="glory-hole-btn" data-hole="oral"><i>👄</i><span><b>把嘴凑过去</b><small>任由客人操弄你的嘴</small></span></button>
             <button class="glory-hole-btn" data-hole="anal"><i>🍑</i><span><b>把屁股凑过去</b><small>撅起屁股任客人使用</small></span></button>
             ${vaginaBtn}
-          </div></div>`}
+            ${footBtn}
+          </div>
+          ${footHint}</div>`}
           <p class="camp-footnote">你只负责把洞贴上去，客人会用多少钱、怎么干你，全凭他的心情——完事后掷 Z 看是否有额外惊喜。</p>`,
         actions: forced ? [] : [{ label: '返回营地', handler: () => { open() } }],
       })
@@ -1020,6 +1043,7 @@ window.CampSystem = (function () {
   async function performService (hole, rerender) {
     const state = State.get()
     if (showServiceGearLockout('荣耀洞', rerender)) return
+    if (hole === 'foot') { performFootService(rerender); return }
     const wasFree = !!state._gloryFreeService
     // 客人随机决定怎么用你（玩家只选了用哪个洞）
     const pool = hole === 'oral' ? ORAL_SERVICES : hole === 'vagina' ? VAGINA_SERVICES : ANAL_SERVICES
@@ -1103,6 +1127,167 @@ window.CampSystem = (function () {
     campShow({
       title: '🍑 服务完成', className: 'glory-result-modal',
       body: `<div class="glory-result"><strong>${totalEarn > 0 ? `赚了 ${totalEarn}G` : '白干了一场'}</strong><p>${wasFree && event.tip > 0 ? event.msg.replace(/小费|金币/g, '') : event.msg}</p>${repaid > 0 ? `<span>还债 ${repaid}G · 还欠 ${state._gloryDebt}G</span>` : ''}${state._gloryFreeService ? '<span class="danger">还有个免费的得做完才能走</span>' : ''}</div>`,
+      actions: [
+        { label: forced ? '继续服务' : '继续接客', cls: 'btn-primary', handler: () => { Dialog.close(); rerender() } },
+        ...(!forced ? [{ label: '返回营地', handler: () => { Dialog.close(); gloryClearedLeave() } }] : []),
+      ],
+    })
+  }
+
+  /* ============ 荣耀洞 · 足交服务 ============ */
+
+  /** 足交按钮下方的动态联动提示 */
+  function footServiceHint () {
+    const state = State.get()
+    if (typeof RestraintSystem === 'undefined') return '赤脚服务 · 60～180 BPM · 无装备加成'
+    const feet = RestraintSystem.get('feet')
+    const id = feet && feet.id
+    const def = id ? RestraintSystem.defOf(id) : null
+    const bonus = id ? HEEL_BONUSES[id] : null
+    if (id && bonus && def) {
+      return `${def.name} · 报酬 +${bonus.pay}G · 鞋内概率 ${bonus.insideChance}%${feet.locked ? ' · 已上锁' : ' · 有丢失风险'}`
+    }
+    return '赤脚服务 · 60～180 BPM · 无装备加成'
+  }
+
+  /** 足交服务：60 秒 BPM 任务 + 高跟鞋联动 + 射精位置 + 偷鞋判定 */
+  async function performFootService (rerender) {
+    const state = State.get()
+    if (showServiceGearLockout('荣耀洞', rerender)) return
+    const service = FOOT_SERVICES[Math.floor(Math.random() * FOOT_SERVICES.length)]
+    // 任务开始时记录高跟鞋 ID（即使结算时鞋被拿走，本次加成仍有效）
+    const feetEntry = typeof RestraintSystem !== 'undefined' ? RestraintSystem.get('feet') : null
+    const heelId = feetEntry && HEEL_BONUSES[feetEntry.id] ? feetEntry.id : null
+    const heelBonus = heelId ? HEEL_BONUSES[heelId] : null
+    const heelLocked = !!(feetEntry && feetEntry.locked)
+    const heelDef = heelId ? RestraintSystem.defOf(heelId) : null
+    EventBus.emit('ui:log', { text: `👠 你伸出双脚，客人开始「${service.name}」。`, type: 'danger' })
+
+    const result = (typeof BattleUI !== 'undefined' && BattleUI.showTaskDialog)
+      ? await BattleUI.showTaskDialog({
+          enemyName: '🍑 荣耀洞客人',
+          attackName: service.name,
+          desc: `用双脚为客人足交，${service.bpm} BPM 持续 60 秒`,
+          bpm: service.bpm,
+          seconds: service.seconds,
+          dmg: 0,
+          noDamage: true,
+          refuseLabel: '🙅 拒绝服务',
+        })
+      : (confirm('足交服务：完成代表伺候完了。') ? false : true)
+
+    if (result === 'refuse') {
+      // 拒绝服务：沿用荣耀洞规则，+10 债务
+      state._gloryDebt = (state._gloryDebt || 0) + 10
+      EventBus.emit('ui:log', { text: `🙅 你拒绝足交服务「${service.name}」，被营地加了 10 金币债务！`, type: 'danger' })
+      EventBus.emit('state:changed', state)
+      rerender(); return
+    }
+    if (result === true) {
+      // 跳过/中途失败：无报酬，不触发鞋内射精或偷鞋
+      EventBus.emit('ui:log', { text: '🏃 你中途收回了脚，没拿报酬也没欠债。', type: 'dim' })
+      rerender(); return
+    }
+
+    // 完成：掷 Z 特殊事件（足交不额外加钱，只加文本）
+    const event = rollSpecialEvent()
+    const baseEarn = event.basePay ? service.pay : 0
+    const heelPay = (event.basePay && heelBonus) ? heelBonus.pay : 0
+    const tip = event.tip || 0
+    let totalEarn = baseEarn + heelPay + tip
+    // 投诉：加 30 欠款且这次不给钱
+    if (event.complain) {
+      state._gloryDebt = (state._gloryDebt || 0) + 30
+      EventBus.emit('ui:log', { text: `😤 客人投诉你服务不行，被营地记了 30 金币欠款（现欠 ${state._gloryDebt}G）！`, type: 'danger' })
+    }
+
+    // 射精位置事件（独立掷骰，不替换 Z 特殊事件）
+    let shoeInside = false
+    if (heelBonus) shoeInside = Math.floor(Math.random() * 100) < heelBonus.insideChance
+    let ejacText
+    if (!heelId) ejacText = '💦 客人最后射在了你的脚背和脚趾上。'
+    else if (shoeInside) ejacText = '👠 客人掰开鞋口，把精液全部射进了你的高跟鞋里。'
+    else ejacText = '💦 客人把精液射在鞋面和你的双脚上。'
+
+    // 偷鞋判定：射在鞋内 + 服务类高跟鞋 + 未上锁 + 任务成功 → 4%
+    let shoeStolen = false
+    if (heelBonus && shoeInside && !heelLocked) {
+      if (Math.random() < 0.04) {
+        RestraintSystem.remove('feet')
+        state._ownedRestraints = (state._ownedRestraints || []).filter(id => id !== heelId)
+        if (state._ownedRestraintCounts && state._ownedRestraintCounts[heelId]) delete state._ownedRestraintCounts[heelId]
+        if (heelId === 'heels' && state._prostituteGear) state._prostituteGear.heels = false
+        shoeStolen = true
+      }
+    } else if (heelBonus && shoeInside && heelLocked) {
+      EventBus.emit('ui:log', { text: '🔒 客人试着扯走你的高跟鞋，但锁具牢牢扣着，他只能悻悻离开。', type: 'dim' })
+    }
+
+    // 营地税率
+    const taxRate = (CONFIG.difficulty[state.difficulty] || {}).campTax || 0
+    const tax = Math.floor(totalEarn * taxRate)
+    if (tax > 0) {
+      totalEarn -= tax
+      EventBus.emit('ui:log', { text: `💸 营地收取 ${tax}G 税费（${state.difficulty === 'brutal' ? '残酷' : '困难'} ${taxRate * 100}%）。`, type: 'dim' })
+    }
+    const debtBefore = Math.max(0, state._gloryDebt || 0)
+    const repaid = Math.min(debtBefore, totalEarn)
+    state._gloryDebt = debtBefore - repaid
+    state.gold += totalEarn - repaid
+    if (repaid > 0 && state._gloryDebt === 0 && (state._gloryByGuard || state._gloryByCaptain)) {
+      state._gloryJustCleared = true
+      state._gloryByGuard = false
+    }
+    if (event.free) state._gloryFreeService = true
+    EventBus.emit('ui:log', { text: `👠 你伺候完「${service.name}」，累得双脚发酸，赚了 ${totalEarn} 金币。`, type: totalEarn > 0 ? 'good' : 'dim' })
+    if (repaid > 0) EventBus.emit('ui:log', { text: `💸 你挣的钱先被营地扣去还债 ${repaid} 金币，还剩 ${state._gloryDebt} 没还清。`, type: 'dim' })
+    EventBus.emit('ui:log', { text: `🎲 Z=${event.z}：${event.msg}`, type: event.tip > 0 ? 'good' : 'dim' })
+    EventBus.emit('ui:log', { text: ejacText, type: 'dim' })
+    if (shoeStolen) EventBus.emit('ui:log', { text: `🏃 客人趁你还没反应过来，抓起沾满精液的${heelDef ? heelDef.name : '高跟鞋'}从另一边逃走了！`, type: 'danger' })
+    EventBus.emit('state:changed', state)
+    State.save()
+
+    // 无证卖淫危险值
+    if (!state._prostituteLicensed) {
+      if (event.z === 1) {
+        state._gloryWanted = Math.max(0, (state._gloryWanted || 0) - 10)
+        EventBus.emit('ui:log', { text: `👮 管理员刚刚「使用」过你，给你罩着点，危险值 -10（现 ${state._gloryWanted}%）。`, type: 'good' })
+      } else {
+        state._gloryWanted = Math.min(100, (state._gloryWanted || 0) + 2)
+        EventBus.emit('ui:log', { text: `🚨 无证卖淫，危险值 +2（现 ${state._gloryWanted}%）。越高越容易被抓！`, type: 'danger' })
+      }
+      EventBus.emit('state:changed', state)
+      const wantRoll = Math.floor(Math.random() * 100)
+      if (wantRoll < state._gloryWanted && !state._prisonPardon) {
+        EventBus.emit('ui:log', { text: `⛓️ 危险值过高，守卫冲进来把你逮个正着！`, type: 'danger' })
+        state._gloryWanted = 0
+        EventBus.emit('state:changed', state)
+        Dialog.close()
+        enterPrison()
+        return
+      }
+      if (state._prisonPardon && wantRoll < state._gloryWanted) {
+        EventBus.emit('ui:log', { text: `🕊️ 危险值 ${state._gloryWanted}% 触顶，但队长的豁免罩着你，守卫不敢抓你。`, type: 'good' })
+        state._gloryWanted = Math.max(0, state._gloryWanted - 10)
+        EventBus.emit('state:changed', state)
+      }
+    }
+
+    const forced = state._gloryDebt > 0 || state._gloryFreeService
+    const shoeRow = shoeStolen
+      ? `<span class="danger">🏃 ${heelDef ? heelDef.name : '高跟鞋'}已被客人拿走</span>`
+      : (heelLocked && shoeInside) ? '<span>🔒 上锁的高跟鞋没被扯走</span>' : ''
+    campShow({
+      title: '👠 足交完成', className: 'glory-result-modal',
+      body: `<div class="glory-result"><strong>${totalEarn > 0 ? `赚了 ${totalEarn}G` : '白干了一场'}</strong>
+        <p>${service.name}（${service.bpm} BPM · 60 秒）</p>
+        <p>${event.msg}</p>
+        <p>${ejacText}</p>
+        ${heelBonus ? `<span>${heelDef.name} 奖金 +${heelPay}G</span>` : ''}
+        ${repaid > 0 ? `<span>还债 ${repaid}G · 还欠 ${state._gloryDebt}G</span>` : ''}
+        ${tax > 0 ? `<span>税费 ${tax}G</span>` : ''}
+        ${shoeRow}
+        ${state._gloryFreeService ? '<span class="danger">还有个免费的得做完才能走</span>' : ''}</div>`,
       actions: [
         { label: forced ? '继续服务' : '继续接客', cls: 'btn-primary', handler: () => { Dialog.close(); rerender() } },
         ...(!forced ? [{ label: '返回营地', handler: () => { Dialog.close(); gloryClearedLeave() } }] : []),
@@ -3415,7 +3600,6 @@ window.CampSystem = (function () {
       { id: 'heels_10', name: '10cm 高跟鞋', icon: '👠', desc: '服务类鞋履' },
       { id: 'heels_12', name: '12cm 高跟鞋', icon: '👠', desc: '服务类鞋履' },
       { id: 'heels_14', name: '14cm 高跟鞋', icon: '👠', desc: '服务类鞋履' },
-      { id: 'ballet_heels', name: '芭蕾舞高跟鞋', icon: '🩰', desc: '重型服务类鞋履' },
       { id: 'lingerie', name: '情趣内衣', icon: '🩲', desc: '每项接客任务获得的等级翻倍' },
       { id: 'latex', name: '乳胶衣', icon: '🖤', desc: '每项接客任务获得的金币和等级都翻倍' },
       { id: 'slut_collar', name: '项圈', icon: '🐕', desc: '插入任务强制 120 BPM，等级翻倍' },
@@ -3889,7 +4073,7 @@ window.CampSystem = (function () {
     const gear = {
       lipstick: !!R && R.hasDevice('lipstick'),
       makeup: !!R && R.hasDevice('makeup'),
-      heels: !!R && ['heels', 'heels_10', 'heels_12', 'heels_14', 'ballet_heels'].some(id => R.hasDevice(id)),
+      heels: !!R && ['heels', 'heels_10', 'heels_12', 'heels_14'].some(id => R.hasDevice(id)),
       lingerie: !!R && R.hasDevice('lingerie'),
       latex: !!R && R.hasDevice('latex'),
       collar: !!R && R.hasDevice('slut_collar'),

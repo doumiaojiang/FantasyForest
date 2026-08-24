@@ -654,8 +654,9 @@ window.BattleUI = (function () {
 
   /** 显示任务弹窗，返回 true=没完成 false=已完成
    *  allowSkip=false 时隐藏"跳过计时器"；showFailure=false 时隐藏"没完成"；
-   *  completeLabel 自定义完成按钮文字；dialogClass 附加弹窗样式类 */
-  function showTaskDialog ({ enemyName, attackName, desc, bpm, seconds, dmg, status, statusTurns, dildoName, noDamage, allowSkip = true, showFailure = true, completeLabel = '✅ 完成任务', dialogClass = '' }) {
+   *  completeLabel 自定义完成按钮文字；dialogClass 附加弹窗样式类；
+   *  refuseLabel 提供"拒绝服务"按钮（点击 resolve 'refuse'） */
+  function showTaskDialog ({ enemyName, attackName, desc, bpm, seconds, dmg, status, statusTurns, dildoName, noDamage, allowSkip = true, showFailure = true, completeLabel = '✅ 完成任务', dialogClass = '', refuseLabel = '' }) {
     return new Promise(resolve => {
       const hasTimer = seconds > 0
       const hasBpm = bpm > 0
@@ -720,6 +721,11 @@ window.BattleUI = (function () {
           handler: () => { Dialog.close(); resolve(true) },
         }] : []),
       ] : [
+        ...(refuseLabel ? [{
+          label: refuseLabel,
+          cls: 'btn-danger',
+          handler: () => { Dialog.close(); resolve('refuse') },
+        }] : []),
         {
           label: '▶️ 开始任务',
           cls: 'btn-primary',
@@ -741,7 +747,7 @@ window.BattleUI = (function () {
       function beginTask () {
         const layer = document.getElementById('modal-layer')
         const btns = (layer ? layer : document).querySelectorAll('.modal-actions button')
-        btns.forEach(b => { if (b.textContent.includes('开始任务')) b.style.display = 'none' })
+        btns.forEach(b => { if (b.textContent.includes('开始任务') || b.textContent.includes('拒绝服务')) b.style.display = 'none' })
         // 添加跳过计时器按钮
         const actionsDiv = (layer ? layer : document).querySelector('.modal-actions')
         if (actionsDiv && hasTimer && allowSkip) {

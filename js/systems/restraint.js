@@ -865,6 +865,13 @@ window.RestraintSystem = (function () {
             <button class="btn restr-btn" data-act="gs-reset">↺ 恢复默认</button>
           </div>
         </div>
+        <div class="restr-collapse" data-collapse="service" data-target="restr-service-body"><span>💋 服务联动</span><i>▾</i></div>
+        <div class="restr-collapse-body" id="restr-service-body" hidden>
+          <div class="restr-setting-row">
+            <span><b>荣耀洞足交服务</b><small>关闭后隐藏荣耀洞的足交选项</small></span>
+            <label class="restr-switch"><input type="checkbox" id="glory-foot" ${((State.get()._glorySettings || {}).footService) !== false ? 'checked' : ''}><i></i></label>
+          </div>
+        </div>
         <p class="camp-footnote">已佩戴 ${countWorn()} 件 · 上锁 ${countLocked()} 件 · 战斗金币加成 +${Math.round(goldBonus() * 100)}%。</p>
       </div>`,
       actions: [
@@ -948,10 +955,19 @@ window.RestraintSystem = (function () {
     // 折叠展开
     document.querySelectorAll('[data-collapse]').forEach(btn => {
       btn.onclick = () => {
-        const body = document.getElementById('restr-guard-body')
+        const target = btn.dataset.target || 'restr-guard-body'
+        const body = document.getElementById(target)
         if (body) body.hidden = !body.hidden
       }
     })
+    // 荣耀洞足交服务开关：立即保存（妖缚预设不修改该开关）
+    const footToggle = document.getElementById('glory-foot')
+    if (footToggle) footToggle.onchange = () => {
+      const g = State.get()._glorySettings || (State.get()._glorySettings = {})
+      g.footService = footToggle.checked
+      EventBus.emit('state:changed', State.get())
+      State.save()
+    }
     // 恢复默认
     document.querySelectorAll('[data-act="gs-reset"]').forEach(btn => {
       btn.onclick = () => {

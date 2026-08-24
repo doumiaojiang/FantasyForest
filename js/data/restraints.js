@@ -119,10 +119,6 @@ window.RESTRAINTS = [
     desc: '服务类鞋履：14cm 鞋跟。', effect: 'buff_heels',
   },
   {
-    id: 'ballet_heels', name: '芭蕾舞高跟鞋', slot: 'feet', material: 'leather', price: 300, difficulty: 4, buff: true, serviceGear: true, heavy: true,
-    desc: '极端踮足的服务类鞋履；作为重型妖缚装备，可穿戴或上锁。', effect: 'buff_heels',
-  },
-  {
     id: 'lingerie', name: '情趣内衣', slot: 'outfit', material: 'fabric', price: 200, difficulty: 1, buff: true, serviceGear: true,
     desc: '服装类妖缚装备：每项接客任务获得的等级翻倍。', effect: 'buff_lingerie',
   },

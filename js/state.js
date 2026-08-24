@@ -115,6 +115,9 @@ window.State = (function () {
         allowBribe: true,                   // 允许 50G 贿赂放行
         deviceComments: true,               // 妖缚特殊台词
       },
+      _glorySettings: {                     // 荣耀洞服务设置
+        footService: true,                  // 足交服务开关
+      },
       _freeMeatBrand: false,            // 大腿上"免费肉便器"烙印（铁匠解锁后永久）
       _blacksmithContract: false,       // 与铁匠签的契约：每次进铺子要先服务
       _gloryDiscovered: false,          // 是否已发现荣耀洞（调查隔间后）
@@ -616,6 +619,9 @@ window.State = (function () {
     gs.confiscateLockpick = gs.confiscateLockpick !== false
     gs.allowBribe = gs.allowBribe !== false
     gs.deviceComments = gs.deviceComments !== false
+    // 荣耀洞服务设置（旧档自动补默认）
+    if (!state._glorySettings || typeof state._glorySettings !== 'object') state._glorySettings = {}
+    state._glorySettings.footService = state._glorySettings.footService !== false
     state._freeMeatBrand = !!state._freeMeatBrand
     state._blacksmithContract = !!state._blacksmithContract
     if (state._gloryDiscovered === undefined) state._gloryDiscovered = !!state._gloryDiscovered
