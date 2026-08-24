@@ -409,8 +409,9 @@
       case 'cheat-accessories':
         ITEMS.accessories.forEach(a => {
           if (!state.ownedEquipment.includes(a.id)) state.ownedEquipment.push(a.id)
-          if (!state.inventory.accessories.includes(a.id)) state.inventory.accessories.push(a.id)
-          if (a.effect && a.effect.stat === 'maxHp') {
+          const alreadyWorn = state.inventory.accessories.includes(a.id)
+          if (!alreadyWorn) state.inventory.accessories.push(a.id)
+          if (!alreadyWorn && a.effect && a.effect.stat === 'maxHp') {
             state.maxHp += a.effect.value
             state.hp += a.effect.value
           }
@@ -512,6 +513,8 @@
             alert('无效坐标（该格不可通行或超出地图）')
             return
           }
+          // 弹窗关闭后表单节点会被移除，必须先保存勾选状态。
+          const triggerEvent = document.getElementById('cheat-goto-trigger').checked
           state.position = { x, y }
           state.visited.push({ x, y })
           state.phase = 'idle'
@@ -519,7 +522,7 @@
           EventBus.emit('state:changed', state)
           EventBus.emit('ui:mapUpdate', {})
           EventBus.emit('ui:log', { text: `📍 已传送到 (${x},${y})。`, type: 'good' })
-          if (document.getElementById('cheat-goto-trigger').checked) {
+          if (triggerEvent) {
             // 传送后触发格子事件（如该格是战斗/BOSS）
             const tile = MapLib.get(x, y)
             if (tile) NodeEvents.trigger(tile, x, y)
@@ -1180,10 +1183,19 @@
     const roll = Math.floor(Math.random() * 100)
     if (roll >= lust) return
     EventBus.emit('ui:log', { text: `🔥 ${merc.icon} ${merc.name} 欲火中烧，从背后一把抱住了你（发情 ${lust}%，触发了 ${roll}%）！`, type: 'danger' })
-    // 随机选服务类型：口交 / 肛交 / 性交（女性、且未佩戴贞操装置才能性交）
-    const canSex = state.gender !== 'male' && !ChastitySystem.isWorn()
-    const pool = canSex ? ['oral', 'anal', 'sex'] : ['oral', 'anal']
-    const type = pool[Math.floor(Math.random() * pool.length)]
+    // 先随机攻击部位，再交给妖缚装置处理：充能抵挡、失效拔除、上锁改位、全封闭打屁股。
+    const pool = state.gender !== 'male' ? ['oral', 'anal', 'vagina'] : ['oral', 'anal']
+    const requestedPart = pool[Math.floor(Math.random() * pool.length)]
+    const routed = typeof RestraintSystem !== 'undefined'
+      ? RestraintSystem.resolveMonsterOrifice(requestedPart)
+      : { mode: 'original', part: requestedPart, events: [] }
+    ;(routed.events || []).forEach(text => EventBus.emit('ui:log', { text, type: routed.mode === 'blocked' ? 'good' : 'danger' }))
+    if (routed.mode === 'blocked') {
+      EventBus.emit('ui:log', { text: `⚡ ${merc.icon} ${merc.name}的袭击被防护充能完全挡下：0 伤害、0 效果。`, type: 'good' })
+      EventBus.emit('state:changed', state)
+      return
+    }
+    const type = routed.mode === 'spank' ? 'spank' : ({ oral: 'oral', anal: 'anal', vagina: 'sex' }[routed.part] || 'anal')
     await forcedMercenaryService(type, merc)
   }
 
@@ -1194,6 +1206,7 @@
       oral: { name: '强迫口交', dmg: 20, desc: '她揪着你的头发，把鸡巴狠狠塞进你嘴里，逼你深喉', seconds: 30 },
       anal: { name: '强迫肛交', dmg: 30, desc: '她把你按在树干上，从背后猛地操进你的菊穴', seconds: 30 },
       sex: { name: '强迫性交', dmg: 30, desc: '她把你压在身下，挺着鸡巴狠狠操进你的小穴', seconds: 30 },
+      spank: { name: '强制打屁股', dmg: 10, desc: '你的嘴穴、菊穴和小穴都被挡住，她恼火地把你按住，狠狠抽打屁股', seconds: 30 },
     }[type]
     if (!cfg) return
     let failed = false
@@ -1445,6 +1458,9 @@
   function respawn () {
     const state = State.get()
     const hadGreed = StatusSystem.has('greed_demon')
+    const greedDeviceResult = hadGreed && typeof TreasureSystem !== 'undefined' && TreasureSystem.clearGreedDevice
+      ? TreasureSystem.clearGreedDevice()
+      : 'none'
     // 清理战斗/伏击残留（防伏击死亡后状态残留导致无法正常行动）
     state._battle = null
     state._ambush = null
@@ -1455,17 +1471,22 @@
     state.statuses = []
     EventBus.emit('ui:log', { text: `金币减半至 ${state.gold}G。`, type: 'dim' })
     EventBus.emit('state:changed', state)
-    // 死亡后贪婪恶魔消失，提示摘下乳夹
+    // 死亡后贪婪恶魔消失，并与真实的胸部妖缚槽同步。
     if (hadGreed) {
+      const deviceText = {
+        removed: '恶魔赠送的乳夹已自动从胸部妖缚槽脱下，装备仍保留在已拥有列表。',
+        detached: '恶魔已经离开你原本的胸部装备；原装备保持不变。',
+        locked: '金币翻倍已经失效，但你后来锁住的乳夹仍留在胸部槽，需要自行解锁。',
+        none: '金币翻倍效果已经解除。',
+      }[greedDeviceResult] || '金币翻倍效果已经解除。'
       Dialog.show({
         title: '😈 贪婪恶魔消失了',
         body: `
           <p>你死了，贪婪恶魔也随之消失了……</p>
-          <p style="color:var(--text-dim);margin-top:6px">（请取下<b>乳夹</b>）</p>
-          <p style="color:var(--text-dim);font-size:.85rem;margin-top:4px">金币不再翻倍了。</p>
+          <p style="color:var(--text-dim);margin-top:6px">${deviceText}</p>
         `,
         actions: [
-          { label: '取下乳夹', cls: 'btn-primary', handler: () => { Dialog.close(); readyToRoll() } },
+          { label: '继续冒险', cls: 'btn-primary', handler: () => { Dialog.close(); readyToRoll() } },
         ],
       })
       return

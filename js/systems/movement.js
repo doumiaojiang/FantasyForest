@@ -186,6 +186,18 @@ function triggerRandomEvent () {
 }
 
 /* ---------- 伏击系统 ---------- */
+function ambushTaskTiming (attack) {
+  const desc = attack && attack.desc ? attack.desc : ''
+  const bpmMatch = desc.match(/(\d+)\s*BPM/)
+  const minMatch = desc.match(/(\d+)\s*分/)
+  const secMatch = desc.match(/(\d+)\s*秒/)
+  const parsedSeconds = (minMatch ? parseInt(minMatch[1]) * 60 : 0) + (secMatch ? parseInt(secMatch[1]) : 0)
+  return {
+    bpm: Number.isFinite(attack && attack.taskBpm) ? attack.taskBpm : (bpmMatch ? parseInt(bpmMatch[1]) : 0),
+    seconds: Number.isFinite(attack && attack.taskSeconds) ? attack.taskSeconds : parsedSeconds,
+  }
+}
+
 window.AmbushSystem = {
   async trigger () {
     const state = State.get()
@@ -227,24 +239,44 @@ window.AmbushSystem = {
 
       let chargedBlocked = false
       if (typeof RestraintSystem !== 'undefined') {
+        const originalTiming = ambushTaskTiming(effAttack)
         const targetResult = RestraintSystem.resolveMonsterOrifice(attackPart)
-        targetResult.events.forEach(text => EventBus.emit('ui:log', { text, type: text.startsWith('💥') ? 'danger' : 'good' }))
+        targetResult.events.forEach(text => EventBus.emit('ui:log', { text, type: /^(💥|🔒|🚫)/.test(text) ? 'danger' : 'good' }))
         if (targetResult.mode === 'blocked') {
           chargedBlocked = true
           effAttack = { ...effAttack, dmg: 0, status: null, special: null, turns: 0, level: 0 }
         } else if (targetResult.mode === 'redirect') {
           const partName = { oral: '嘴穴', anal: '菊穴', vagina: '小穴' }[targetResult.part]
-          effAttack = { ...effAttack, name: `${effAttack.name} · 改攻${partName}`, desc: `${enemy.name}发现原本的部位无法使用，立刻改为攻击你的${partName}；攻击强度与持续时间不变。`, special: null }
+          effAttack = {
+            ...effAttack,
+            name: `${effAttack.name} · 改攻${partName}`,
+            desc: `${enemy.name}发现原本的部位无法使用，立刻改为攻击你的${partName}；攻击强度与持续时间不变。`,
+            special: null,
+            taskBpm: originalTiming.bpm,
+            taskSeconds: originalTiming.seconds,
+          }
           attackPart = targetResult.part
         } else if (targetResult.mode === 'spank') {
-          effAttack = { ...effAttack, name: '打屁股', desc: `${enemy.name}找不到能使用的部位，只好把你按住狠狠打屁股。`, status: null, special: null, turns: 0, level: 0 }
+          effAttack = {
+            ...effAttack,
+            name: '打屁股',
+            desc: `${enemy.name}找不到能使用的部位，只好把你按住狠狠打屁股。`,
+            status: null,
+            special: null,
+            turns: 0,
+            level: 0,
+            taskBpm: originalTiming.bpm,
+            taskSeconds: originalTiming.seconds,
+          }
           attackPart = 'body'
         }
       }
       EventBus.emit('ui:log', { text: `🌫️ ${enemy.name} 突袭并使用「${effAttack.name}」！`, type: 'danger' })
 
       // 显示攻击任务（口塞下口交类做不了，硬挨一记）
-      const gaggedOral = typeof RestraintSystem !== 'undefined' && RestraintSystem.hasGag() && /口交|深喉|吞吐|口穴|嘴穴/.test(effAttack.desc)
+      const mouthDevice = typeof RestraintSystem !== 'undefined' ? RestraintSystem.get('mouth') : null
+      const mouthDef = mouthDevice && RestraintSystem.defOf(mouthDevice.id)
+      const gaggedOral = attackPart === 'oral' && mouthDef && mouthDef.id !== 'slut_gag'
       if (chargedBlocked) {
         EventBus.emit('ui:log', { text: '⚡ 防护充能完全挡住伏击，不需要执行任务。', type: 'good' })
       } else if (gaggedOral) {
@@ -462,14 +494,8 @@ window.AmbushSystem = {
   showTask (enemy, attack) {
     // 复用战斗任务弹窗（含 BPM 节拍器 + 计时器 + debuff 提示）
     if (typeof BattleUI !== 'undefined' && BattleUI.showTaskDialog) {
-      // 解析 BPM 和秒数（与战斗系统一致）
-      const bpmMatch = (attack.desc || '').match(/(\d+)\s*BPM/)
-      const bpm = bpmMatch ? parseInt(bpmMatch[1]) : 0
-      const minMatch = (attack.desc || '').match(/(\d+)\s*分/)
-      const secMatch = (attack.desc || '').match(/(\d+)\s*秒/)
-      let seconds = 0
-      if (minMatch) seconds += parseInt(minMatch[1]) * 60
-      if (secMatch) seconds += parseInt(secMatch[1])
+      // 优先使用部位改写前保存的 BPM/时长，避免换部位后任务计时归零。
+      const { bpm, seconds } = ambushTaskTiming(attack)
 
       return BattleUI.showTaskDialog({
         enemyName: `🌫️ ${enemy.name}`,

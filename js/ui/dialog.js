@@ -173,12 +173,14 @@ window.Dialog = (function () {
     const shopRaw = tile && tile.raw
     const isPotioneer = shopRaw === '道具商'
     const isBlacksmith = shopRaw === '铁匠铺'
+    const isTravelShop = !isPotioneer && !isBlacksmith
     const ownedEquipment = state.ownedEquipment || []
     const hasMasterPrerequisites = ['sharp_rock', 'rusty_knife', 'basic_sword'].every(id => ownedEquipment.includes(id))
     const itemIcons = {
       ale: '🍺', antidote: '🧪', bandaid: '🩹', barrier_spell: '🔮', green_herb: '🌿', orb_of_power: '🔵', awakening: '☀️', special_cream: '🧴',
       sharp_rock: '🪨', rusty_knife: '🗡️', basic_sword: '⚔️', master_sword: '✨',
       sacrificial_necklace: '📿', health_bracelet: '💚', ring_of_love: '💍', seal_of_resilience: '🛡️',
+      restraint_lock: '🔒', restraint_key: '🔑', lockpick: '🪛', petty_soul_gem: '💠', lesser_soul_gem: '🔹',
     }
     let html = '<div class="shop-grid">'
 
@@ -243,6 +245,15 @@ window.Dialog = (function () {
         !['restraint_lock', 'restraint_key', 'master_key', 'lockpick', 'curse_remover', 'petty_soul_gem', 'lesser_soul_gem', 'common_soul_gem'].includes(it.id)
       ).forEach(item => { html += renderItem(item) })
     }
+    // 野外旅行商人提供少量应急妖缚用品，与城镇完整专营商店保持区分。
+    if (isTravelShop) {
+      const travelRestraintIds = ['restraint_lock', 'restraint_key', 'lockpick', 'petty_soul_gem', 'lesser_soul_gem']
+      html += '</div><hr class="shop-divider"><h4 class="shop-section-title">⛓️ 妖缚应急补给</h4><div class="shop-grid">'
+      travelRestraintIds.forEach(id => {
+        const item = ItemLib.get(id)
+        if (item && Object.prototype.hasOwnProperty.call(stock, id)) html += renderItem(item)
+      })
+    }
     // 装备（铁匠铺专售）
     if (!isPotioneer) {
       html += '</div><hr class="shop-divider"><h4 class="shop-section-title">装备</h4><div class="shop-grid">'
@@ -277,7 +288,7 @@ window.Dialog = (function () {
     Dialog.show({
       title: `${shopTitle} ${isHalf ? '(半价优惠)' : ''}`,
       className: `shop-modal ${isBlacksmith ? 'shop-modal-blacksmith' : isPotioneer ? 'shop-modal-potion' : 'shop-modal-travel'}`,
-      body: `<section class="shop-hero"><span>${isBlacksmith ? '🔨' : isPotioneer ? '🧪' : '🏪'}</span><div><small>${isBlacksmith ? 'FORGE & ARMORY' : isPotioneer ? 'FOREST APOTHECARY' : 'TRAVELING GOODS'}</small><b>${isBlacksmith ? '为下一场战斗换件趁手装备。' : isPotioneer ? '药剂、咒术与旅途补给。' : '森林里能买到的东西都在这里。'}</b></div><strong>💎 ${state.gold}G</strong></section>${isHalf ? '<div class="shop-sale">🏷️ 普通难度停格优惠 · 本店商品半价</div>' : ''}${clothesBtn}${mercBtn}${html}`,
+      body: `<section class="shop-hero"><span>${isBlacksmith ? '🔨' : isPotioneer ? '🧪' : '🏪'}</span><div><small>${isBlacksmith ? 'FORGE & ARMORY' : isPotioneer ? 'FOREST APOTHECARY' : 'TRAVELING GOODS'}</small><b>${isBlacksmith ? '为下一场战斗换件趁手装备。' : isPotioneer ? '药剂、咒术与旅途补给。' : '旅途补给、应急妖缚工具与灵魂石。'}</b></div><strong>💎 ${state.gold}G</strong></section>${isHalf ? '<div class="shop-sale">🏷️ 普通难度停格优惠 · 本店商品半价</div>' : ''}${clothesBtn}${mercBtn}${html}`,
       actions: [
         { label: '离开商店', handler: () => { close(); ShopSystem.close() } },
       ],
@@ -355,12 +366,12 @@ window.Dialog = (function () {
       { title: '🎮 如何开始游玩', text: '先从难度章节中选择一个难度。<br>掷 Y 来决定你在棋盘上走几步。一旦你朝某个方向移动，在该回合内就不能回头。<br>移动前可以使用任意数量的消耗品。<br>你初始只有一双肉拳（1 点基础伤害）作为武器和一张创可贴（见物品列表）。' },
       { title: '🦌 新手选择', text: '开局会遇见森灵小鹿，三选一：<br>🌿 <b>坚韧树枝</b>：临时武器（2 伤害），可打 4 个敌人，战败则断裂。<br>🪨 <b>尖石武器</b>：永久武器（2 伤害），但必须脱光衣服进入<b>全裸</b>状态。<br>🙅 <b>不要帮助</b>：赤手空拳上路。' },
       { title: '🎲 移动规则', text: '每回合掷 Y 决定步数，自动沿路径前进。<br>空地不消耗步数，岔路暂停选择方向。<br>传送阵经过即激活（回满 HP + 自动存档），站上可传送。<br>伏击/宝箱经过即触发；陷阱等其余格子停格触发事件。' },
-      { title: '🗺️ 地图格与事件', text: '🪤 <b>陷阱</b>（停格触发，掷 Z）：药水被抢（下怪 HP 翻倍）/ 迷路回传送阵 / 伏击 / 双敌（每回合 2 次攻击）/ 坠树 HP 减半 / 荆棘受伤。<br>🎁 <b>宝箱</b>（经过即触发，掷 Z）：守卫宝箱（打怪拿 100G）/ 250 金币 / 武器升级材料 / 补给包 / 爱情药水（HP+10）/ 贪婪恶魔。每种只能获得一次；集齐六种后，第七份可自选一种重复领取，无需掷骰。<br>🌫️ <b>伏击</b>（经过即触发）：反复掷骰直到掷出双数才能脱身，每轮承受一次攻击；两次掷骰间可用 1 个物品。<br>🌀 <b>传送阵</b>：路过点亮并回满 HP，站上或回营地可传送到其他已点亮的传送阵（HP 回满，不消耗回合）。<br>😈 <b>贪婪恶魔</b>：金币翻倍，死亡时消失。<br>👑 <b>森林之灵</b>：最终 BOSS。' },
+      { title: '🗺️ 地图格与事件', text: '🪤 <b>陷阱</b>（停格触发，掷 Z）：药水被抢（下怪 HP 翻倍）/ 迷路回传送阵 / 伏击 / 双敌（每回合 2 次攻击）/ 坠树 HP 减半 / 荆棘受伤。陷阱有 30% 概率在空闲槽位锁上一件普通妖缚装置，同一时间最多一件；不会覆盖现有装备，且可在妖缚设置中关闭。<br>🎁 <b>宝箱</b>（经过即触发，掷 Z）：守卫宝箱（打怪拿 100G）/ 250 金币 / 武器升级材料 / 补给包 / 爱情药水（HP+10）/ 贪婪恶魔。补给包的巨肛塞进入妖缚装备栏，重复且达到拥有上限时按商店半价折算金币；贪婪恶魔会依附胸部妖缚槽，取下对应装备即结束金币翻倍。每种宝藏只能获得一次；集齐六种后，第七份可自选一种重复领取，无需掷骰。<br>🌫️ <b>伏击</b>（经过即触发）：反复掷骰直到掷出双数才能脱身，每轮承受一次攻击；两次掷骰间可用 1 个物品。伏击同样执行插入装备充能、拔除、换部位和全封闭规则。<br>🌀 <b>传送阵</b>：路过点亮并回满 HP，站上或回营地可传送到其他已点亮的传送阵（HP 回满，不消耗回合）。<br>😈 <b>贪婪恶魔</b>：金币翻倍，死亡消失。<br>👑 <b>森林之灵</b>：最终 BOSS。' },
       { title: '⚔️ 战斗规则', text: `每回合掷 Y 攻击，掷 Z 决定敌人攻击。<br>伤害基于武器。未命中=0倍，普通=1倍，暴击=2倍。<br><br>
         <b>普通模式</b><br>1→未命中　2-4→普通命中　5-6→暴击<br>
         <b>困难模式</b><br>1→未命中　2-5→普通命中　6→暴击<br>
         <b>残酷模式</b><br>1-2→未命中　3-6→普通命中（无暴击）` },
-      { title: '🛡️ 战斗操作', text: '🛡️ <b>防御</b>：本回合所受伤害减半（仅一次）。<br>🏳️ <b>投降</b>：二选一——上贡金币（付钱走人）或接受羞辱任务（承受惩罚后离开）。<br>🧪 <b>物品</b>：每回合可使用 1 个。<br>🍑 <b>插入类妖缚装备</b>：菊穴与小穴各有一个槽位。小/中/大/巨型装备的防护充能上限分别为 1/2/3/4 点；抵挡对应部位的一次攻击及其效果消耗 1 点，跨战斗与存档保留。回城可去雾灯酒馆找附魔师付费充能和购买灵魂石，灵魂石也可在野外或战斗中从物品栏使用。跳蛋按颗塞入，最多提供 4 点小穴防护充能。女性贞操带会封住小穴槽，男性使用贞操锁。<br>🪞 <b>屏障咒</b>：反射一半伤害给敌人，持续 2 回合。' },
+      { title: '🛡️ 战斗操作', text: '🛡️ <b>防御</b>：本回合所受伤害减半（仅一次）。<br>🏳️ <b>投降</b>：二选一——上贡金币（付钱走人）或接受羞辱任务（承受惩罚后离开）。<br>🧪 <b>物品</b>：每回合可使用 1 个。<br>🍑 <b>插入类妖缚装备</b>：菊穴与小穴各有一个槽位。小/中/大/巨型装备的防护充能上限分别为 1/2/3/4 点；抵挡对应部位的一次攻击及其效果消耗 1 点，跨战斗与存档保留。回城可去雾灯酒馆找附魔师付费充能和购买灵魂石，灵魂石也可在野外或战斗中从物品栏使用。跳蛋按颗塞入，最多提供 4 点小穴防护充能。女性贞操带会封住小穴槽，男性使用贞操锁。妖缚装备栏的 MCM 可切换陷阱上锁、怪物换位、Boss 破锁与充能提示规则。<br>🪞 <b>屏障咒</b>：反射一半伤害给敌人，持续 2 回合。' },
       { title: '⚡ 状态效果', text: '🌀 混乱：50% 概率打自己。<br>🩹 受伤：移动减速并扣血。<br>☠️ 中毒：每回合扣血，解毒剂可解。<br>💚 再生：每回合回血（对魅魔/森林之灵会反转或分流）。<br>💤 困倦：攻击伤害减半，清醒药剂可解。<br>⚡ 眩晕：无法行动，只能跳过。<br>📉 缩小 / 📈 增大：假阳具体积 ±1，可叠加。<br>👙 全裸：一定概率被敌人暴击（按难度提升）。<br>😈 贪婪恶魔：金币翻倍，死亡消失。' },
       { title: '🎯 敌人任务', text: '敌人攻击后，会显示一个任务描述。<br>点击「完成任务」按正常伤害结算。<br>点击「没完成」伤害翻倍惩罚。<br>多目标时可选择攻击目标（如哥布林群、召唤物）。' },
       { title: '👺 特殊怪物', text: '💋 <b>魅魔</b>：治疗会分流一半给她；被你攻击时自伤；临死可能反击复活。<br>🔮 <b>魔女</b>：先手石化；可召唤小兵（每回合额外伤害）。<br>👺 <b>哥布林</b>：群体作战，掷 Z 定数量；会内讧、偷金、叫帮手；只剩 1 只逃跑。<br>🐺 <b>兽人/狼人</b>：有锁喉、爪伤等特殊状态攻击。<br>🌲 <b>森林之灵</b>：每回合先掷 Y 召唤敌人，再掷 Z 决定攻击；伤害与状态回合翻倍，治疗反转并翻倍。魔女及哥布林可留下持续攻击的小兵，但只需击败精灵本体即可通关。所有可攻击部位均被封闭时，她每场战斗可发动一次「藤蔓破锁」，破坏一件普通锁并继续攻击；剧情锁、诅咒锁和卡死的锁无法被破坏。插入装备有充能时仍会优先完全抵挡本次召唤攻击。挑战前会建立独立战前存档。' },

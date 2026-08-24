@@ -2563,11 +2563,16 @@ body:has(.age-gate:not(.age-gate-hidden)) { overflow: hidden; }
 
 /* 身体部位图（装备栏） */
 .restr-body { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 6px; margin: 10px 0; }
-.restr-body-slot { display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 8px 4px; border: 1px solid rgba(255,255,255,.07); border-radius: 10px; text-align: center; }
+.restr-body-slot { min-width: 0; display: flex; flex-direction: column; align-items: center; gap: 3px; padding: 8px 5px; border: 1px solid rgba(255,255,255,.07); border-radius: 10px; text-align: center; }
 .restr-body-slot i { font-size: 1.3rem; }
 .restr-body-slot b { font-size: .6rem; color: #9aa0ad; font-weight: 600; }
-.restr-body-slot span { font-size: .62rem; }
+.restr-body-slot span {
+  width: 100%; min-height: 2.4em; display: -webkit-box; overflow: hidden;
+  -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2;
+  font-size: .62rem; font-weight: 700; line-height: 1.2; overflow-wrap: anywhere;
+}
 .restr-body-slot.is-empty { background: rgba(255,255,255,.02); color: #5a5f6a; }
+.restr-body-slot.is-empty span { color: #666c77; font-weight: 500; }
 .restr-body-slot.is-worn { background: rgba(90,190,130,.1); border-color: rgba(90,190,130,.25); }
 .restr-body-slot.is-worn span { color: #9fd8b0; }
 .restr-body-slot.is-locked { background: rgba(220,90,70,.12); border-color: rgba(220,90,70,.3); }
@@ -2575,7 +2580,19 @@ body:has(.age-gate:not(.age-gate-hidden)) { overflow: hidden; }
 
 /* 设置页 */
 .restr-settings { display: grid; gap: 8px; }
+.restr-mcm-intro { display: grid; gap: 2px; padding: 2px 2px 0; }
+.restr-mcm-intro span { color: var(--inventory-text); font-size: .82rem; font-weight: 900; letter-spacing: .04em; }
+.restr-mcm-intro small { color: #a09088; font-size: .66rem; }
+.restr-preset-grid { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 7px; }
+.restr-preset { position: relative; min-width: 0; display: grid; justify-items: center; gap: 3px; padding: 9px 6px; color: #b5aaa3; border: 1px solid rgba(var(--inventory-accent-rgb),.2); border-radius: 11px; background: rgba(var(--inventory-accent-rgb),.05); cursor: pointer; transition: border-color .18s,background .18s,transform .18s; }
+.restr-preset:hover { transform: translateY(-1px); border-color: rgba(var(--inventory-accent-rgb),.52); background: rgba(var(--inventory-accent-rgb),.11); }
+.restr-preset.is-active { color: var(--inventory-text); border-color: rgba(var(--inventory-accent-rgb),.75); background: linear-gradient(145deg,rgba(var(--inventory-accent-rgb),.2),rgba(var(--inventory-accent-rgb),.07)); box-shadow: inset 0 0 0 1px rgba(255,255,255,.035); }
+.restr-preset i { font-style: normal; font-size: 1.05rem; }
+.restr-preset b { font-size: .72rem; }
+.restr-preset em { position: absolute; top: 4px; right: 5px; padding: 1px 4px; color: #c9f1d4; border-radius: 99px; background: rgba(62,150,94,.28); font-size: .48rem; font-style: normal; }
+.restr-preset small { min-height: 2.2em; color: #998d86; font-size: .56rem; line-height: 1.1; text-align: center; }
 .restr-setting-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 10px 12px; border: 1px solid rgba(var(--inventory-accent-rgb),.2); border-radius: 10px; background: rgba(var(--inventory-accent-rgb),.06); }
+.restr-setting-row.is-muted { opacity: .5; }
 .restr-setting-row b { color: var(--inventory-text); font-size: .82rem; display: block; }
 .restr-setting-row small { color: #a09088; font-size: .64rem; }
 .restr-switch { position: relative; display: inline-block; width: 44px; height: 24px; flex-shrink: 0; }
@@ -2588,6 +2605,12 @@ body:has(.age-gate:not(.age-gate-hidden)) { overflow: hidden; }
 .restr-collapse i { font-style: normal; font-size: .7rem; color: var(--inventory-accent); transition: transform .2s; }
 .restr-collapse-body { display: grid; gap: 6px; padding: 8px 0 0; }
 .restr-collapse-body[hidden] { display: none; }
+@media (max-width: 520px) {
+  .restr-preset-grid { gap: 5px; }
+  .restr-preset { padding: 8px 3px; }
+  .restr-preset small { font-size: .52rem; }
+  .restr-setting-row { padding: 9px 10px; }
+}
 .restr-cosmetic { margin-top: 12px; padding-top: 10px; border-top: 1px solid rgba(var(--inventory-accent-rgb), .14); }
 
 /* 装备栏页 */
@@ -2621,10 +2644,11 @@ body:has(.age-gate:not(.age-gate-hidden)) { overflow: hidden; }
   .restr-top { padding: 8px 9px; }
   .restr-top span { font-size: .72rem; }
   .restr-top em { padding-inline: 7px; font-size: .62rem; }
-  .restr-body { gap: 4px; }
+  .restr-body { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 4px; }
   .restr-body-slot { min-width: 0; padding: 6px 2px; border-radius: 8px; }
   .restr-body-slot i { font-size: 1.05rem; }
   .restr-body-slot b { font-size: .52rem; }
+  .restr-body-slot span { font-size: .56rem; }
   .restr-card { grid-template-columns: 30px 1fr auto; gap: 7px; padding: 9px; }
   .restr-card.restr-empty { grid-template-columns: 30px 1fr; }
   .restr-card > i { font-size: 1.1rem; }
@@ -3480,6 +3504,9 @@ body:has(.age-gate:not(.age-gate-hidden)) { overflow: hidden; }
 .guard-search-status span { color: #7c89a0; }
 .guard-search-status b { color: #dce6f2; font-weight: 700; }
 .guard-search-warning { margin-top: 10px; padding: 8px 12px; border: 1px solid rgba(255,180,90,.28); border-radius: 8px; background: rgba(255,150,50,.08); color: #ffcf8f; font-size: .72rem; text-align: center; }
+.guard-search-comments { display: grid; gap: 6px; margin-top: 10px; }
+.guard-search-comments .guard-search-warning { margin-top: 0; }
+.guard-search-more { margin: 0; color: #8995aa; font-size: .64rem; text-align: center; }
 
 /* 搜身检查任务弹窗（倒计时金色/警戒橙，无 BPM 板块，随机 10~30 秒） */
 .modal-box.guard-search-task-modal { border-color: rgba(120,160,255,.4); background: linear-gradient(160deg, rgba(16,22,40,.99), rgba(12,14,24,.99)); box-shadow: 0 24px 70px #000c, inset 0 1px rgba(160,190,255,.12); }

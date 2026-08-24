@@ -109,8 +109,10 @@ window.CampSystem = (function () {
       prisonWork()
       return
     }
-    // 未完成的强制流程会持久化，刷新后不能绕过。
-    if ((state._gloryDebt || 0) > 0 || state._gloryFreeService) {
+    // 未完成的强制流程会持久化；若装备锁死服务部位，先允许在营地内寻找解锁办法，避免软锁。
+    const forcedGlory = (state._gloryDebt || 0) > 0 || state._gloryFreeService
+    const gloryGearBlocked = forcedGlory && lockedServiceGear().length > 0
+    if (forcedGlory && !gloryGearBlocked) {
       showGloryWork()
       return
     }
@@ -156,6 +158,7 @@ window.CampSystem = (function () {
           <button class="camp-opt camp-opt-deer" data-opt="deer"><i>🦌</i><span><b>篝火旁的鹿</b><small>旅人的初次见面礼</small></span><em>${deerStatus}</em></button>
           <button class="camp-opt camp-opt-teleport" data-opt="teleport"><i>🌀</i><span><b>传送阵</b><small>点亮过的传送阵可互相传送</small></span><em>${(state._teleports || []).length}/${TELEPORTS.length}</em></button>
         </div>
+        ${gloryGearBlocked ? `<div class="work-rule">🔒 你仍欠荣耀洞 <b>${Math.max(0, state._gloryDebt || 0)}G</b>${state._gloryFreeService ? '，还有一单免费服务未完成' : ''}。当前妖缚装备阻止服务，可先在营地购买钥匙、驱咒符或找铁匠解锁；债务结清前仍不能出城。</div>` : ''}
         <p class="camp-footnote">营地不会消耗回合；离开后从当前格继续探索。</p>`,
       actions: [{ label: state._prostituteLicensed ? '⚠️ 离开营地，接受卫兵盘问' : '← 离开营地，继续冒险', cls: state._prostituteLicensed ? 'btn-danger' : 'btn-primary', handler: leaveCamp }],
     })
@@ -385,15 +388,47 @@ window.CampSystem = (function () {
     return Math.random() < (direction === 'enter' ? freq.enter : freq.exit)
   }
 
-  /** 妖缚装置台词：多件只显示优先级最高的一句（可在设置关闭） */
+  /** 妖缚装置台词：最多显示三条，额外装备汇总，避免移动端弹窗过长。 */
   function guardDeviceComment () {
     if (typeof RestraintSystem === 'undefined') return ''
     if (!guardSettings().deviceComments) return ''
-    if (RestraintSystem.hasCollar()) return '<p class="guard-search-warning">“戴着项圈还敢一个人乱跑？”</p>'
-    if (RestraintSystem.hasGag()) return '<p class="guard-search-warning">“嘴都堵上了？那就老实站着。”</p>'
-    if (RestraintSystem.hasHandcuffs() || RestraintSystem.hasArmbinder()) return '<p class="guard-search-warning">“手被锁成这样，应该翻不出什么花样。”</p>'
-    if (RestraintSystem.hasWaistChastity()) return '<p class="guard-search-warning">“这锁看起来可不像普通首饰。”</p>'
-    return ''
+    const comments = []
+    const neck = RestraintSystem.get('neck')
+    const mouth = RestraintSystem.get('mouth')
+    const arms = RestraintSystem.get('arms_heavy') || RestraintSystem.get('arms')
+    const waist = RestraintSystem.get('waist')
+    if (neck) {
+      const def = RestraintSystem.defOf(neck.id)
+      comments.push(`“${def ? def.name : '项圈'}戴得挺显眼。哪家的奴畜也敢一个人乱跑？”`)
+    }
+    if (mouth) {
+      const def = RestraintSystem.defOf(mouth.id)
+      comments.push(def && def.id === 'slut_gag'
+        ? `“开口口塞？嘴倒是还留着能用。”`
+        : `“${def ? def.name : '口塞'}把嘴堵得这么严？那就老实站好。”`)
+    }
+    if (arms) {
+      const def = RestraintSystem.defOf(arms.id)
+      comments.push(`“手被${def ? def.name : '束缚装置'}锁成这样，应该翻不出什么花样。”`)
+    }
+    if (waist) {
+      const def = RestraintSystem.defOf(waist.id)
+      comments.push(`“腰上的${def ? def.name : '锁具'}可不像普通首饰，我得记下来。”`)
+    }
+    ;['anal', 'vagina'].forEach(slot => {
+      const entry = RestraintSystem.insertionDevice(slot)
+      if (!entry) return
+      const charge = RestraintSystem.insertionCharge(slot)
+      const part = slot === 'anal' ? '菊穴' : '小穴'
+      const count = entry.def.stackable ? ` ×${Math.max(1, entry.device.count || 1)}` : ''
+      const lock = entry.device.locked ? '，而且还上了锁' : ''
+      const power = charge ? `，充能 ${charge.current}/${charge.max}` : ''
+      comments.push(`“${part}里塞着${entry.def.name}${count}${lock}${power}——带着这种东西也敢过关？”`)
+    })
+    if (!comments.length) return ''
+    const shown = comments.slice(0, 3)
+    const remaining = comments.length - shown.length
+    return `<div class="guard-search-comments">${shown.map(line => `<p class="guard-search-warning">${line}</p>`).join('')}${remaining > 0 ? `<p class="guard-search-more">另有 ${remaining} 件装备已被卫兵登记。</p>` : ''}</div>`
   }
 
   /** 检查前对话：状态摘要 + 四个选项 */
@@ -541,16 +576,18 @@ window.CampSystem = (function () {
   /** 通缉犯出城被卫兵抓：用身体伺候（佩戴贞操锁则只能嘴和屁股） */
   async function guardPrisonChastityService () {
     const state = State.get()
-    const holeDesc = ChastitySystem.isWorn()
-      ? '卫兵把你按在城门边，从背后狠狠操进你的菊穴（贞操锁下只能走后门）'
-      : state.gender !== 'male'
-        ? '卫兵把你按在城门边，抬起你的腿，狠狠操进你的小穴'
-        : '卫兵把你按在城门边，从背后狠狠操进你的菊穴'
+    const oralRoute = routeTownService('oral')
+    const penetrationRoute = routeTownService(state.gender !== 'male' ? 'vagina' : 'anal')
+    if (oralRoute.mode === 'unavailable' || penetrationRoute.mode === 'unavailable') {
+      EventBus.emit('ui:log', { text: '⛓️ 妖缚装备封死了所有可用部位，卫兵无法完成交易，直接把你押回监狱。', type: 'danger' })
+      enterPrison()
+      return
+    }
     let failed = false
     if (typeof BattleUI !== 'undefined' && BattleUI.showTaskDialog) {
       const steps = [
-        { desc: '你跪在卫兵腿间，含住他的粗鸡巴卖力口交，一次次深喉吞到底', bpm: 0, seconds: 30 },
-        { desc: holeDesc, bpm: 90, seconds: 30 },
+        { desc: townServiceDesc(oralRoute.part, '卫兵'), bpm: oralRoute.part === 'oral' ? 0 : 90, seconds: 30 },
+        { desc: townServiceDesc(penetrationRoute.part, '卫兵'), bpm: penetrationRoute.part === 'oral' ? 0 : 90, seconds: 30 },
       ]
       for (let i = 0; i < steps.length; i++) {
         const f = await BattleUI.showTaskDialog({
@@ -581,12 +618,18 @@ window.CampSystem = (function () {
   /** 卫兵口交任务 */
   async function guardBlowjob () {
     const state = State.get()
+    const route = routeTownService('oral')
+    if (route.mode === 'unavailable') {
+      EventBus.emit('ui:log', { text: '🛡️ 所有部位都被锁死，卫兵嫌麻烦地挥手让你离开。', type: 'dim' })
+      doLeaveCamp()
+      return
+    }
     if (typeof BattleUI !== 'undefined' && BattleUI.showTaskDialog) {
       const failed = await BattleUI.showTaskDialog({
         enemyName: '🛡️ 卫兵',
         attackName: '',
-        desc: '卫兵掏出鸡巴，你跪下来为他口交 1 分钟',
-        bpm: 0,
+        desc: townServiceDesc(route.part, '卫兵'),
+        bpm: route.part === 'oral' ? 0 : 90,
         seconds: 60,
         dmg: 0,
         noDamage: true,
@@ -604,12 +647,17 @@ window.CampSystem = (function () {
   /** 卫兵肛交任务 */
   async function guardAnal () {
     const state = State.get()
-    const holeText = ChastitySystem.orifice(4)
+    const route = routeTownService(state.gender !== 'male' && !ChastitySystem.isWorn() ? 'vagina' : 'anal')
+    if (route.mode === 'unavailable') {
+      EventBus.emit('ui:log', { text: '🛡️ 所有部位都被锁死，卫兵无从下手，只能放你离开。', type: 'dim' })
+      doLeaveCamp()
+      return
+    }
     if (typeof BattleUI !== 'undefined' && BattleUI.showTaskDialog) {
       const failed = await BattleUI.showTaskDialog({
         enemyName: '🛡️ 卫兵',
         attackName: '',
-        desc: `卫兵让你趴下，从背后操进你的${holeText} 1 分钟`,
+        desc: `${townServiceDesc(route.part, '卫兵')}，持续 1 分钟`,
         bpm: 120,
         seconds: 60,
         dmg: 0,
@@ -686,6 +734,27 @@ window.CampSystem = (function () {
 
   function serviceGearNames (entries) {
     return entries.map(entry => `${RestraintSystem.SLOT_NAMES[entry.slot]}的${entry.def.name}`).join('、')
+  }
+
+  /** 城镇服务只处理上锁造成的部位占用，不消耗战斗用防护充能。 */
+  function routeTownService (requestedPart) {
+    const result = typeof RestraintSystem !== 'undefined' && RestraintSystem.resolveServiceOrifice
+      ? RestraintSystem.resolveServiceOrifice(requestedPart)
+      : { mode: 'original', part: requestedPart, events: [] }
+    ;(result.events || []).forEach(text => EventBus.emit('ui:log', { text, type: result.mode === 'unavailable' ? 'danger' : 'dim' }))
+    return result
+  }
+
+  function townServiceDesc (part, actor) {
+    if (part === 'oral') return `${actor}把你按跪在身前，粗暴地操弄你的嘴穴`
+    if (part === 'vagina') return `${actor}把你压住，抬起你的腿，狠狠操进你的小穴`
+    return `${actor}把你按住，从背后狠狠操进你的菊穴`
+  }
+
+  function townServicePartLocked (part) {
+    const state = State.get()
+    if (part === 'vagina' && (state.gender === 'male' || ChastitySystem.isWorn())) return true
+    return lockedServiceGear().some(entry => entry.slot === part)
   }
 
   /** 上锁的口部/插入装备会同时阻止酒馆妓女和荣耀洞服务。 */
@@ -1049,6 +1118,32 @@ window.CampSystem = (function () {
     return base + (State.get()._prisonEscapePenalty || 0)
   }
 
+  /** 监狱任务固定使用嘴部：暂存封闭式口塞，开口口塞可继续佩戴。 */
+  function preparePrisonMouth () {
+    if (typeof RestraintSystem === 'undefined') return false
+    const state = State.get()
+    const mouth = RestraintSystem.get('mouth')
+    const def = mouth && RestraintSystem.defOf(mouth.id)
+    if (!mouth || !def || def.id === 'slut_gag') return false
+    if (!state._prisonMouthPrev) state._prisonMouthPrev = { ...mouth }
+    RestraintSystem.remove('mouth')
+    EventBus.emit('ui:log', { text: `⛓️ 入狱检查时，守卫暂时取下并保管了${def.name}；释放或越狱后会归还。`, type: 'danger' })
+    return true
+  }
+
+  function restorePrisonMouth () {
+    if (typeof RestraintSystem === 'undefined') return false
+    const state = State.get()
+    const prev = state._prisonMouthPrev
+    if (!prev) return false
+    state._prisonMouthPrev = null
+    if (RestraintSystem.get('mouth')) RestraintSystem.remove('mouth')
+    RestraintSystem.restore('mouth', prev)
+    const def = RestraintSystem.defOf(prev.id)
+    EventBus.emit('ui:log', { text: `🔓 守卫归还了此前保管的${def ? def.name : '口部装备'}，原有锁定状态保持不变。`, type: 'dim' })
+    return true
+  }
+
   /** 监狱大门（平时查看） */
   function prisonDoor () {
     const state = State.get()
@@ -1080,8 +1175,9 @@ window.CampSystem = (function () {
     if (typeof RestraintSystem !== 'undefined') {
       // 记录入狱前的腰部装置（已是监狱锁则不记录），出狱时还原；监狱锁强制戴上
       const curWaist = RestraintSystem.get('waist')
-      state._prisonWaistPrev = (curWaist && curWaist.id !== 'prison_chastity') ? curWaist : null
+      if (curWaist && curWaist.id !== 'prison_chastity' && !state._prisonWaistPrev) state._prisonWaistPrev = { ...curWaist }
       RestraintSystem.equip('waist', 'prison_chastity', { locked: true, lockType: 'story', difficulty: 5, source: 'prison' }, true)
+      preparePrisonMouth()
     }
     if (!StatusSystem.has('chastity')) StatusSystem.apply('chastity', 99999)
     const target = prisonTarget()
@@ -1100,6 +1196,7 @@ window.CampSystem = (function () {
   /** 牢房工作界面：罪名 + 狱友 + 自选任务类型后掷 Z；攒够积分可自行选择出狱 */
   function prisonWork () {
     const state = State.get()
+    preparePrisonMouth()
     const prisonDevice = state.gender === 'male' ? '贞操锁' : '贞操带'
     const points = state._prisonPoints || 0
     const target = prisonTarget()
@@ -1148,6 +1245,7 @@ window.CampSystem = (function () {
       state._prisonEscapeFails = 0
       state._prisonEscapePenalty = 0
       state._wanted = true   // 越狱 = 犯罪，出城会被卫兵查、找队长会被抓
+      restorePrisonMouth()
       EventBus.emit('state:changed', state)
       Dialog.show({
         title: '🪓 越狱成功', className: 'prison-modal',
@@ -1490,6 +1588,7 @@ window.CampSystem = (function () {
   function prisonRelease () {
     const state = State.get()
     const prisonDevice = state.gender === 'male' ? '贞操锁' : '贞操带'
+    const completedTarget = prisonTarget()
     state._inPrison = false
     state._prisonPoints = 0
     state._prisonEscapeFails = 0
@@ -1500,13 +1599,14 @@ window.CampSystem = (function () {
       state._prisonWaistPrev = null
       if (prev) RestraintSystem.restore('waist', prev)   // 还原入狱前的腰部装置
       else if (RestraintSystem.get('waist') && RestraintSystem.get('waist').id === 'prison_chastity') RestraintSystem.remove('waist')
+      restorePrisonMouth()
     }
     if (StatusSystem.has('chastity')) StatusSystem.remove('chastity')
     EventBus.emit('state:changed', state)
     campShow({
       title: '⛓️ 监狱 · 释放', className: 'prison-modal',
       body: `<div class="prison-intro"><div class="prison-mark" aria-hidden="true">🔓</div>
-        <p>你终于攒够了 <b>${prisonTarget()} 积分</b>，守卫解开了你的${prisonDevice}和手铐。</p>
+        <p>你终于攒够了 <b>${completedTarget} 积分</b>，守卫解开了你的${prisonDevice}。</p>
         <p>"出去吧。下次再敢无证卖淫，可就不是蹲几天这么简单了。"</p>
         <p>你拖着酸软的膝盖爬出牢房，重见天日。</p></div>`,
       actions: [
@@ -1767,14 +1867,18 @@ window.CampSystem = (function () {
   async function blacksmithService () {
     const state = State.get()
     const isFemale = state.gender !== 'male'
-    const sexDesc = ChastitySystem.isWorn()
-      ? '你趴跪在铁砧边，撅起屁股让铁匠从背后操进你的菊穴'
-      : isFemale ? '你躺下来张开腿，让铁匠用粗鸡巴狠狠操进你的小穴' : '你趴跪在铁砧边，撅起屁股让铁匠从背后操进你的菊穴'
+    const oralRoute = routeTownService('oral')
+    const penetrationRoute = routeTownService(isFemale ? 'vagina' : 'anal')
+    if (oralRoute.mode === 'unavailable' || penetrationRoute.mode === 'unavailable') {
+      EventBus.emit('ui:log', { text: '🔒 妖缚装备封死了所有可用部位，铁匠拒绝让你进店。', type: 'danger' })
+      open()
+      return
+    }
     let failed = false
     if (typeof BattleUI !== 'undefined' && BattleUI.showTaskDialog) {
       const steps = [
-        { desc: '你跪在铁匠腿间，含住他那根粗壮的鸡巴卖力吞吐深喉', bpm: 0, seconds: 30 },
-        { desc: sexDesc, bpm: 90, seconds: 30 },
+        { desc: townServiceDesc(oralRoute.part, '铁匠'), bpm: oralRoute.part === 'oral' ? 0 : 90, seconds: 30 },
+        { desc: townServiceDesc(penetrationRoute.part, '铁匠'), bpm: penetrationRoute.part === 'oral' ? 0 : 90, seconds: 30 },
       ]
       for (let i = 0; i < steps.length; i++) {
         const f = await BattleUI.showTaskDialog({
@@ -1811,10 +1915,13 @@ window.CampSystem = (function () {
       return
     }
     EventBus.emit('ui:log', { text: '👿 你刚转身，铁匠的巨掌就钳住了你的后颈："签了契约还想跑？给老子趴好！"', type: 'danger' })
-    const isFemale = state.gender !== 'male'
-    const holeDesc = ChastitySystem.isWorn()
-      ? '他把你按在铁砧上，从背后狠狠操进你的菊穴'
-      : isFemale ? '他把你按在铁砧上，抬起你的腿，狠狠操进你的小穴' : '他把你按在铁砧上，从背后狠狠操进你的菊穴'
+    const route = routeTownService(state.gender !== 'male' ? 'vagina' : 'anal')
+    if (route.mode === 'unavailable') {
+      EventBus.emit('ui:log', { text: '🔒 所有部位都被锁死，铁匠无从下手，骂了几句后把你赶了出去。', type: 'dim' })
+      open()
+      return
+    }
+    const holeDesc = townServiceDesc(route.part, '铁匠')
     let failed = false
     if (typeof BattleUI !== 'undefined' && BattleUI.showTaskDialog) {
       const f = await BattleUI.showTaskDialog({
@@ -2002,14 +2109,18 @@ window.CampSystem = (function () {
   async function blacksmithContractService () {
     const state = State.get()
     const isFemale = state.gender !== 'male'
-    const sexDesc = ChastitySystem.isWorn()
-      ? '你趴跪在铁砧边，撅起屁股让铁匠从背后操进你的菊穴'
-      : isFemale ? '你躺下来张开腿，让铁匠用粗鸡巴狠狠操进你的小穴' : '你趴跪在铁砧边，撅起屁股让铁匠从背后操进你的菊穴'
+    const oralRoute = routeTownService('oral')
+    const penetrationRoute = routeTownService(isFemale ? 'vagina' : 'anal')
+    if (oralRoute.mode === 'unavailable' || penetrationRoute.mode === 'unavailable') {
+      EventBus.emit('ui:log', { text: '🔒 妖缚装备封死了所有可用部位，契约无法履行，铁匠拒绝解锁。', type: 'danger' })
+      blacksmithShop()
+      return
+    }
     let failed = false
     if (typeof BattleUI !== 'undefined' && BattleUI.showTaskDialog) {
       const steps = [
-        { desc: '你跪在铁匠腿间，含住他那根粗壮的鸡巴卖力吞吐深喉', bpm: 0, seconds: 30 },
-        { desc: sexDesc, bpm: 90, seconds: 30 },
+        { desc: townServiceDesc(oralRoute.part, '铁匠'), bpm: oralRoute.part === 'oral' ? 0 : 90, seconds: 30 },
+        { desc: townServiceDesc(penetrationRoute.part, '铁匠'), bpm: penetrationRoute.part === 'oral' ? 0 : 90, seconds: 30 },
       ]
       for (let i = 0; i < steps.length; i++) {
         const f = await BattleUI.showTaskDialog({
@@ -2198,17 +2309,20 @@ window.CampSystem = (function () {
   /** 通缉求情：口交 1 分钟 + 深喉 10 次 + 肛交/性交 1 分钟，完成销案底，失败押回监狱 */
   async function captainWantedService () {
     const state = State.get()
-    const holeDesc = ChastitySystem.isWorn()
-      ? '队长把你按在桌上，从背后狠狠操进你的菊穴（贞操锁下只能走后门）'
-      : state.gender !== 'male'
-        ? '队长把你按在桌上，抬起你的腿，狠狠操进你的小穴'
-        : '队长把你按在桌上，从背后狠狠操进你的菊穴'
+    const oralRoute = routeTownService('oral')
+    const penetrationRoute = routeTownService(state.gender !== 'male' ? 'vagina' : 'anal')
+    if (oralRoute.mode === 'unavailable' || penetrationRoute.mode === 'unavailable') {
+      EventBus.emit('ui:log', { text: '⛓️ 妖缚装备让交易无法进行，队长失去耐心，把你押回了监狱。', type: 'danger' })
+      state._prisonEscapePenalty = (state._prisonEscapePenalty || 0) + 150
+      enterPrison()
+      return
+    }
     let failed = false
     if (typeof BattleUI !== 'undefined' && BattleUI.showTaskDialog) {
       const steps = [
-        { desc: '你跪在队长胯下，卖力地为他口交 1 分钟，含着鸡巴含到嗓子眼', bpm: 0, seconds: 60 },
-        { desc: '保持深喉 30 秒，鸡巴顶在嗓子眼里不许动', bpm: 0, seconds: 30 },
-        { desc: `${holeDesc}，90 BPM 持续 1 分钟，被他操得浪叫连连`, bpm: 90, seconds: 60 },
+        { desc: townServiceDesc(oralRoute.part, '队长'), bpm: oralRoute.part === 'oral' ? 0 : 90, seconds: 60 },
+        { desc: townServiceDesc(oralRoute.part, '队长'), bpm: oralRoute.part === 'oral' ? 0 : 90, seconds: 30 },
+        { desc: townServiceDesc(penetrationRoute.part, '队长'), bpm: penetrationRoute.part === 'oral' ? 0 : 90, seconds: 60 },
       ]
       for (let i = 0; i < steps.length; i++) {
         const f = await BattleUI.showTaskDialog({
@@ -2270,13 +2384,20 @@ window.CampSystem = (function () {
   /** 口交求情任务 */
   async function pardonBlowjob () {
     const state = State.get()
+    const route = routeTownService('oral')
+    if (route.mode === 'unavailable') {
+      EventBus.emit('ui:log', { text: '⛓️ 所有可用部位都被锁死，队长拒绝接受求情，把你送进了监狱。', type: 'danger' })
+      Dialog.close()
+      enterPrison()
+      return
+    }
     let failed = false
     if (typeof BattleUI !== 'undefined' && BattleUI.showTaskDialog) {
       const f = await BattleUI.showTaskDialog({
         enemyName: '🛡️ 守卫队队长',
         attackName: '跪着口交求情',
-        desc: '你跪在队长胯下，卖力地为他口交 30 秒，含着鸡巴含到嗓子眼',
-        bpm: 0,
+        desc: townServiceDesc(route.part, '队长'),
+        bpm: route.part === 'oral' ? 0 : 90,
         seconds: 30,
         dmg: 0,
         noDamage: true,
@@ -2455,17 +2576,24 @@ window.CampSystem = (function () {
     const state = State.get()
     const isPerfect = lv >= 100
     EventBus.emit('ui:log', { text: '🚫 队长把你按在桌上，掏出了他那根又粗又长的家伙。', type: 'danger' })
+    const oralRoute = routeTownService('oral')
+    const analRoute = routeTownService('anal')
+    if (oralRoute.mode === 'unavailable' || analRoute.mode === 'unavailable') {
+      EventBus.emit('ui:log', { text: '🔒 妖缚装备封死了所有可用部位，惩罚无法进行，但队长仍拒绝撤销许可证。', type: 'danger' })
+      tavernCaptain()
+      return
+    }
     let failed = false
     if (typeof BattleUI !== 'undefined' && BattleUI.showTaskDialog) {
       const steps = isPerfect
         ? [
-            { desc: '你跪在桌前，被队长按着脑袋深喉口交 30 秒，口水顺着嘴角流下', bpm: 0, seconds: 30 },
-            { desc: '他把你翻过去，从背后狠狠操进你的菊穴（90 BPM），你咬着桌沿承受', bpm: 90, seconds: 60 },
+            { desc: townServiceDesc(oralRoute.part, '队长'), bpm: oralRoute.part === 'oral' ? 0 : 90, seconds: 30 },
+            { desc: townServiceDesc(analRoute.part, '队长'), bpm: analRoute.part === 'oral' ? 0 : 90, seconds: 60 },
             { desc: '队长把滚烫的浓精射在你后背上，拍拍你的屁股', bpm: 0, seconds: 0 },
           ]
         : [
-            { desc: '你被队长按在桌上，他掐着你的下巴把粗鸡巴操进你的嘴里 30 秒', bpm: 0, seconds: 30 },
-            { desc: '他掀起你的裙子，从背后猛操你的菊穴（90 BPM），你被顶得说不出话', bpm: 90, seconds: 60 },
+            { desc: townServiceDesc(oralRoute.part, '队长'), bpm: oralRoute.part === 'oral' ? 0 : 90, seconds: 30 },
+            { desc: townServiceDesc(analRoute.part, '队长'), bpm: analRoute.part === 'oral' ? 0 : 90, seconds: 60 },
           ]
       for (let i = 0; i < steps.length; i++) {
         const step = steps[i]
@@ -2549,13 +2677,19 @@ window.CampSystem = (function () {
       })
     }
     const suckTask = async () => {
+      const route = routeTownService('oral')
+      if (route.mode === 'unavailable') {
+        EventBus.emit('ui:log', { text: '🔒 所有可用部位都被锁死，队长无法继续这段羞辱，只能作罢。', type: 'dim' })
+        finalRefuse()
+        return
+      }
       let failed = false
       if (typeof BattleUI !== 'undefined' && BattleUI.showTaskDialog) {
         const f = await BattleUI.showTaskDialog({
           enemyName: '🛡️ 守卫队队长',
-          attackName: '跪着口交',
-          desc: '你跪在队长胯下，卖力地为他口交 30 秒，把鸡巴整根吞到底深喉',
-          bpm: 0,
+          attackName: route.part === 'oral' ? '跪着口交' : '强制服务',
+          desc: townServiceDesc(route.part, '队长'),
+          bpm: route.part === 'oral' ? 0 : 90,
           seconds: 30,
           dmg: 0,
           noDamage: true,
@@ -2565,7 +2699,7 @@ window.CampSystem = (function () {
       } else {
         failed = !confirm('给队长口交 30 秒（完成代表含到底）。')
       }
-      EventBus.emit('ui:log', { text: failed ? '🛡️ 你口交到一半，队长嫌你不够卖力，但还是放过了你。' : '🛡️ 你跪着伺候完队长，他满意地收回了脚。', type: 'dim' })
+      EventBus.emit('ui:log', { text: failed ? '🛡️ 你服务到一半，队长嫌你不够卖力，但还是放过了你。' : '🛡️ 你伺候完队长，他满意地收回了脚。', type: 'dim' })
       finalRefuse()
     }
     const finalRefuse = () => {
@@ -3008,16 +3142,19 @@ window.CampSystem = (function () {
       return
     }
     const isFemale = state.gender !== 'male'
+    const oralLocked = townServicePartLocked('oral')
+    const analLocked = townServicePartLocked('anal')
+    const vaginaLocked = townServicePartLocked('vagina')
     const sexBtn = isFemale && !ChastitySystem.isWorn()
-      ? `<button class="camp-opt" data-serve="sex"><i>🌸</i><span><b>性交服务</b><small>主动骑上去，用小穴好好伺候她</small></span><em>欲 -30</em></button>`
+      ? `<button class="camp-opt" data-serve="sex" ${vaginaLocked ? 'disabled' : ''}><i>🌸</i><span><b>性交服务</b><small>${vaginaLocked ? '小穴装备已上锁，无法使用' : '主动骑上去，用小穴好好伺候她'}</small></span><em>${vaginaLocked ? '已锁定' : '欲 -30'}</em></button>`
       : ''
     campShow({
       title: `💋 服务佣兵 · ${merc.icon} ${merc.name}`,
       className: 'camp-tavern-modal',
       body: `<div class="camp-character"><i>${merc.icon}</i><div><b>“嗯……人家有点忍不住了。”</b><p>她脸颊泛红，腿间已经湿了。性欲 <b>${Math.min(100, merc.lust || 0)}%</b>。选一种方式喂饱她吧。</p></div></div>
         <div class="camp-grid">
-          <button class="camp-opt" data-serve="oral"><i>👄</i><span><b>口交服务</b><small>跪下来含住她的鸡巴卖力吞吐</small></span><em>欲 -20</em></button>
-          <button class="camp-opt" data-serve="anal"><i>🍑</i><span><b>肛交服务</b><small>撅起屁股让她从背后操进来</small></span><em>欲 -30</em></button>
+          <button class="camp-opt" data-serve="oral" ${oralLocked ? 'disabled' : ''}><i>👄</i><span><b>口交服务</b><small>${oralLocked ? '口部装备已上锁，无法使用' : '跪下来含住她的鸡巴卖力吞吐'}</small></span><em>${oralLocked ? '已锁定' : '欲 -20'}</em></button>
+          <button class="camp-opt" data-serve="anal" ${analLocked ? 'disabled' : ''}><i>🍑</i><span><b>肛交服务</b><small>${analLocked ? '菊穴装备已上锁，无法使用' : '撅起屁股让她从背后操进来'}</small></span><em>${analLocked ? '已锁定' : '欲 -30'}</em></button>
           ${sexBtn}
         </div>`,
       actions: [{ label: '返回', handler: () => { Dialog.close() } }],
@@ -3036,6 +3173,12 @@ window.CampSystem = (function () {
     const state = State.get()
     const merc = state._mercenary
     if (!merc || merc.dead) return
+    const requestedPart = { oral: 'oral', anal: 'anal', sex: 'vagina' }[type]
+    if (requestedPart && townServicePartLocked(requestedPart)) {
+      EventBus.emit('ui:log', { text: '🔒 这个部位被妖缚装备锁住了，无法用于服务。', type: 'danger' })
+      serveMercenary()
+      return
+    }
     const cfg = {
       oral: { name: '口交服务', dmg: 20, steps: [
         { desc: '你跪在她腿间，含住她硬邦邦的鸡巴卖力吞吐，深喉吞到底', bpm: 0, seconds: 30 },

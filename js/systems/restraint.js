@@ -60,6 +60,41 @@ window.RestraintSystem = (function () {
 
   function allowedSlotsOf (def) { return def && Array.isArray(def.allowedSlots) ? def.allowedSlots : (def ? [def.slot] : []) }
 
+  function insertChargeMax (def, device) {
+    if (!def || !def.insert) return 0
+    const count = def.stackable ? Math.max(1, Math.floor(Number(device && device.count) || 1)) : 1
+    return Math.max(0, Math.floor(Number(def.block) || 0)) * count
+  }
+
+  /** 未穿戴插入装备的充能库存；同 ID 多件装备分别保存。 */
+  function storedChargePool () {
+    const state = State.get()
+    if (!state._storedInsertionCharges || typeof state._storedInsertionCharges !== 'object' || Array.isArray(state._storedInsertionCharges)) {
+      state._storedInsertionCharges = {}
+    }
+    return state._storedInsertionCharges
+  }
+
+  function takeStoredInsertion (id) {
+    const pool = storedChargePool()
+    const list = Array.isArray(pool[id]) ? pool[id] : []
+    const stored = list.shift() || null
+    if (list.length) pool[id] = list
+    else delete pool[id]
+    return stored
+  }
+
+  function storeInsertion (device, def) {
+    if (!device || !def || !def.insert) return
+    const pool = storedChargePool()
+    const list = Array.isArray(pool[device.id]) ? pool[device.id] : []
+    list.push({
+      charge: Math.max(0, Math.min(insertChargeMax(def, device), Math.floor(Number(device.charge) || 0))),
+      count: def.stackable ? Math.max(1, Math.floor(Number(device.count) || 1)) : 1,
+    })
+    pool[device.id] = list
+  }
+
   function insertSizeText (def) {
     if (!def || !Number.isFinite(def.sizeCm)) return '未标注'
     if (def.id.includes('butt_plug') || def.dildo) return `${def.sizeCm} cm${def.sizeCm >= 5.2 ? '以上' : '以下'}`
@@ -152,9 +187,11 @@ window.RestraintSystem = (function () {
     }
     // 贞操类占用腰部并封住小穴；强制装备时也必须先取出小穴装备。
     if (def.effect === 'chastity' && get('vagina')) {
-      set('vagina', null)
+      remove('vagina')
       EventBus.emit('ui:log', { text: '🔒 贞操带合拢前，小穴里的插入装备被迫取出。', type: 'danger' })
     }
+    const storedInsertion = def.insert ? takeStoredInsertion(id) : null
+    const storedCount = storedInsertion && def.stackable ? storedInsertion.count : 1
     const device = {
       id, slot,
       locked: !!opts.locked,
@@ -164,12 +201,19 @@ window.RestraintSystem = (function () {
       source: opts.source || 'self',
       escapeBonus: 0,
       jammed: !!opts.jammed,
-      count: def.stackable ? Math.max(1, Math.min(ownedCount(id), Math.floor(Number(opts.count) || 1))) : 1,
+      count: def.stackable ? Math.max(1, Math.min(ownedCount(id), Math.floor(Number(opts.count) || storedCount || 1))) : 1,
     }
     if (def.insert) {
       const state = State.get()
       if (!state._insertionCharges || typeof state._insertionCharges !== 'object') state._insertionCharges = {}
-      if (!Number.isFinite(state._insertionCharges[slot])) state._insertionCharges[slot] = 0
+      const legacyCharge = Number.isFinite(state._insertionCharges[slot]) ? state._insertionCharges[slot] : 0
+      device.charge = Math.max(0, Math.min(insertChargeMax(def, device), storedInsertion ? storedInsertion.charge : legacyCharge))
+      state._insertionCharges[slot] = device.charge
+      const combat = state._battle || state._ambush
+      if (combat && combat.insertionBlocks && typeof combat.insertionBlocks === 'object') {
+        combat.insertionBlocks[slot] = device.charge
+        combat.blocked = Math.max(0, (combat.insertionBlocks.anal || 0) + (combat.insertionBlocks.vagina || 0))
+      }
     }
     set(slot, device)
     return { ok: true, device }
@@ -183,7 +227,24 @@ window.RestraintSystem = (function () {
   function remove (slot) {
     const d = get(slot)
     if (!d) return { ok: false, msg: '这里没有装置' }
+    const def = defOf(d.id)
+    storeInsertion(d, def)
+    if (def && def.insert) {
+      const state = State.get()
+      if (!state._insertionCharges || typeof state._insertionCharges !== 'object') state._insertionCharges = {}
+      state._insertionCharges[slot] = 0
+      const combat = state._battle || state._ambush
+      if (combat && combat.insertionBlocks && typeof combat.insertionBlocks === 'object') {
+        combat.insertionBlocks[slot] = 0
+        combat.blocked = Math.max(0, (combat.insertionBlocks.anal || 0) + (combat.insertionBlocks.vagina || 0))
+      }
+    }
     set(slot, null)
+    // 贪婪恶魔依附在胸部装置上；主动脱下或解锁取下时，金币翻倍同步结束。
+    if ((d.source === 'greed_demon' || d.greedBound) && typeof StatusSystem !== 'undefined') {
+      StatusSystem.remove('greed_demon')
+      EventBus.emit('ui:log', { text: '😈 乳夹被取下，贪婪恶魔离开了；金币不再翻倍。', type: 'dim' })
+    }
     // 同步旧酒馆用品标志：脱下后清除，避免读档时又被迁移回去
     const st = State.get()
     if (st._prostituteGear) {
@@ -228,6 +289,7 @@ window.RestraintSystem = (function () {
   function canCut (slot) {
     const d = get(slot)
     if (!d || !d.locked || d.jammed) return false
+    if (isStory(slot)) return false
     const def = defOf(d.id)
     if (def && def.material === 'metal') return false
     return BLADES.includes(State.get().inventory.weapon)
@@ -249,6 +311,7 @@ window.RestraintSystem = (function () {
     const d = get(slot)
     if (!d) return { ok: false, msg: '这里没有装置' }
     if (!d.locked) { remove(slot); return { ok: true, msg: '已脱下' } }
+    if (isStory(slot)) return { ok: false, msg: '剧情锁只能通过对应剧情解除' }
     if (d.jammed) return { ok: false, msg: '锁卡住了，挣扎没用' }
     if (isCursed(slot)) return { ok: false, msg: '诅咒缠身，挣扎毫无作用' }
     const bonus = d.escapeBonus || 0
@@ -462,8 +525,8 @@ window.RestraintSystem = (function () {
     ;['anal', 'vagina'].forEach(slot => {
       const entry = insertionDevice(slot)
       if (!entry) return
-      const max = Math.max(0, entry.def.block || 0) * (entry.def.stackable ? Math.max(1, entry.device.count || 1) : 1)
-      const stored = State.get()._insertionCharges && State.get()._insertionCharges[slot]
+      const max = insertChargeMax(entry.def, entry.device)
+      const stored = entry.device.charge
       result[slot] = Math.max(0, Math.min(max, Number.isFinite(stored) ? stored : 0))
     })
     return result
@@ -472,14 +535,13 @@ window.RestraintSystem = (function () {
   function insertionCharge (slot) {
     const entry = insertionDevice(slot)
     if (!entry) return null
-    const count = entry.def.stackable ? Math.max(1, entry.device.count || 1) : 1
-    const max = Math.max(0, entry.def.block || 0) * count
+    const max = insertChargeMax(entry.def, entry.device)
     const state = State.get()
     const combat = state._battle || state._ambush
     const combatStored = combat && combat.insertionBlocks && typeof combat.insertionBlocks === 'object'
       ? combat.insertionBlocks[slot]
       : null
-    const saved = state._insertionCharges && state._insertionCharges[slot]
+    const saved = entry.device.charge
     const current = combat
       ? Math.max(0, Math.min(max, Number.isFinite(combatStored) ? combatStored : 0))
       : Math.max(0, Math.min(max, Number.isFinite(saved) ? saved : 0))
@@ -491,6 +553,8 @@ window.RestraintSystem = (function () {
     const state = State.get()
     if (!state._insertionCharges || typeof state._insertionCharges !== 'object') state._insertionCharges = {}
     const next = Math.max(0, Math.min(info.max, Math.floor(Number(value) || 0)))
+    const entry = insertionDevice(slot)
+    if (entry) entry.device.charge = next
     state._insertionCharges[slot] = next
     const combat = state._battle || state._ambush
     if (combat && combat.insertionBlocks) {
@@ -529,6 +593,7 @@ window.RestraintSystem = (function () {
   function resolveMonsterOrifice (originalPart, random = Math.random, options = {}) {
     if (!['oral', 'anal', 'vagina'].includes(originalPart)) return { mode: 'original', part: originalPart, events: [] }
     const state = State.get()
+    const rules = settings()
     const events = []
     const label = { oral: '嘴穴', anal: '菊穴', vagina: '小穴' }
 
@@ -548,7 +613,8 @@ window.RestraintSystem = (function () {
       if (charge && charge.current > 0) {
         if (mutate) {
           setInsertionCharge(part, charge.current - 1)
-          events.push(`⚡ ${entry.def.name}消耗 1 点充能，完全抵挡本次攻击与效果（剩余 ${charge.current - 1}/${charge.max}）`)
+          const notice = chargeNoticeText(entry.def.name, charge.current - 1, charge.max)
+          if (notice) events.push(notice)
         }
         return { available: false, reason: 'charged', name: entry.def.name }
       }
@@ -568,13 +634,15 @@ window.RestraintSystem = (function () {
 
     const candidates = ['oral', 'anal']
     if (state.gender !== 'male') candidates.push('vagina')
-    const available = candidates.filter(part => part !== originalPart && inspect(part, false).available)
+    const available = rules.redirectAttacks
+      ? candidates.filter(part => part !== originalPart && inspect(part, false).available)
+      : []
     if (!available.length) {
       const battle = state._battle
-      if (options.boss && battle && !battle.bossForcedUnlockUsed) {
+      if (options.boss && rules.bossForcedUnlock && battle && !battle.bossForcedUnlockUsed) {
         const forcedTargets = []
         candidates.forEach(part => {
-          let slot = part
+          let slot = part === 'oral' ? 'mouth' : part
           let device = get(slot)
           let def = device && defOf(device.id)
           if (part === 'vagina' && !device && hasWaistChastity()) {
@@ -611,6 +679,47 @@ window.RestraintSystem = (function () {
     events.push(`↪️ 怪物放弃${label[originalPart]}，改攻${label[nextPart]}`)
     return { mode: 'redirect', part: nextPart, from: originalPart, removed: next.removed, events }
   }
+
+  /**
+   * 城镇/NPC 服务：上锁的封口与插入装备不能使用，改走其他可用部位。
+   * 与怪物攻击不同，这里不消耗防护充能，也不会擅自拔掉玩家装备。
+   */
+  function resolveServiceOrifice (originalPart, random = Math.random) {
+    if (!['oral', 'anal', 'vagina'].includes(originalPart)) return { mode: 'original', part: originalPart, events: [] }
+    const state = State.get()
+    const events = []
+    const label = { oral: '嘴穴', anal: '菊穴', vagina: '小穴' }
+
+    const inspect = part => {
+      if (part === 'vagina' && state.gender === 'male') return { available: false, name: '身体结构' }
+      if (part === 'vagina' && hasWaistChastity()) return { available: false, name: '贞操装备' }
+      if (part === 'oral') {
+        const mouth = get('mouth')
+        const def = mouth && defOf(mouth.id)
+        if (mouth && mouth.locked && def && def.id !== 'slut_gag') return { available: false, name: def.name }
+        return { available: true }
+      }
+      const entry = insertionDevice(part)
+      if (entry && entry.device.locked) return { available: false, name: entry.def.name }
+      return { available: true }
+    }
+
+    const original = inspect(originalPart)
+    if (original.available) return { mode: 'original', part: originalPart, from: originalPart, events }
+    events.push(`🔒 ${label[originalPart]}被${original.name}锁住，无法用于这次服务`)
+
+    const candidates = ['oral', 'anal']
+    if (state.gender !== 'male') candidates.push('vagina')
+    const available = candidates.filter(part => part !== originalPart && inspect(part).available)
+    if (!available.length) {
+      events.push('🚫 嘴穴、菊穴和小穴都无法使用，这次服务无法进行')
+      return { mode: 'unavailable', part: null, from: originalPart, events }
+    }
+    const index = Math.min(available.length - 1, Math.floor(Math.max(0, Number(random()) || 0) * available.length))
+    const nextPart = available[index]
+    events.push(`↪️ 改用${label[nextPart]}完成服务`)
+    return { mode: 'redirect', part: nextPart, from: originalPart, events }
+  }
   /** 上锁槽位列表 */
   function lockedSlots () { return SLOT_ORDER.filter(isLocked) }
 
@@ -620,7 +729,20 @@ window.RestraintSystem = (function () {
     const st = State.get()
     if (!st._restraintSettings || typeof st._restraintSettings !== 'object') st._restraintSettings = {}
     st._restraintSettings.allowTrap = st._restraintSettings.allowTrap !== false
+    st._restraintSettings.trapAutoLock = st._restraintSettings.trapAutoLock !== false
+    st._restraintSettings.redirectAttacks = st._restraintSettings.redirectAttacks !== false
+    st._restraintSettings.bossForcedUnlock = st._restraintSettings.bossForcedUnlock !== false
+    st._restraintSettings.chargeNotice = ['detail', 'compact', 'off'].includes(st._restraintSettings.chargeNotice)
+      ? st._restraintSettings.chargeNotice
+      : 'detail'
     return st._restraintSettings
+  }
+
+  function chargeNoticeText (deviceName, left, max) {
+    const mode = settings().chargeNotice
+    if (mode === 'off') return ''
+    if (mode === 'compact') return `⚡ ${deviceName}充能 -1（${left}/${max}）`
+    return `⚡ ${deviceName}消耗 1 点充能，完全抵挡本次攻击与效果（剩余 ${left}/${max}）`
   }
 
   function toggleTrap () {
@@ -650,11 +772,11 @@ window.RestraintSystem = (function () {
         ? (d.locked ? ' restr-body-slot is-locked' : ' restr-body-slot is-worn')
         : ' restr-body-slot is-empty'
       const label = d ? def.name : SLOT_NAMES[slot]
-      const mark = d
-        ? (d.locked ? (isCursed(slot) ? '🧿' : '🔒') : '✓')
-        : '·'
+      const equippedName = d
+        ? `${d.locked ? (isCursed(slot) ? '🧿 ' : '🔒 ') : ''}${def.name}`
+        : '未装备'
       return `<div class="${cls}" title="${SLOT_NAMES[slot]}：${label}">
-        <i>${SLOT_ICONS[slot]}</i><b>${SLOT_NAMES[slot]}</b><span>${mark}</span>
+        <i>${SLOT_ICONS[slot]}</i><b>${SLOT_NAMES[slot]}</b><span>${equippedName}</span>
       </div>`
     }).join('')}</div>`
   }
@@ -668,14 +790,45 @@ window.RestraintSystem = (function () {
     const unlocked = SLOT_ORDER.filter(slot => { const d = get(slot); return d && !d.locked })
     const FREQ = { low: '低（10%/15%）', standard: '标准（25%/35%）', high: '高（40%/60%）', always: '每次（100%）' }
     const DUR = { fast: '快速（5~10 秒）', standard: '标准（10~30 秒）', immersive: '沉浸（30~60 秒）', fixed: '固定（60 秒）' }
+    const NOTICE = { detail: '详细日志', compact: '简短日志', off: '不提示' }
     const gval = (k, def) => gs[k] === undefined ? def : gs[k]
+    const presetIs = key => {
+      if (key === 'casual') return s.allowTrap && !s.trapAutoLock && !s.redirectAttacks && !s.bossForcedUnlock && gval('frequency', 'standard') === 'low' && gval('duration', 'standard') === 'fast'
+      if (key === 'immersive') return s.allowTrap && s.trapAutoLock && s.redirectAttacks && s.bossForcedUnlock && gval('frequency', 'standard') === 'high' && gval('duration', 'standard') === 'immersive'
+      return s.allowTrap && s.trapAutoLock && s.redirectAttacks && s.bossForcedUnlock && gval('frequency', 'standard') === 'standard' && gval('duration', 'standard') === 'standard'
+    }
     Dialog.show({
-      title: '⚙️ 设置',
+      title: '⚙️ 妖缚 MCM',
       className: 'inventory-modal restraint-modal',
       body: `<div class="restr-settings">
+        <div class="restr-mcm-intro">
+          <span>妖缚规则预设</span>
+          <small>选择预设后仍可单独调整每项规则，修改会立即存档。</small>
+        </div>
+        <div class="restr-preset-grid">
+          <button class="restr-preset${presetIs('casual') ? ' is-active' : ''}" data-restr-preset="casual">${presetIs('casual') ? '<em>使用中</em>' : ''}<i>🌿</i><b>休闲</b><small>佩戴不锁 · 不转移 · Boss 不破锁</small></button>
+          <button class="restr-preset${presetIs('standard') ? ' is-active' : ''}" data-restr-preset="standard">${presetIs('standard') ? '<em>使用中</em>' : ''}<i>⚖️</i><b>标准</b><small>当前推荐规则</small></button>
+          <button class="restr-preset${presetIs('immersive') ? ' is-active' : ''}" data-restr-preset="immersive">${presetIs('immersive') ? '<em>使用中</em>' : ''}<i>⛓️</i><b>沉浸</b><small>高频检查 · 沉浸时长</small></button>
+        </div>
         <div class="restr-setting-row">
-          <span><b>允许陷阱上锁</b><small>关闭后森林陷阱不再往你身上锁装置</small></span>
+          <span><b>允许陷阱穿戴装置</b><small>关闭后森林陷阱不再添加妖缚装备</small></span>
           <label class="restr-switch"><input type="checkbox" id="restr-set-trap" ${s.allowTrap ? 'checked' : ''}><i></i></label>
+        </div>
+        <div class="restr-setting-row${s.allowTrap ? '' : ' is-muted'}">
+          <span><b>陷阱装备自动上锁</b><small>关闭后陷阱只会替你穿戴，可直接脱下</small></span>
+          <label class="restr-switch"><input type="checkbox" id="restr-set-auto-lock" ${s.trapAutoLock ? 'checked' : ''} ${s.allowTrap ? '' : 'disabled'}><i></i></label>
+        </div>
+        <div class="restr-setting-row">
+          <span><b>怪物改攻其他部位</b><small>关闭后遇到封闭部位会改为打屁股，不触发插入状态</small></span>
+          <label class="restr-switch"><input type="checkbox" id="restr-set-redirect" ${s.redirectAttacks ? 'checked' : ''}><i></i></label>
+        </div>
+        <div class="restr-setting-row">
+          <span><b>Boss 藤蔓破锁</b><small>允许森林之灵每场战斗破坏一次普通锁</small></span>
+          <label class="restr-switch"><input type="checkbox" id="restr-set-boss-unlock" ${s.bossForcedUnlock ? 'checked' : ''}><i></i></label>
+        </div>
+        <div class="restr-setting-row">
+          <span><b>充能消耗提示</b><small>${NOTICE[s.chargeNotice]}</small></span>
+          <button class="btn restr-btn" data-rule-cycle="chargeNotice">切换</button>
         </div>
         <div class="restr-setting-row">
           <span><b>一键脱下未上锁装置</b><small>${unlocked.length ? `当前有 ${unlocked.length} 件可脱下` : '没有未上锁的装置'}</small></span>
@@ -719,8 +872,51 @@ window.RestraintSystem = (function () {
         { label: '关闭', handler: () => Dialog.close() },
       ],
     })
-    const trapToggle = document.getElementById('restr-set-trap')
-    if (trapToggle) trapToggle.onchange = () => { toggleTrap() }
+    const bindRuleToggle = (id, key, rerender = false) => {
+      const el = document.getElementById(id)
+      if (el) el.onchange = () => {
+        settings()[key] = el.checked
+        EventBus.emit('state:changed', State.get())
+        State.save()
+        if (rerender) { Dialog.close(); openSettings() }
+      }
+    }
+    bindRuleToggle('restr-set-trap', 'allowTrap', true)
+    bindRuleToggle('restr-set-auto-lock', 'trapAutoLock')
+    bindRuleToggle('restr-set-redirect', 'redirectAttacks')
+    bindRuleToggle('restr-set-boss-unlock', 'bossForcedUnlock')
+    document.querySelectorAll('[data-rule-cycle]').forEach(btn => {
+      btn.onclick = () => {
+        const modes = Object.keys(NOTICE)
+        const rules = settings()
+        rules.chargeNotice = modes[(modes.indexOf(rules.chargeNotice) + 1) % modes.length]
+        EventBus.emit('state:changed', State.get())
+        State.save()
+        Dialog.close()
+        openSettings()
+      }
+    })
+    document.querySelectorAll('[data-restr-preset]').forEach(btn => {
+      btn.onclick = () => {
+        const key = btn.dataset.restrPreset
+        const rules = settings()
+        const guard = State.get()._guardSearchSettings || (State.get()._guardSearchSettings = {})
+        if (key === 'casual') {
+          Object.assign(rules, { allowTrap: true, trapAutoLock: false, redirectAttacks: false, bossForcedUnlock: false, chargeNotice: 'detail' })
+          Object.assign(guard, { enabled: true, frequency: 'low', duration: 'fast' })
+        } else if (key === 'immersive') {
+          Object.assign(rules, { allowTrap: true, trapAutoLock: true, redirectAttacks: true, bossForcedUnlock: true, chargeNotice: 'detail' })
+          Object.assign(guard, { enabled: true, frequency: 'high', duration: 'immersive' })
+        } else {
+          Object.assign(rules, { allowTrap: true, trapAutoLock: true, redirectAttacks: true, bossForcedUnlock: true, chargeNotice: 'detail' })
+          Object.assign(guard, { enabled: true, frequency: 'standard', duration: 'standard' })
+        }
+        EventBus.emit('state:changed', State.get())
+        State.save()
+        Dialog.close()
+        openSettings()
+      }
+    })
     // 城门设置开关：立即保存
     const bindToggle = (id, key) => {
       const el = document.getElementById(id)
@@ -812,12 +1008,14 @@ window.RestraintSystem = (function () {
         ? `<button class="btn restr-btn" data-act="lock" data-slot="${slot}" ${lockCount > 0 ? '' : 'disabled'}>🔒 ${lockCount > 0 ? `上锁（剩 ${lockCount}）` : '没有普通锁'}</button>`
         : ''
       const actionsHtml = d.locked
-        ? `<div class="restr-actions">
+        ? isStory(slot)
+          ? `<div class="restr-actions"><span class="camp-muted">📜 剧情锁只能通过对应剧情解除</span></div>`
+          : `<div class="restr-actions">
              ${d.jammed ? '' : `<button class="btn restr-btn" data-act="struggle" data-slot="${slot}">💪 挣扎</button>`}
              ${canCut(slot) ? `<button class="btn restr-btn" data-act="cut" data-slot="${slot}">🔪 割断</button>` : ''}
              ${isCursed(slot) ? `<button class="btn restr-btn" data-act="curse" data-slot="${slot}">🧿 驱咒符</button>` : `<button class="btn restr-btn" data-act="key" data-slot="${slot}">🔑 钥匙</button>`}
              ${isCursed(slot) ? '' : `<button class="btn restr-btn" data-act="lockpick" data-slot="${slot}">🛠️ 撬锁</button>`}
-             ${isStory(slot) ? '' : `<button class="btn restr-btn" data-act="npc" data-slot="${slot}">🔧 求助铁匠</button>`}
+             <button class="btn restr-btn" data-act="npc" data-slot="${slot}">🔧 求助铁匠</button>
            </div>`
         : def.stackable
           ? `<div class="restr-actions">
@@ -884,9 +1082,9 @@ window.RestraintSystem = (function () {
     setTimer, tickTimers, lockedSlots,
     hasGag, hasHandcuffs, hasLegCuffs, hasCollar, hasArmbinder, hasBlindfold, hasWaistChastity, hasHandsBlocked,
     hasNipple, hasCorset, hasAnkleChains, hasDevice, ownedCount, grant, adjustStack,
-    allowedSlotsOf, canEquip, insertionDevice, insertionBlocks, insertionCharge, setInsertionCharge, insertionProstituteBonus, lockedInsertionDevices, lockedServiceDevices, resolveMonsterOrifice,
+    allowedSlotsOf, canEquip, insertionDevice, insertionBlocks, insertionCharge, setInsertionCharge, insertionProstituteBonus, lockedInsertionDevices, lockedServiceDevices, resolveMonsterOrifice, resolveServiceOrifice,
     effectiveMaxOwn, wornCountOf,
-    settings, toggleTrap, removeAllUnlocked, bodyDiagram,
+    settings, chargeNoticeText, toggleTrap, removeAllUnlocked, bodyDiagram,
     openManage, openSettings,
   }
 })()

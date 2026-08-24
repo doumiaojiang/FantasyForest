@@ -1597,6 +1597,9 @@ window.BattleUI = (function () {
   function respawn () {
     const state = State.get()
     const hadGreed = StatusSystem.has('greed_demon')
+    const greedDeviceResult = hadGreed && typeof TreasureSystem !== 'undefined' && TreasureSystem.clearGreedDevice
+      ? TreasureSystem.clearGreedDevice()
+      : 'none'
     // 防御性清理：确保伏击/战斗残留状态清除
     state._ambush = null
     state._battle = null
@@ -1611,7 +1614,7 @@ window.BattleUI = (function () {
         state.statuses = []
         state.gold = Math.floor(state.gold * 0.5)
         EventBus.emit('ui:log', { text: `在检查点 (${v.x},${v.y}) 重生。金币减半。`, type: 'dim' })
-        finishRespawn(hadGreed)
+        finishRespawn(hadGreed, greedDeviceResult)
         return
       }
     }
@@ -1620,21 +1623,26 @@ window.BattleUI = (function () {
     state.phase = 'idle'
     state.statuses = []
     state.gold = Math.floor(state.gold * 0.5)
-    finishRespawn(hadGreed)
+    finishRespawn(hadGreed, greedDeviceResult)
   }
 
-  function finishRespawn (hadGreed) {
-    // 死亡后贪婪恶魔消失，提示摘下乳夹
+  function finishRespawn (hadGreed, greedDeviceResult = 'none') {
+    // 死亡后贪婪恶魔消失，并与真实的胸部妖缚槽同步。
     if (hadGreed) {
+      const deviceText = {
+        removed: '恶魔赠送的乳夹已自动从胸部妖缚槽脱下，装备仍保留在已拥有列表。',
+        detached: '恶魔已经离开你原本的胸部装备；原装备保持不变。',
+        locked: '金币翻倍已经失效，但你后来锁住的乳夹仍留在胸部槽，需要自行解锁。',
+        none: '金币翻倍效果已经解除。',
+      }[greedDeviceResult] || '金币翻倍效果已经解除。'
       Dialog.show({
         title: '😈 贪婪恶魔消失了',
         body: `
           <p>你死了，贪婪恶魔也随之消失了……</p>
-          <p style="color:var(--text-dim);margin-top:6px">（请取下<b>乳夹</b>）</p>
-          <p style="color:var(--text-dim);font-size:.85rem;margin-top:4px">金币不再翻倍了。</p>
+          <p style="color:var(--text-dim);margin-top:6px">${deviceText}</p>
         `,
         actions: [
-          { label: '取下乳夹', cls: 'btn-primary', handler: () => { Dialog.close(); GameFlow.afterEvent() } },
+          { label: '继续冒险', cls: 'btn-primary', handler: () => { Dialog.close(); GameFlow.afterEvent() } },
         ],
       })
       return

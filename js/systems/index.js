@@ -30,6 +30,64 @@ window.GameFlow = {
  * 陷阱系统（网格版，完整 6 项）
  */
 window.TrapSystem = {
+  /** 森林陷阱尝试附加一件普通妖缚装置；不会覆盖现有槽位或特殊锁。 */
+  tryRestraint (state = State.get(), random = Math.random) {
+    const none = { applied: false, note: '', deviceId: null, slot: null, lockType: null, timer: 0 }
+    if (typeof RestraintSystem === 'undefined' || typeof RESTRAINTS === 'undefined') return none
+    const rules = RestraintSystem.settings()
+    if (!rules.allowTrap || RestraintSystem.countLocked() > 0) return none
+    if ((Number(random()) || 0) >= 0.3) return none
+
+    const candidates = RESTRAINTS.flatMap(def => {
+      if (def.story || def.buff || def.cosmetic || def.insert) return []
+      if (def.femaleOnly && state.gender === 'male') return []
+      if (def.maleOnly && state.gender !== 'male') return []
+      return RestraintSystem.allowedSlotsOf(def).flatMap(slot => {
+        if (RestraintSystem.isWorn(slot)) return []
+        // 贞操装备合拢会排斥小穴插入物；陷阱不应静默覆盖玩家已有装备。
+        if (def.effect === 'chastity' && RestraintSystem.isWorn('vagina')) return []
+        return [{ def, slot }]
+      })
+    })
+    if (!candidates.length) return none
+
+    const choiceRoll = Math.max(0, Number(random()) || 0)
+    const chosen = candidates[Math.min(candidates.length - 1, Math.floor(choiceRoll * candidates.length))]
+    const lockRoll = Math.max(0, Number(random()) || 0)
+    const opts = {
+      locked: rules.trapAutoLock,
+      lockType: rules.trapAutoLock && lockRoll < 0.1 ? 'cursed' : 'common',
+      source: 'forest_trap',
+    }
+
+    // 陷阱获得的装备会永久记入已拥有列表，脱困后仍可重新穿戴。
+    RestraintSystem.grant(chosen.def.id)
+    const result = RestraintSystem.equip(chosen.slot, chosen.def.id, opts)
+    if (!result.ok) return none
+
+    let timer = 0
+    let note = opts.locked
+      ? `<br>⛓️ 陷阱机关猛地收紧——你被<b>${chosen.def.name}</b>锁住了！装备已记入妖缚栏，可用钥匙、挣扎或找铁匠解开。`
+      : `<br>🌿 陷阱替你穿上了<b>${chosen.def.name}</b>，但自动上锁已在 MCM 中关闭，可以直接从妖缚栏脱下。`
+    if (opts.locked && opts.lockType === 'cursed') {
+      timer = 12
+      RestraintSystem.setTimer(chosen.slot, timer)
+      note = `<br>🧿 陷阱埋着<b>诅咒锁</b>——${chosen.def.name}锁在你身上！钥匙撬不开，只能找铁匠或使用驱咒符（⏲️ ${timer} 回合后自动解除）。`
+    } else if (opts.locked && (Number(random()) || 0) < 0.35) {
+      timer = 8 + Math.floor(Math.max(0, Number(random()) || 0) * 8)
+      RestraintSystem.setTimer(chosen.slot, timer)
+      note += `<br>⏲️ 这是定时锁：<b>${timer}</b> 回合后会自动打开。`
+    }
+
+    EventBus.emit('ui:log', {
+      text: opts.locked
+        ? `⛓️ 森林陷阱锁上了${chosen.def.name}${timer ? `（${timer} 回合）` : ''}。`
+        : `🌿 森林陷阱替你穿上了${chosen.def.name}，但没有上锁。`,
+      type: opts.locked ? 'danger' : 'dim',
+    })
+    return { applied: true, note, deviceId: chosen.def.id, slot: chosen.slot, lockType: opts.lockType, timer }
+  },
+
   async roll () {
     const state = State.get()
     state.phase = 'trap'
@@ -63,7 +121,8 @@ window.TrapSystem = {
         resultTone = 'neutral'
         break
       case 'ambush':
-        await TrapSystem.showResult(trap, z, '陷阱把你推进了伏击区域，接下来进入伏击判定。', 'danger', '🌫️ 陷入伏击')
+        const ambushRestraint = TrapSystem.tryRestraint(state)
+        await TrapSystem.showResult(trap, z, `陷阱把你推进了伏击区域，接下来进入伏击判定。${ambushRestraint.note}`, 'danger', '🌫️ 陷入伏击')
         await AmbushSystem.trigger()
         return
       case 'double_enemy':
@@ -84,30 +143,10 @@ window.TrapSystem = {
 
     EventBus.emit('state:changed', state)
 
-    // 妖缚：森林陷阱有概率锁上一件普通装置（同一时间最多一件上锁；可在妖缚设置里关闭）
-    if (typeof RestraintSystem !== 'undefined' && RestraintSystem.settings().allowTrap && RestraintSystem.countLocked() === 0 && RestraintSystem.countWorn() < RestraintSystem.SLOT_ORDER.length && Math.random() < 0.3) {
-      const pool = RESTRAINTS.filter(r => !r.story && !r.buff && !r.insert && !(r.femaleOnly && state.gender === 'male') && !(r.maleOnly && state.gender !== 'male'))
-      const pick = pool[Math.floor(Math.random() * pool.length)]
-      if (!RestraintSystem.isWorn(pick.slot)) {
-        const opts = { locked: true, source: 'forest_trap' }
-        // 10% 诅咒锁 / 30% 定时锁
-        const roll = Math.random() * 100
-        if (roll < 10) opts.lockType = 'cursed'
-        else if (roll < 40) opts.lockType = 'common'
-        const res = RestraintSystem.equip(pick.slot, pick.id, opts)
-        if (res.ok) {
-          let note = `<br>⛓️ 陷阱机关猛地收紧——你被<b>${pick.name}</b>锁住了！用钥匙、挣扎或找铁匠解开它。`
-          if (opts.lockType === 'cursed') {
-            RestraintSystem.setTimer(pick.slot, 12)
-            note = `<br>🧿 陷阱埋着<b>诅咒锁</b>——${pick.name}锁在你身上！钥匙撬不开，只能找铁匠或驱咒符（⏲️ 12 回合后自动解开）。`
-          } else if (Math.random() < 0.35) {
-            RestraintSystem.setTimer(pick.slot, 8 + Math.floor(Math.random() * 8))
-            note += `<br>⏲️ 这是定时锁：<b>${RestraintSystem.get(pick.slot).timer}</b> 回合后会自动打开。`
-          }
-          resultText += note
-          resultTone = 'danger'
-        }
-      }
+    const restraintResult = TrapSystem.tryRestraint(state)
+    if (restraintResult.applied) {
+      resultText += restraintResult.note
+      resultTone = 'danger'
     }
 
     await TrapSystem.showResult(trap, z, resultText, resultTone)
@@ -163,6 +202,74 @@ function backToCheckpoint () {
  * 集齐记录存于 state.treasures（持久化），避免递归栈溢出。
  */
 window.TreasureSystem = {
+  /** 发放补给包：妖缚装备进入拥有列表；已达拥有上限时按商店半价折成金币。 */
+  grantItemBundle (state, itemIds) {
+    const rewards = []
+    let convertedGold = 0
+    ;(itemIds || []).forEach(id => {
+      const restraint = typeof RestraintSystem !== 'undefined' ? RestraintSystem.defOf(id) : null
+      if (restraint && restraint.insert) {
+        const before = RestraintSystem.ownedCount(id)
+        RestraintSystem.grant(id)
+        const after = RestraintSystem.ownedCount(id)
+        if (after > before) {
+          rewards.push(`${restraint.name}（已加入妖缚装备栏）`)
+        } else {
+          const value = Math.floor(Math.max(0, restraint.price || 0) * 0.5)
+          state.gold += value
+          convertedGold += value
+          rewards.push(`${restraint.name}已拥有，折算 ${value}G`)
+        }
+        return
+      }
+      state.inventory.consumables[id] = (state.inventory.consumables[id] || 0) + 1
+      rewards.push(ItemLib.get(id)?.name || id)
+    })
+    return { rewards, convertedGold }
+  },
+
+  /** 贪婪恶魔依附到胸部妖缚槽；不覆盖玩家已有装备。 */
+  applyGreedDemon (state) {
+    let gearText = ''
+    if (typeof RestraintSystem !== 'undefined') {
+      const chest = RestraintSystem.get('chest')
+      if (!chest) {
+        RestraintSystem.grant('nipple_clamps')
+        const equipped = RestraintSystem.equip('chest', 'nipple_clamps', { source: 'greed_demon' })
+        gearText = equipped.ok
+          ? '乳夹已装备到胸部妖缚槽；取下后金币翻倍会立即结束。'
+          : '乳夹已加入妖缚装备栏，但未能自动穿戴。'
+      } else {
+        chest.greedBound = true
+        EventBus.emit('state:changed', state)
+        const def = RestraintSystem.defOf(chest.id)
+        gearText = `胸部已有${def ? def.name : '装备'}，贪婪恶魔附着其上，没有覆盖原装备；取下该装备后效果结束。`
+      }
+    } else {
+      gearText = '获得金币翻倍效果。'
+    }
+    StatusSystem.apply('greed_demon', 9999)
+    return gearText
+  },
+
+  /** 死亡时解除恶魔与胸部装备的绑定；只自动脱下由恶魔赠送且未上锁的乳夹。 */
+  clearGreedDevice () {
+    if (typeof RestraintSystem === 'undefined') return 'none'
+    const chest = RestraintSystem.get('chest')
+    if (!chest) return 'none'
+    if (chest.source === 'greed_demon') {
+      if (chest.locked) return 'locked'
+      RestraintSystem.remove('chest')
+      return 'removed'
+    }
+    if (chest.greedBound) {
+      delete chest.greedBound
+      EventBus.emit('state:changed', State.get())
+      return 'detached'
+    }
+    return 'none'
+  },
+
   async roll ({ continueMovement = false } = {}) {
     const state = State.get()
     const totalTreasures = TREASURES.length
@@ -237,13 +344,8 @@ window.TreasureSystem = {
         BattleSystem.start(treasure.enemy)
         return 'battle'
       case 'items':
-        let itemList = treasure.items
-        itemList.forEach(id => {
-          const dd = typeof RestraintSystem !== 'undefined' ? RestraintSystem.defOf(id) : null
-          if (dd && dd.insert) RestraintSystem.grant(id)
-          else state.inventory.consumables[id] = (state.inventory.consumables[id] || 0) + 1
-        })
-        resultText = `获得：${itemList.map(id => ItemLib.get(id)?.name || (typeof RestraintSystem !== 'undefined' ? RestraintSystem.defOf(id)?.name : '') || id).join('、')}。插入装备已加入妖缚装备栏。`
+        const bundle = TreasureSystem.grantItemBundle(state, treasure.items)
+        resultText = `获得：${bundle.rewards.join('、')}。${bundle.convertedGold ? `重复妖缚装备共折算 ${bundle.convertedGold}G。` : ''}`
         break
       case 'maxhp':
         state.maxHp += treasure.value
@@ -251,8 +353,7 @@ window.TreasureSystem = {
         resultText = `最大 HP +${treasure.value}，当前生命 ${state.hp} / ${state.maxHp}。`
         break
       case 'greed_demon':
-        StatusSystem.apply('greed_demon', 9999)
-        resultText = '戴上乳夹后，获得金币翻倍效果；死亡时贪婪恶魔会消失。'
+        resultText = `${TreasureSystem.applyGreedDemon(state)}获得金币翻倍效果；死亡时贪婪恶魔会消失。`
         actionLabel = '😈 戴上乳夹'
         break
       case 'free_upgrade':
@@ -350,13 +451,8 @@ window.TreasureSystem = {
         BattleSystem.start(treasure.enemy)
         return 'battle'
       case 'items':
-        let itemListFinal = treasure.items
-        itemListFinal.forEach(id => {
-          const dd = typeof RestraintSystem !== 'undefined' ? RestraintSystem.defOf(id) : null
-          if (dd && dd.insert) RestraintSystem.grant(id)
-          else state.inventory.consumables[id] = (state.inventory.consumables[id] || 0) + 1
-        })
-        resultText = `再次获得：${itemListFinal.map(id => ItemLib.get(id)?.name || (typeof RestraintSystem !== 'undefined' ? RestraintSystem.defOf(id)?.name : '') || id).join('、')}。`
+        const finalBundle = TreasureSystem.grantItemBundle(state, treasure.items)
+        resultText = `再次获得：${finalBundle.rewards.join('、')}。${finalBundle.convertedGold ? `重复妖缚装备共折算 ${finalBundle.convertedGold}G。` : ''}`
         break
       case 'maxhp':
         state.maxHp += treasure.value
@@ -364,8 +460,7 @@ window.TreasureSystem = {
         resultText = `最大 HP 再次 +${treasure.value}，当前生命 ${state.hp} / ${state.maxHp}。`
         break
       case 'greed_demon':
-        StatusSystem.apply('greed_demon', 9999)
-        resultText = '贪婪恶魔效果重新生效；获得金币翻倍，死亡时消失。'
+        resultText = `${TreasureSystem.applyGreedDemon(state)}贪婪恶魔效果重新生效；获得金币翻倍，死亡时消失。`
         actionLabel = '😈 再次戴上乳夹'
         break
       case 'free_upgrade':

@@ -5,7 +5,7 @@
  */
 
 window.CONFIG = {
-  version: '0.4.3',
+  version: '0.4.9',
   debug: {
     // 按游戏设计保留公开的作弊 / 调试入口。
     enabled: true,

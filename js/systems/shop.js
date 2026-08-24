@@ -32,20 +32,40 @@ window.ShopSystem = (function () {
   let _open = false
   let _stock = {}      // { itemId: number } 当前库存
 
+  // 野外旅行商人只携带应急妖缚补给；高级工具与满充灵魂石仍由城镇专营。
+  const TRAVEL_RESTRAINT_STOCK = {
+    restraint_lock: 1,
+    restraint_key: 1,
+    lockpick: 1,
+    petty_soul_gem: 2,
+    lesser_soul_gem: 1,
+  }
+
   /** 打开商店（初始化库存） */
   function open (tile) {
     const state = State.get()
     // tile=null 表示刷新后恢复商店，保留原来的返回目标。
-    if (tile) state._shopReturnToCamp = tile.type === TILE.CAMP
+    if (tile) {
+      state._shopReturnToCamp = tile.type === TILE.CAMP
+      state._activeShopRaw = tile.raw || null
+    }
     _open = true
     _stock = {}
 
     // 消耗品：每种 2 件（"重生商店"库存无限）；小鹿树枝不可购买
-    const isRespawnShop = tile && tile.raw === '重生商店'
+    // tile=null 为读档恢复，此时按玩家脚下格子还原商店类型。
+    const currentTile = MapLib.get(state.position.x, state.position.y)
+    const effectiveTile = tile || (currentTile ? { ...currentTile, raw: state._activeShopRaw || currentTile.raw } : null)
+    const isRespawnShop = effectiveTile && effectiveTile.raw === '重生商店'
+    const isTravelShop = effectiveTile && effectiveTile.type === TILE.SHOP && !isRespawnShop
     ITEMS.consumables.forEach(item => {
       if (item.id === 'twig') return   // 树枝只能由小鹿剧情获得
       if (item.id === 'guard_pass') return   // 免检查卷只能由卫兵任务获得
-      if (['restraint_lock', 'restraint_key', 'master_key', 'lockpick', 'curse_remover', 'petty_soul_gem', 'lesser_soul_gem', 'common_soul_gem'].includes(item.id)) return // 妖缚工具和灵魂石有专属商人
+      if (Object.prototype.hasOwnProperty.call(TRAVEL_RESTRAINT_STOCK, item.id)) {
+        if (isTravelShop) _stock[item.id] = TRAVEL_RESTRAINT_STOCK[item.id]
+        return
+      }
+      if (['master_key', 'curse_remover', 'common_soul_gem'].includes(item.id)) return // 高级妖缚补给由城镇专营
       _stock[item.id] = isRespawnShop ? 99 : 2
     })
 
@@ -56,7 +76,7 @@ window.ShopSystem = (function () {
 
     // 装备：靠购买记录控制唯一性，不设库存计数
     state.phase = 'shop'
-    EventBus.emit('shop:open', { tile, isRespawnShop })
+    EventBus.emit('shop:open', { tile: effectiveTile, isRespawnShop })
   }
 
   /** 购买物品 */
@@ -213,6 +233,7 @@ window.ShopSystem = (function () {
     const state = State.get()
     const returnToCamp = !!state._shopReturnToCamp
     state._shopReturnToCamp = false
+    state._activeShopRaw = null
     state.phase = returnToCamp ? 'camp' : 'idle'
     EventBus.emit('shop:close', {})
     EventBus.emit('state:changed', state)
@@ -319,12 +340,17 @@ window.ShopSystem = (function () {
         if (!state._insertionCharges || typeof state._insertionCharges !== 'object') state._insertionCharges = {}
         state._insertionCharges[slot] = combat.insertionBlocks[slot]
         const entry = typeof RestraintSystem !== 'undefined' ? RestraintSystem.insertionDevice(slot) : null
+        if (entry) entry.device.charge = combat.insertionBlocks[slot]
         const slotName = slot === 'anal' ? '菊穴' : '小穴'
         const left = combat.insertionBlocks[slot]
-        EventBus.emit('ui:log', {
-          text: `⚡ ${entry ? entry.def.name : slotName + '插入装备'}消耗 1 点防护充能，剩余 ${left} 点${left <= 0 ? '（已耗尽，请回城充能）' : ''}。`,
-          type: left > 0 ? 'good' : 'dim',
-        })
+        const deviceName = entry ? entry.def.name : slotName + '插入装备'
+        const max = entry && typeof RestraintSystem !== 'undefined'
+          ? (RestraintSystem.insertionCharge(slot)?.max || left + 1)
+          : left + 1
+        const notice = typeof RestraintSystem !== 'undefined' && RestraintSystem.chargeNoticeText
+          ? RestraintSystem.chargeNoticeText(deviceName, left, max)
+          : `⚡ ${deviceName}消耗 1 点防护充能，剩余 ${left} 点。`
+        if (notice) EventBus.emit('ui:log', { text: notice, type: left > 0 ? 'good' : 'dim' })
         return true
       }
       if (part === 'anal' || part === 'vagina') return consumeSlot(part)

@@ -94,9 +94,17 @@ window.State = (function () {
       _restraints: {},                  // 妖缚装置 { slot: { id, locked, lockType, difficulty, material, source, escapeBonus, jammed } }
       _ownedRestraints: [],              // 已购买的妖缚装置 id 列表（可重复穿戴）
       _ownedRestraintCounts: {},         // 可叠加妖缚装置库存 { id: 数量 }（目前用于跳蛋）
-      _insertionCharges: {},             // 插入装备防护充能 { anal, vagina }；只能在城镇补充
+      _insertionCharges: {},             // 当前穿戴插入装备的兼容充能镜像 { anal, vagina }
+      _storedInsertionCharges: {},       // 未穿戴插入装备的充能库存 { itemId: [{ charge, count }] }
       _prisonWaistPrev: null,            // 入狱前腰部装置（出狱还原）
-      _restraintSettings: { allowTrap: true },   // 妖缚设置：allowTrap=允许陷阱上锁
+      _prisonMouthPrev: null,            // 入狱时暂存的封口装备（释放/越狱后还原）
+      _restraintSettings: {                      // 妖缚规则 / MCM
+        allowTrap: true,                         // 陷阱可自动穿戴装置
+        trapAutoLock: true,                      // 陷阱装置自动上锁
+        redirectAttacks: true,                   // 被封部位改攻其他可用部位
+        bossForcedUnlock: true,                  // Boss 全部位封闭时可破坏普通锁
+        chargeNotice: 'detail',                  // detail / compact / off
+      },
       _guardCheckedThisVisit: false,        // 本次进城是否已接受过卫兵检查（防连续检查）
       _guardSearchPending: null,            // 搜身检查断点 { direction: 'enter'|'exit', startedAt, duration }
       _guardSearchSettings: {               // 城门检查设置
@@ -134,6 +142,7 @@ window.State = (function () {
       _prostituteSwapCost: 20,          // 换客人费用（每次 +10，最高 100，服务完成后重置 20）
       _prostitutePendingTask: null,      // 接客任务断点 { customerKey, z, stepIndex }
       _shopReturnToCamp: false,         // 营地商店关闭后返回营地
+      _activeShopRaw: null,             // 当前商店名称（读档后恢复正确的商店种类）
       _campDeerTaken: false,            // 是否已领取鹿的礼物
       defeated: [],
       bossDefeated: false,
@@ -408,6 +417,7 @@ window.State = (function () {
     state._prisonEscapePenalty = Math.max(0, Math.floor(finite(state._prisonEscapePenalty, 0)))
     state._prisonLife = !!state._prisonLife
     state._prisonChastity = !!state._prisonChastity
+    if (state._prisonMouthPrev === undefined) state._prisonMouthPrev = null
     state._wanted = !!state._wanted
     if (typeof window.TELEPORTS !== 'undefined' && Array.isArray(state._teleports)) {
       state._teleports = state._teleports.filter(id => TELEPORTS.some(t => t.id === id))
@@ -492,7 +502,9 @@ window.State = (function () {
         const max = insertDef ? Math.max(0, Math.floor(finite(insertDef.block, 0))) * (insertDef.stackable ? Math.max(1, Math.floor(finite(worn.count, 1))) : 1) : 0
         // 旧存档首次升级时保留原有体验：当前穿戴的插入装备按满充迁移。
         const fallback = !hadInsertionCharges && insertDef ? max : 0
-        state._insertionCharges[slot] = Math.max(0, Math.min(max, Math.floor(finite(state._insertionCharges[slot], fallback))))
+        const migratedCharge = Math.max(0, Math.min(max, Math.floor(finite(worn && worn.charge, finite(state._insertionCharges[slot], fallback)))))
+        state._insertionCharges[slot] = migratedCharge
+        if (worn) worn.charge = migratedCharge
       })
       // 旧酒馆肛塞标志仍迁入插入类妖缚装备；服务用品已在上方统一迁移。
       state._ownedRestraints = Array.isArray(state._ownedRestraints) ? state._ownedRestraints : []
@@ -553,11 +565,39 @@ window.State = (function () {
       if (state._prisonWaistPrev && state._prisonWaistPrev.id && !RESTRAINTS.some(x => x.id === state._prisonWaistPrev.id)) {
         state._prisonWaistPrev = null
       }
+      if (state._prisonMouthPrev && state._prisonMouthPrev.id) {
+        const mouthDef = RESTRAINTS.find(x => x.id === state._prisonMouthPrev.id)
+        const mouthAllowed = mouthDef && (Array.isArray(mouthDef.allowedSlots) ? mouthDef.allowedSlots.includes('mouth') : mouthDef.slot === 'mouth')
+        if (!mouthAllowed) state._prisonMouthPrev = null
+        else state._prisonMouthPrev = { ...state._prisonMouthPrev, slot: 'mouth', locked: !!state._prisonMouthPrev.locked, jammed: !!state._prisonMouthPrev.jammed }
+      }
     } else {
       state._restraints = {}
     }
+    if (!state._storedInsertionCharges || typeof state._storedInsertionCharges !== 'object' || Array.isArray(state._storedInsertionCharges)) state._storedInsertionCharges = {}
+    Object.keys(state._storedInsertionCharges).forEach(id => {
+      const defn = typeof window.RESTRAINTS !== 'undefined' ? RESTRAINTS.find(r => r.id === id && r.insert && !r.story) : null
+      if (!defn || !Array.isArray(state._storedInsertionCharges[id])) { delete state._storedInsertionCharges[id]; return }
+      const listed = Array.isArray(state._ownedRestraints) && state._ownedRestraints.includes(id)
+      const savedOwned = Math.max(0, Math.floor(finite(state._ownedRestraintCounts && state._ownedRestraintCounts[id], listed ? 1 : 0)))
+      const ownCap = defn.stackable ? 1 : (state.gender === 'male' ? 1 : (defn.maxOwn || 1))
+      const ownedUnits = defn.stackable ? (listed ? 1 : 0) : Math.min(ownCap, Math.max(listed ? 1 : 0, savedOwned))
+      const maxItems = Math.max(0, ownedUnits - Object.values(state._restraints || {}).filter(d => d && d.id === id).length)
+      state._storedInsertionCharges[id] = state._storedInsertionCharges[id].slice(0, maxItems).map(record => {
+        const count = defn.stackable ? Math.max(1, Math.min(defn.maxStack || 99, Math.floor(finite(record && record.count, 1)))) : 1
+        const max = Math.max(0, Math.floor(finite(defn.block, 0))) * count
+        return { charge: Math.max(0, Math.min(max, Math.floor(finite(record && record.charge, 0)))), count }
+      })
+      if (!state._storedInsertionCharges[id].length) delete state._storedInsertionCharges[id]
+    })
     if (!state._restraintSettings || typeof state._restraintSettings !== 'object') state._restraintSettings = {}
     state._restraintSettings.allowTrap = state._restraintSettings.allowTrap !== false
+    state._restraintSettings.trapAutoLock = state._restraintSettings.trapAutoLock !== false
+    state._restraintSettings.redirectAttacks = state._restraintSettings.redirectAttacks !== false
+    state._restraintSettings.bossForcedUnlock = state._restraintSettings.bossForcedUnlock !== false
+    state._restraintSettings.chargeNotice = ['detail', 'compact', 'off'].includes(state._restraintSettings.chargeNotice)
+      ? state._restraintSettings.chargeNotice
+      : 'detail'
     state._guardCheckedThisVisit = !!state._guardCheckedThisVisit
     if (state._guardSearchPending && typeof state._guardSearchPending === 'object' && (state._guardSearchPending.direction === 'enter' || state._guardSearchPending.direction === 'exit')) {
       state._guardSearchPending = {
@@ -614,6 +654,7 @@ window.State = (function () {
         : null
     }
     state._shopReturnToCamp = !!state._shopReturnToCamp
+    state._activeShopRaw = typeof state._activeShopRaw === 'string' ? state._activeShopRaw : null
     state._campDeerTaken = !!state._campDeerTaken
 
     // 旧战斗存档迁移：补肛塞子计数（旧档只有 blocked）
