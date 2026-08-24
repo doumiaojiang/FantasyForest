@@ -848,10 +848,12 @@ window.CampSystem = (function () {
     if ((state._gloryDebt || 0) > 0 || state._gloryFreeService) { showGloryWork(); return }
     const hasLicense = !!state._prostituteLicensed
     const hasGold = state.gold >= GLORY_FEE
+    const footOn = (state._glorySettings || {}).footService !== false
     campShow({
       title: '🍑 荣耀洞 · 入场处', className: 'glory-entry-modal',
       body: `<div class="glory-entry-mark">🍑</div><p class="glory-entry-lead">洞里已经有人了。你能听到压抑的喘息和皮带碰撞的声响。</p>
         <div class="glory-rules"><span><b>${hasLicense ? '免费' : GLORY_FEE + 'G'}</b><small>${hasLicense ? '持证免费进入' : '给营地的服务费'}</small></span><span><b>${SERVICE_SECONDS}s</b><small>一次服务时长</small></span><span><b>Z</b><small>完事后的特殊惊喜</small></span></div>
+        <div class="glory-entry-foot"><span><b>👠 足交服务</b><small>${footOn ? '开启' : '关闭'} · 接客时可选择用双脚服务</small></span><label class="restr-switch"><input type="checkbox" id="glory-entry-foot" ${footOn ? 'checked' : ''}><i></i></label></div>
         <p class="camp-muted">${hasLicense ? '你出示了妓女许可证，守卫挥挥手放你进洞。' : '没有许可证在这里接客是违法的——每次服务都会让你更危险，被抓到就要进监狱。'}</p>`,
       actions: [
         { label: hasLicense ? '免费进洞' : hasGold ? `付 ${GLORY_FEE}G 进洞` : `先欠 ${GLORY_FEE}G 进洞`, cls: hasLicense ? 'btn-primary' : (hasGold ? 'btn-primary' : 'btn-danger'), handler: () => {
@@ -867,6 +869,15 @@ window.CampSystem = (function () {
         { label: '返回厕所', handler: () => { renderToilet() } },
       ],
     })
+    // 足交开关：立即保存
+    const footToggle = document.getElementById('glory-entry-foot')
+    if (footToggle) footToggle.onchange = () => {
+      const g = state._glorySettings || (state._glorySettings = {})
+      g.footService = footToggle.checked
+      EventBus.emit('state:changed', state)
+      State.save()
+      enterGlory()
+    }
   }
 
   /** 上厕所：免费使用，随机小事件 */
@@ -1146,6 +1157,9 @@ window.CampSystem = (function () {
     const bonus = id ? HEEL_BONUSES[id] : null
     if (id && bonus && def) {
       return `${def.name} · 报酬 +${bonus.pay}G · 鞋内概率 ${bonus.insideChance}%${feet.locked ? ' · 已上锁' : ' · 有丢失风险'}`
+    }
+    if (id && def) {
+      return `${def.name} · 60～180 BPM · 无装备加成${feet.locked ? ' · 已上锁' : ''}`
     }
     return '赤脚服务 · 60～180 BPM · 无装备加成'
   }

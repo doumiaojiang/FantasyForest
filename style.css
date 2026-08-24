@@ -2771,6 +2771,9 @@ body:has(.age-gate:not(.age-gate-hidden)) { overflow: hidden; }
 .glory-svc small { overflow: hidden; color: #898087; font-size: .61rem; text-overflow: ellipsis; white-space: nowrap; }
 .glory-svc em { color: var(--gold); font-size: .68rem; font-style: normal; font-weight: 800; white-space: nowrap; }
 .glory-hole-choice { display: grid; gap: 8px; }
+.glory-entry-foot { display: flex; justify-content: space-between; align-items: center; gap: 10px; margin-top: 10px; padding: 9px 12px; border: 1px solid rgba(193,117,255,.2); border-radius: 9px; background: rgba(193,117,255,.05); }
+.glory-entry-foot b { color: #e2d0f0; font-size: .78rem; display: block; }
+.glory-entry-foot small { color: #a085b8; font-size: .62rem; }
 .glory-foot-hint { margin-top: 8px; padding: 7px 11px; border: 1px solid rgba(193,117,255,.2); border-radius: 9px; background: rgba(193,117,255,.06); color: #c9a8e0; font-size: .66rem; text-align: center; }
 .glory-hole-btn {
   width: 100%; display: grid; grid-template-columns: 40px 1fr; align-items: center; gap: 10px;
