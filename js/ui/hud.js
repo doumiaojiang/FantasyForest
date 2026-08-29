@@ -131,15 +131,22 @@ function render (state) {
         mercenaryEl.innerHTML = ''
       } else if (state._mercenary.dead) {
         mercenaryEl.classList.remove('hud-hidden')
-        mercenaryEl.innerHTML = `<span class="mercenary-avatar" style="opacity:.45">${state._mercenary.icon}</span><span class="mercenary-meta"><small>MERCENARY</small><b style="color:var(--danger)">${state._mercenary.name}（已阵亡）</b><em style="color:var(--danger)">💔 可到商店花 50G 复活</em></span>`
+        const debt = state._mercenaryContract ? state._mercenaryContract.debt || 0 : 0
+        mercenaryEl.innerHTML = `<span class="mercenary-avatar" style="opacity:.45">${state._mercenary.icon}</span><span class="mercenary-meta"><small>MERCENARY</small><b style="color:var(--danger)">${state._mercenary.name}（已阵亡）</b><em style="color:var(--danger)">💔 可到商店复活</em></span>${debt ? `<button class="mercenary-debt-chip" id="btn-merc-contract">💸 ${debt}G</button>` : ''}`
       } else {
         mercenaryEl.classList.remove('hud-hidden')
         const lust = state._mercenary.lust || 0
         const lustFull = lust >= 100
         const lustLabel = lustFull ? '发情中' : `${lust}%`
+        const contract = state._mercenaryContract || {}
+        const contractLimit = window.MercenaryContractSystem ? MercenaryContractSystem.limit() : 300
+        const debtChip = contract.debt > 0
+          ? `<button class="mercenary-debt-chip${contract.debt > contractLimit ? ' is-over' : ''}" id="btn-merc-contract" title="打开芙蕾雅债务契约">💸 ${contract.debt}G${contract.active ? ' · 📜' : ''}</button>`
+          : `<button class="mercenary-debt-chip is-free" id="btn-merc-contract" title="打开芙蕾雅佣兵契约">✓ 自由</button>`
         const lustBar = `<span class="mercenary-lust-bar"><i style="width:${Math.min(100, lust)}%" class="${lustFull ? 'is-full' : ''}"></i></span><em class="${lustFull ? 'mercenary-lust-full' : ''}">${lustFull ? '💢 ' : '🔥 '}${lustLabel}</em>`
         mercenaryEl.innerHTML = `<span class="mercenary-avatar">${state._mercenary.icon}</span>
           <span class="mercenary-meta"><small>MERCENARY</small><b>${state._mercenary.name}</b><em>⚔️ 帮你攻击 ${state._mercenary.dmg} 伤害</em></span>
+          ${debtChip}
           <span class="mercenary-lust">${lustBar}</span>
           <button class="btn btn-danger mercenary-serve-btn" id="btn-serve-merc" title="服务佣兵降低性欲">💋 服务</button>`
       }
@@ -173,6 +180,10 @@ function render (state) {
 
     // 服务佣兵按钮
     const serveBtn = document.getElementById('btn-serve-merc')
+    const contractBtn = document.getElementById('btn-merc-contract')
+    if (contractBtn) contractBtn.onclick = () => {
+      if (window.MercenaryContractSystem) MercenaryContractSystem.openPanel()
+    }
     if (serveBtn) {
       const inCombat = state.phase === 'battle' || (state._battle && state._battle.targets && state._battle.targets.length > 0) || !!state._ambush
       serveBtn.disabled = inCombat

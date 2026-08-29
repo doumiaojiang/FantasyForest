@@ -104,7 +104,11 @@ window.State = (function () {
         redirectAttacks: true,                   // 被封部位改攻其他可用部位
         bossForcedUnlock: true,                  // Boss 全部位封闭时可破坏普通锁
         chargeNotice: 'detail',                  // detail / compact / off
+        vibrationControl: true,                  // 跳蛋/震动棒档位、服务加成与战斗代价
       },
+      _restraintContract: null,                  // 当前妖缚委托（一次只能接取一个）
+      _restraintContractOffers: [],              // 酒馆委托板当前展示的三项委托 id
+      _restraintContractCompleted: 0,            // 已完成委托数量
       _guardCheckedThisVisit: false,        // 本次进城是否已接受过卫兵检查（防连续检查）
       _guardSearchPending: null,            // 搜身检查断点 { direction: 'enter'|'exit', startedAt, duration }
       _guardSearchSettings: {               // 城门检查设置
@@ -118,6 +122,11 @@ window.State = (function () {
       _glorySettings: {                     // 荣耀洞服务设置
         footService: true,                  // 足交服务开关
       },
+      _pillorySettings: {                   // 广场木枷设置
+        enabled: true,                      // 城镇广场显示并启用木枷
+        adultEvents: true,                  // 木枷期间允许成人围观事件
+      },
+      _pillory: null,                       // 木枷任务断点 { source, duration, reward, stage, event, returnTo }
       _freeMeatBrand: false,            // 大腿上"免费肉便器"烙印（铁匠解锁后永久）
       _blacksmithContract: false,       // 与铁匠签的契约：每次进铺子要先服务
       _gloryDiscovered: false,          // 是否已发现荣耀洞（调查隔间后）
@@ -133,6 +142,22 @@ window.State = (function () {
       _captainChatCount: 0,             // 与守卫队队长聊天的次数
       _captainLastChat: -1,             // 队长上次随机对话索引（避免连续重复）
       _mercenary: null,                 // 佣兵 { id, name, icon, dmg }（永久常驻，战败则消失）
+      _mercenaryContract: {             // 芙蕾雅债务契约（独立于一次性雇佣费）
+        introSeen: false,
+        debt: 0,
+        violationCount: 0,
+        supportDisabledBattles: 0,
+        completedCount: 0,
+        active: null,
+      },
+      _mercenaryContractSettings: {
+        enabled: true,
+        allowAdvance: true,
+        gearContracts: true,
+        tavernContracts: true,
+        difficulty: 'standard',
+        penalty: 'standard',
+      },
       _futaLastChat: -1,                // 扶她战士上次闲聊索引（避免连续重复）
       _prostituteDressed: false,        // 是否穿上妓女服
       _prostituteLevel: 1,              // 妓女等级
@@ -574,6 +599,11 @@ window.State = (function () {
         if (!mouthAllowed) state._prisonMouthPrev = null
         else state._prisonMouthPrev = { ...state._prisonMouthPrev, slot: 'mouth', locked: !!state._prisonMouthPrev.locked, jammed: !!state._prisonMouthPrev.jammed }
       }
+      Object.values(valid).forEach(worn => {
+        const defn = worn && RESTRAINTS.find(item => item.id === worn.id)
+        if (defn && defn.vibrate) worn.vibrationMode = ['off', 'low', 'high'].includes(worn.vibrationMode) ? worn.vibrationMode : 'off'
+        else if (worn) delete worn.vibrationMode
+      })
     } else {
       state._restraints = {}
     }
@@ -589,7 +619,11 @@ window.State = (function () {
       state._storedInsertionCharges[id] = state._storedInsertionCharges[id].slice(0, maxItems).map(record => {
         const count = defn.stackable ? Math.max(1, Math.min(defn.maxStack || 99, Math.floor(finite(record && record.count, 1)))) : 1
         const max = Math.max(0, Math.floor(finite(defn.block, 0))) * count
-        return { charge: Math.max(0, Math.min(max, Math.floor(finite(record && record.charge, 0)))), count }
+        return {
+          charge: Math.max(0, Math.min(max, Math.floor(finite(record && record.charge, 0)))),
+          count,
+          vibrationMode: defn.vibrate && ['off', 'low', 'high'].includes(record && record.vibrationMode) ? record.vibrationMode : 'off',
+        }
       })
       if (!state._storedInsertionCharges[id].length) delete state._storedInsertionCharges[id]
     })
@@ -598,9 +632,46 @@ window.State = (function () {
     state._restraintSettings.trapAutoLock = state._restraintSettings.trapAutoLock !== false
     state._restraintSettings.redirectAttacks = state._restraintSettings.redirectAttacks !== false
     state._restraintSettings.bossForcedUnlock = state._restraintSettings.bossForcedUnlock !== false
+    state._restraintSettings.vibrationControl = state._restraintSettings.vibrationControl !== false
     state._restraintSettings.chargeNotice = ['detail', 'compact', 'off'].includes(state._restraintSettings.chargeNotice)
       ? state._restraintSettings.chargeNotice
       : 'detail'
+    // 妖缚委托：旧档补字段，并限制可持久化的数据范围。
+    state._restraintContractCompleted = Math.max(0, Math.floor(finite(state._restraintContractCompleted, 0)))
+    state._restraintContractOffers = Array.isArray(state._restraintContractOffers)
+      ? [...new Set(state._restraintContractOffers.filter(id => typeof id === 'string' && /^[a-z0-9_-]{1,40}$/i.test(id)))].slice(0, 3)
+      : []
+    if (!state._restraintContract || typeof state._restraintContract !== 'object' || Array.isArray(state._restraintContract)) {
+      state._restraintContract = null
+    } else {
+      const contract = state._restraintContract
+      const gear = Array.isArray(contract.gear)
+        ? contract.gear.filter(entry => entry && typeof entry.slot === 'string' && typeof entry.id === 'string' && /^[a-z0-9_-]{1,40}$/i.test(entry.slot) && /^[a-z0-9_-]{1,60}$/i.test(entry.id)).map(entry => ({ slot: entry.slot, id: entry.id }))
+        : []
+      const required = Math.max(1, Math.min(20, Math.floor(finite(contract.required, 1))))
+      state._restraintContract = {
+        id: /^[a-z0-9_-]{1,80}$/i.test(String(contract.id || '')) ? String(contract.id) : '',
+        templateId: /^[a-z0-9_-]{1,40}$/i.test(String(contract.templateId || '')) ? String(contract.templateId) : '',
+        name: String(contract.name || '未命名委托').replace(/[<>&"'\u0000-\u001f]/g, '').slice(0, 30),
+        rank: ['easy', 'normal', 'hard'].includes(contract.rank) ? contract.rank : 'easy',
+        required,
+        progress: Math.max(0, Math.min(required, Math.floor(finite(contract.progress, 0)))),
+        rewardGold: Math.max(0, Math.min(9999, Math.floor(finite(contract.rewardGold, 0)))),
+        rewardItem: typeof contract.rewardItem === 'string' && /^[a-z0-9_-]{1,60}$/i.test(contract.rewardItem) ? contract.rewardItem : null,
+        gear,
+        ready: !!contract.ready || Math.floor(finite(contract.progress, 0)) >= required,
+        acceptedAt: Math.max(0, Math.floor(finite(contract.acceptedAt, Date.now()))),
+      }
+      if (!state._restraintContract.id || !gear.length) state._restraintContract = null
+    }
+    // 损坏/旧版存档若只残留契约装备而没有对应委托，直接回收，避免形成无法解开的孤儿锁。
+    Object.keys(state._restraints || {}).forEach(slot => {
+      const worn = state._restraints[slot]
+      if (!worn || worn.lockType !== 'contract') return
+      const contract = state._restraintContract
+      const belongs = contract && worn.contractId === contract.id && contract.gear.some(entry => entry.slot === slot && entry.id === worn.id)
+      if (!belongs) delete state._restraints[slot]
+    })
     state._guardCheckedThisVisit = !!state._guardCheckedThisVisit
     if (state._guardSearchPending && typeof state._guardSearchPending === 'object' && (state._guardSearchPending.direction === 'enter' || state._guardSearchPending.direction === 'exit')) {
       state._guardSearchPending = {
@@ -622,6 +693,31 @@ window.State = (function () {
     // 荣耀洞服务设置（旧档自动补默认）
     if (!state._glorySettings || typeof state._glorySettings !== 'object') state._glorySettings = {}
     state._glorySettings.footService = state._glorySettings.footService !== false
+    // 广场木枷设置与任务断点（旧档自动补默认；损坏断点直接清除）
+    if (!state._pillorySettings || typeof state._pillorySettings !== 'object' || Array.isArray(state._pillorySettings)) state._pillorySettings = {}
+    state._pillorySettings.enabled = state._pillorySettings.enabled !== false
+    state._pillorySettings.adultEvents = state._pillorySettings.adultEvents !== false
+    if (!state._pillory || typeof state._pillory !== 'object' || Array.isArray(state._pillory)) {
+      state._pillory = null
+    } else {
+      const p = state._pillory
+      const duration = Math.max(15, Math.min(180, Math.floor(finite(p.duration, 30))))
+      const event = p.event && typeof p.event === 'object' && ['oral', 'anal', 'vagina', 'spank'].includes(p.event.part)
+        ? {
+            part: p.event.part,
+            bpm: Math.max(0, Math.min(240, Math.floor(finite(p.event.bpm, 0)))),
+            seconds: Math.max(15, Math.min(120, Math.floor(finite(p.event.seconds, 30)))),
+          }
+        : null
+      state._pillory = {
+        source: ['voluntary', 'mercenary', 'fine', 'punishment'].includes(p.source) ? p.source : 'voluntary',
+        duration,
+        reward: Math.max(0, Math.min(999, Math.floor(finite(p.reward, 0)))),
+        stage: ['restraint', 'adult', 'settle'].includes(p.stage) ? p.stage : 'restraint',
+        event,
+        returnTo: p.returnTo === 'leave' ? 'leave' : 'camp',
+      }
+    }
     state._freeMeatBrand = !!state._freeMeatBrand
     state._blacksmithContract = !!state._blacksmithContract
     if (state._gloryDiscovered === undefined) state._gloryDiscovered = !!state._gloryDiscovered
@@ -639,6 +735,49 @@ window.State = (function () {
     state._mercenary = state._mercenary && typeof state._mercenary === 'object' && state._mercenary.dmg
       ? { id: String(state._mercenary.id || ''), name: String(state._mercenary.name || ''), icon: String(state._mercenary.icon || '⚔️'), dmg: Math.max(0, Math.floor(finite(state._mercenary.dmg, 2))), dead: !!state._mercenary.dead, lust: Math.max(0, Math.min(100, Math.floor(finite(state._mercenary.lust, 0)))) }
       : null
+    if (!state._mercenaryContract || typeof state._mercenaryContract !== 'object' || Array.isArray(state._mercenaryContract)) state._mercenaryContract = {}
+    const mc = state._mercenaryContract
+    mc.introSeen = !!mc.introSeen
+    mc.debt = Math.max(0, Math.min(9999, Math.floor(finite(mc.debt, 0))))
+    mc.violationCount = Math.max(0, Math.min(99, Math.floor(finite(mc.violationCount, 0))))
+    mc.supportDisabledBattles = Math.max(0, Math.min(99, Math.floor(finite(mc.supportDisabledBattles, 0))))
+    mc.completedCount = Math.max(0, Math.floor(finite(mc.completedCount, 0)))
+    if (!mc.active || typeof mc.active !== 'object' || Array.isArray(mc.active)) mc.active = null
+    else {
+      const a = mc.active
+      const required = Math.max(1, Math.min(20, Math.floor(finite(a.required, 1))))
+      mc.active = {
+        id: /^[a-z0-9_-]{1,80}$/i.test(String(a.id || '')) ? String(a.id) : '',
+        type: ['battle', 'income', 'tavern', 'mercenary'].includes(a.type) ? a.type : '',
+        name: String(a.name || '未命名契约').replace(/[<>&"'\u0000-\u001f]/g, '').slice(0, 30),
+        difficulty: ['easy', 'normal', 'hard'].includes(a.difficulty) ? a.difficulty : 'easy',
+        progress: Math.max(0, Math.min(required, Math.floor(finite(a.progress, 0)))),
+        required,
+        relief: Math.max(0, Math.min(9999, Math.floor(finite(a.relief, 0)))),
+        device: a.device && typeof a.device === 'object' && /^[a-z0-9_-]{1,40}$/i.test(String(a.device.slot || '')) && /^[a-z0-9_-]{1,60}$/i.test(String(a.device.id || ''))
+          ? { slot: String(a.device.slot), id: String(a.device.id) }
+          : null,
+        service: ['any', 'tavern', 'glory', 'mercenary'].includes(a.service) ? a.service : null,
+        violations: Math.max(0, Math.min(9, Math.floor(finite(a.violations, 0)))),
+        ready: !!a.ready || Math.floor(finite(a.progress, 0)) >= required,
+      }
+      if (!mc.active.id || !mc.active.type || (mc.active.type === 'battle' && !mc.active.device)) mc.active = null
+    }
+    if (!state._mercenaryContractSettings || typeof state._mercenaryContractSettings !== 'object' || Array.isArray(state._mercenaryContractSettings)) state._mercenaryContractSettings = {}
+    const mcs = state._mercenaryContractSettings
+    mcs.enabled = mcs.enabled !== false
+    mcs.allowAdvance = mcs.allowAdvance !== false
+    mcs.gearContracts = mcs.gearContracts !== false
+    mcs.tavernContracts = mcs.tavernContracts !== false
+    mcs.difficulty = ['lenient', 'standard', 'strict'].includes(mcs.difficulty) ? mcs.difficulty : 'standard'
+    mcs.penalty = ['warning', 'standard', 'strict'].includes(mcs.penalty) ? mcs.penalty : 'standard'
+    // 损坏存档若只剩佣兵契约锁，自动清理，避免永久卡槽。
+    Object.keys(state._restraints || {}).forEach(slot => {
+      const worn = state._restraints[slot]
+      if (!worn || worn.lockType !== 'mercenary_contract') return
+      const active = mc.active
+      if (!active || active.type !== 'battle' || !active.device || active.device.slot !== slot || active.device.id !== worn.id || worn.contractId !== active.id) delete state._restraints[slot]
+    })
     state._futaLastChat = Math.max(-1, Math.floor(finite(state._futaLastChat, -1)))
     state._prostituteDressed = !!state._prostituteDressed
     state._prostituteLevel = Math.max(1, Math.min(999, Math.floor(finite(state._prostituteLevel, 1))))

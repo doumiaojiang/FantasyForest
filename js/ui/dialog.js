@@ -277,10 +277,12 @@ window.Dialog = (function () {
     let mercBtn = ''
     if (state._mercenary && state._mercenary.dead) {
       const canRevive = state.gold >= 50
+      const canAdvance = !canRevive && window.MercenaryContractSystem && MercenaryContractSystem.enabled() && MercenaryContractSystem.debt() <= MercenaryContractSystem.limit()
       mercBtn = `
-        <div class="shop-alert shop-alert--success${canRevive ? '' : ' is-unavailable'}">
+        <div class="shop-alert shop-alert--success${canRevive || canAdvance ? '' : ' is-unavailable'}">
           <div class="shop-alert-title">💀 ${state._mercenary.icon} ${state._mercenary.name} 战死了！</div>
           <button class="btn btn-primary" id="btn-revive-merc" ${canRevive ? '' : 'disabled'}>💚 ${canRevive ? '复活佣兵（50G）' : '金币不足（需要 50G）'}</button>
+          ${canAdvance ? '<button class="btn btn-debt-advance" id="btn-revive-merc-debt">⚔️ 由芙蕾雅垫付 50G</button>' : ''}
         </div>`
     }
 
@@ -316,6 +318,19 @@ window.Dialog = (function () {
           } else {
             alert(result.msg)
           }
+        })
+      }
+      const btnReviveDebt = document.getElementById('btn-revive-merc-debt')
+      if (btnReviveDebt) {
+        btnReviveDebt.addEventListener('click', () => {
+          MercenaryContractSystem.offerAdvance(50, '复活佣兵', () => {
+            // offerAdvance 已登记债务，这里只执行复活，避免重复记账。
+            const merc = State.get()._mercenary
+            if (merc) merc.dead = false
+            EventBus.emit('ui:log', { text: `💚 ${merc ? merc.icon + ' ' + merc.name : '佣兵'}重新站了起来（费用已记入佣兵债务）。`, type: 'good' })
+            EventBus.emit('state:changed', State.get())
+            shop(tile, ShopSystem.getStock())
+          })
         })
       }
     }, 50)

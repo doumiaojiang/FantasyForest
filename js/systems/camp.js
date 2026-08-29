@@ -39,6 +39,12 @@ window.CampSystem = (function () {
     heels_12: { pay: 5, insideChance: 45 },
     heels_14: { pay: 7, insideChance: 60 },
   }
+  const PILLORY_OPTIONS = [
+    { duration: 30, reward: 10, label: '短时展示', note: '30 秒 · 10G' },
+    { duration: 60, reward: 25, label: '标准展示', note: '60 秒 · 25G' },
+    { duration: 90, reward: 45, label: '长时展示', note: '90 秒 · 45G' },
+  ]
+  let pilloryRunning = false
   function setCampPhase () {
     const state = State.get()
     if (state.phase !== 'camp') {
@@ -124,6 +130,11 @@ window.CampSystem = (function () {
       prisonWork()
       return
     }
+    // 木枷任务属于可存档的进行中流程；刷新或读档后必须回到尚未结算的阶段。
+    if (state._pillory) {
+      runPilloryFlow()
+      return
+    }
     // 未完成的强制流程会持久化；若装备锁死服务部位，先允许在营地内寻找解锁办法，避免软锁。
     const forcedGlory = (state._gloryDebt || 0) > 0 || state._gloryFreeService
     const gloryGearBlocked = forcedGlory && lockedServiceGear().length > 0
@@ -170,6 +181,7 @@ window.CampSystem = (function () {
           <button class="camp-opt camp-opt-dream" data-opt="ddshop"><i>🔮</i><span><b>梦幻商店</b><small>插入装备·妖缚装置·解锁工具</small></span><em>营业中</em></button>
           <button class="camp-opt camp-opt-glory" data-opt="glory"><i>🚻</i><span><b>公共厕所</b><small>${toiletHint}</small></span><em>${toiletStatus}</em></button>
           <button class="camp-opt camp-opt-prison" data-opt="prison"><i>⛓️</i><span><b>监狱</b><small>无证卖淫的归宿</small></span><em>${state._inPrison ? '在押' : '戒备'}</em></button>
+          ${(state._pillorySettings || {}).enabled !== false ? '<button class="camp-opt camp-opt-pillory" data-opt="pillory"><i>🪵</i><span><b>城镇广场木枷</b><small>公开展示 · 自愿打工 · 契约抵债</small></span><em>可使用</em></button>' : ''}
           <button class="camp-opt camp-opt-deer" data-opt="deer"><i>🦌</i><span><b>篝火旁的鹿</b><small>旅人的初次见面礼</small></span><em>${deerStatus}</em></button>
           <button class="camp-opt camp-opt-teleport" data-opt="teleport"><i>🌀</i><span><b>传送阵</b><small>点亮过的传送阵可互相传送</small></span><em>${(state._teleports || []).length}/${TELEPORTS.length}</em></button>
         </div>
@@ -187,10 +199,198 @@ window.CampSystem = (function () {
         } else if (opt === 'glory') gloryHole()
         else if (opt === 'tavern') tavern()
         else if (opt === 'prison') prisonDoor()
+        else if (opt === 'pillory') squarePillory()
         else if (opt === 'deer') deer()
         else if (opt === 'teleport') campTeleport()
         else if (opt === 'ddshop') ddShop()
       }
+    })
+  }
+
+  /** 城镇广场常驻木枷：自愿展示，或在有佣兵债务时用一次任务抵债。 */
+  function squarePillory () {
+    const state = State.get()
+    setCampPhase()
+    const adultOn = (state._pillorySettings || {}).adultEvents !== false
+    const mercDebt = state._mercenary && state._mercenaryContract
+      ? Math.max(0, state._mercenaryContract.debt || 0)
+      : 0
+    campShow({
+      title: '🪵 雾灯镇广场木枷',
+      className: 'camp-tavern-modal pillory-modal',
+      body: `<section class="pillory-hero"><div class="pillory-mark" aria-hidden="true">🪵</div><div><small>TOWN SQUARE · PUBLIC PILLORY</small><h3>旧木枷立在广场中央，围观者来来往往。</h3><p>你可以自愿接受一段公开展示来赚取金币；任务期间可能发生围观事件。</p></div></section>
+        <div class="pillory-status-grid">
+          <span><i>⏱️</i><b>三档时长</b><small>30 / 60 / 90 秒</small></span>
+          <span class="${adultOn ? 'is-active' : 'is-muted'}"><i>${adultOn ? '💋' : '🚫'}</i><b>成人事件</b><small>${adultOn ? '已开启 · 每 15 秒判定' : '已在 MCM 关闭'}</small></span>
+          <span><i>🔒</i><b>装备联动</b><small>上锁部位会自动换位</small></span>
+        </div>
+        <section class="pillory-section"><div class="pillory-section-head"><span><small>VOLUNTARY WORK</small><b>选择公开展示时长</b></span><em>时间越长，报酬越高</em></div>
+          <div class="pillory-choice-grid">${PILLORY_OPTIONS.map((opt, index) => `<button class="pillory-choice" data-pillory-choice="${index}"><i>${index === 0 ? '🌿' : index === 1 ? '⚖️' : '🔥'}</i><span><b>${opt.label}</b><small>${opt.note}</small></span><em>开始</em></button>`).join('')}</div>
+        </section>
+        ${mercDebt > 0 ? `<section class="pillory-debt"><i>⚔️</i><span><small>芙蕾雅的抵债方式</small><b>公开受枷 60 秒</b><p>不领取普通工资，完成后抵扣最多 <strong>40G</strong> 债务；若发生成人事件，再额外抵扣最多 10G。</p></span><button data-pillory-debt>接受抵债</button></section>` : ''}
+        <p class="camp-footnote">木枷是广场设施，不占用妖缚装备栏。成人事件不会消耗插入装备的战斗充能，也不会强拆任何上锁装置。</p>`,
+      actions: [{ label: '返回营地', handler: () => open() }],
+    })
+    document.querySelectorAll('[data-pillory-choice]').forEach(btn => {
+      btn.onclick = () => {
+        const opt = PILLORY_OPTIONS[Number(btn.dataset.pilloryChoice)]
+        if (opt) startPillory('voluntary', opt.duration, opt.reward)
+      }
+    })
+    const debtBtn = document.querySelector('[data-pillory-debt]')
+    if (debtBtn) debtBtn.onclick = () => startPillory('mercenary', 60, 0)
+  }
+
+  /** 每 15 秒进行一次围观判定；只保存真正会发生的一次成人事件，避免连续弹出太多任务。 */
+  function rollPilloryEvent (duration, source = 'voluntary', random = Math.random) {
+    const state = State.get()
+    if ((state._pillorySettings || {}).adultEvents === false) return null
+    const checks = Math.max(1, Math.floor(duration / 15))
+    let triggered = false
+    const chance = source === 'punishment' ? 0.45 : 0.30
+    for (let i = 0; i < checks; i++) {
+      if (random() < chance) { triggered = true; break }
+    }
+    if (!triggered) return null
+    const parts = state.gender === 'male' ? ['oral', 'anal'] : ['oral', 'anal', 'vagina']
+    const part = parts[Math.min(parts.length - 1, Math.floor(random() * parts.length))]
+    const bpms = part === 'oral' ? [60, 90, 120] : [90, 120, 150]
+    return { part, bpm: bpms[Math.min(bpms.length - 1, Math.floor(random() * bpms.length))], seconds: 30 }
+  }
+
+  function startPillory (source, duration, reward) {
+    const state = State.get()
+    if (state._pillory || pilloryRunning) return
+    state._pillory = {
+      source: ['mercenary', 'fine', 'punishment'].includes(source) ? source : 'voluntary',
+      duration,
+      reward,
+      stage: 'restraint',
+      event: rollPilloryEvent(duration, source),
+      returnTo: source === 'fine' ? 'leave' : 'camp',
+    }
+    EventBus.emit('ui:log', { text: `🪵 你把头和双手放进广场木枷，开始 ${duration} 秒公开展示。`, type: 'dim' })
+    EventBus.emit('state:changed', state)
+    State.save()
+    runPilloryFlow()
+  }
+
+  async function runPilloryFlow () {
+    const state = State.get()
+    const task = state._pillory
+    if (!task || pilloryRunning) return
+    pilloryRunning = true
+    try {
+      if (task.stage === 'restraint') {
+        if (typeof BattleUI !== 'undefined' && BattleUI.showTaskDialog) {
+          await BattleUI.showTaskDialog({
+            enemyName: '🪵 雾灯镇广场',
+            attackName: '公开木枷',
+            desc: `保持受枷姿势 ${task.duration} 秒。广场上的脚步声和议论声不断从身边经过。`,
+            bpm: 0,
+            seconds: task.duration,
+            dmg: 0,
+            noDamage: true,
+            allowSkip: true,
+            showFailure: false,
+            completeLabel: '✅ 确认展示完成',
+            dialogClass: 'pillory-task-modal',
+          })
+        }
+        task.stage = task.event ? 'adult' : 'settle'
+        EventBus.emit('state:changed', state)
+        State.save()
+      }
+      if (task.stage === 'adult') {
+        await runPilloryAdultEvent(task)
+        task.stage = 'settle'
+        EventBus.emit('state:changed', state)
+        State.save()
+      }
+      if (task.stage === 'settle') settlePillory(task)
+    } finally {
+      pilloryRunning = false
+    }
+  }
+
+  async function runPilloryAdultEvent (task) {
+    const state = State.get()
+    let event = task.event
+    if (!event) return
+    if (event.part !== 'spank') {
+      const route = routeTownService(event.part)
+      if (route.mode === 'unavailable') event = { part: 'spank', bpm: 60, seconds: 30 }
+      else event = { ...event, part: route.part }
+      task.event = event
+      State.save()
+    }
+    const names = { oral: '口部围观服务', anal: '后穴围观服务', vagina: '小穴围观服务', spank: '公开打屁股' }
+    const descriptions = {
+      oral: townServiceDesc('oral', '一名围观者'),
+      anal: townServiceDesc('anal', '一名围观者'),
+      vagina: townServiceDesc('vagina', '一名围观者'),
+      spank: '三个可用部位都被装备挡住，围观者改为按节奏拍打你的屁股',
+    }
+    EventBus.emit('ui:log', { text: `💋 木枷围观事件：${names[event.part]}。`, type: 'danger' })
+    if (typeof BattleUI !== 'undefined' && BattleUI.showTaskDialog) {
+      await BattleUI.showTaskDialog({
+        enemyName: '👥 广场围观者',
+        attackName: names[event.part],
+        desc: `${descriptions[event.part]}，${event.bpm} BPM 持续 ${event.seconds} 秒。`,
+        bpm: event.bpm,
+        seconds: event.seconds,
+        dmg: 0,
+        noDamage: true,
+        allowSkip: true,
+        showFailure: false,
+        completeLabel: '✅ 确认事件完成',
+        dialogClass: 'pillory-task-modal',
+      })
+    }
+    // 公开成人服务视为无证经营风险；持证玩家不增加危险值。
+    if (!state._prostituteLicensed && event.part !== 'spank') {
+      state._gloryWanted = Math.min(100, (state._gloryWanted || 0) + 5)
+      EventBus.emit('ui:log', { text: `🚨 广场成人服务被卫兵记下，无证危险值 +5（现 ${state._gloryWanted}%）。`, type: 'danger' })
+    }
+  }
+
+  function settlePillory (task) {
+    const state = State.get()
+    const hadAdult = !!task.event
+    const adultBonus = hadAdult && task.event.part !== 'spank'
+      ? (task.event.part === 'oral' ? 10 : 15)
+      : 0
+    let resultText = ''
+    if (task.source === 'mercenary') {
+      const requested = 40 + (hadAdult ? 10 : 0)
+      const result = typeof MercenaryContractSystem !== 'undefined'
+        ? MercenaryContractSystem.repay(requested, '广场木枷契约', { external: true })
+        : { ok: false, amount: 0 }
+      resultText = result.ok ? `抵扣 ${result.amount}G 佣兵债务` : '木枷展示已经完成'
+    } else if (task.source === 'fine') {
+      resultText = '完成木枷处罚，抵销 100G 城门罚款'
+      EventBus.emit('ui:log', { text: '🪵 你完成公开木枷处罚，卫兵勾掉了 100G 罚款。', type: 'good' })
+    } else if (task.source === 'punishment') {
+      state._gloryWanted = Math.max(0, (state._gloryWanted || 0) - 10)
+      resultText = `完成无证营业处罚 · 危险值降至 ${state._gloryWanted}`
+      EventBus.emit('ui:log', { text: `🪵 你完成广场木枷处罚，危险值降至 ${state._gloryWanted}。`, type: 'good' })
+    } else {
+      const earned = Math.max(0, task.reward || 0) + adultBonus
+      state.gold += earned
+      resultText = `获得 ${earned}G${adultBonus ? `（含围观事件奖励 ${adultBonus}G）` : ''}`
+      EventBus.emit('ui:log', { text: `🪵 木枷展示完成，${resultText}。`, type: 'good' })
+    }
+    state._pillory = null
+    EventBus.emit('state:changed', state)
+    State.save()
+    campShow({
+      title: '🪵 木枷展示结束',
+      className: 'camp-tavern-modal pillory-modal',
+      body: `<section class="pillory-result"><i>✓</i><div><small>PUBLIC PILLORY · COMPLETE</small><h3>${resultText}</h3><p>${hadAdult ? `本次发生了${task.event.part === 'spank' ? '公开打屁股' : '成人围观'}事件。` : '这次只有普通围观，没有发生额外事件。'}你重新活动发麻的手腕，走下广场台阶。</p></div></section>`,
+      actions: [
+        { label: '再看看木枷', cls: 'btn-primary', handler: squarePillory },
+        { label: task.returnTo === 'leave' ? '离开城镇' : '返回营地', handler: task.returnTo === 'leave' ? doLeaveCamp : open },
+      ],
     })
   }
 
@@ -252,7 +452,15 @@ window.CampSystem = (function () {
     if (r < 10) {
       guardMsg('🛡️ 卫兵拦住你', `<div class="glory-section"><h3><span>“妓女证？行，交 100G 罚款。”</span><small>卫兵伸手讨钱</small></h3>
         <p class="camp-muted">${state.gold >= 100 ? '你乖乖掏钱。' : '你掏不出钱，卫兵脸色一沉，把你丢进公共厕所：<b>"没钱？去厕所里干活把钱挣回来！"</b>'}</p></div>`,
-        [{ label: state.gold >= 100 ? `💸 交 100G` : '🚻 被丢进厕所', cls: 'btn-primary', handler: () => {
+        [
+        ...(state.gold < 100 && window.MercenaryContractSystem && MercenaryContractSystem.enabled() ? [{ label: '⚔️ 让芙蕾雅垫付', cls: 'btn-primary', handler: () => {
+          MercenaryContractSystem.offerAdvance(100, '卫兵罚款', () => { Dialog.close(); doLeaveCamp() })
+        } }] : []),
+        ...((state._pillorySettings || {}).enabled !== false ? [{ label: '🪵 木枷抵罚（60秒）', cls: 'btn-danger', handler: () => {
+          Dialog.close()
+          startPillory('fine', 60, 0)
+        } }] : []),
+        { label: state.gold >= 100 ? `💸 交 100G` : '🚻 被丢进厕所', cls: state.gold >= 100 ? 'btn-primary' : 'btn-danger', handler: () => {
           if (state.gold >= 100) {
             state.gold -= 100
             EventBus.emit('ui:log', { text: '💸 交了 100G 罚款。', type: 'danger' })
@@ -285,6 +493,9 @@ window.CampSystem = (function () {
               state.gold -= 50
               EventBus.emit('ui:log', { text: '🐕 交了 50G 贡品，卫兵牵着项圈放你出城。', type: 'danger' })
               EventBus.emit('state:changed', state); Dialog.close(); doLeaveCamp()
+            } }] : []),
+            ...(state.gold < 50 && window.MercenaryContractSystem && MercenaryContractSystem.enabled() ? [{ label: '⚔️ 让芙蕾雅垫付', cls: 'btn-primary', handler: () => {
+              MercenaryContractSystem.offerAdvance(50, '卫兵贡品', () => { Dialog.close(); doLeaveCamp() })
             } }] : []),
             { label: '👄 服务卫兵', cls: 'btn-danger', handler: () => { Dialog.close(); guardBlowjob() } },
           ])
@@ -356,6 +567,9 @@ window.CampSystem = (function () {
           state.gold -= 150
           EventBus.emit('ui:log', { text: '💸 交了 150G 封口费，卫兵让开道放你出城。', type: 'danger' })
           EventBus.emit('state:changed', state); Dialog.close(); doLeaveCamp()
+        } }] : []),
+        ...(state.gold < 150 && window.MercenaryContractSystem && MercenaryContractSystem.enabled() ? [{ label: '⚔️ 让芙蕾雅垫付', cls: 'btn-primary', handler: () => {
+          MercenaryContractSystem.offerAdvance(150, '卫兵封口费', () => { Dialog.close(); doLeaveCamp() })
         } }] : []),
         { label: state._prisonChastity ? '👄🍑 服务卫兵' : '👄 服务卫兵', cls: 'btn-danger', handler: () => { Dialog.close(); guardPrisonChastityService() } },
       ],
@@ -769,7 +983,10 @@ window.CampSystem = (function () {
   function townServicePartLocked (part) {
     const state = State.get()
     if (part === 'vagina' && (state.gender === 'male' || ChastitySystem.isWorn())) return true
-    return lockedServiceGear().some(entry => entry.slot === part)
+    // 服务逻辑使用 oral，妖缚装备槽使用 mouth；统一后再判断，
+    // 避免上锁的球形/深喉口塞仍能被佣兵服务选中。
+    const slot = part === 'oral' ? 'mouth' : part
+    return lockedServiceGear().some(entry => entry.slot === slot)
   }
 
   /** 上锁的口部/插入装备会同时阻止酒馆妓女和荣耀洞服务。 */
@@ -851,10 +1068,17 @@ window.CampSystem = (function () {
     const footOn = (state._glorySettings || {}).footService !== false
     campShow({
       title: '🍑 荣耀洞 · 入场处', className: 'glory-entry-modal',
-      body: `<div class="glory-entry-mark">🍑</div><p class="glory-entry-lead">洞里已经有人了。你能听到压抑的喘息和皮带碰撞的声响。</p>
-        <div class="glory-rules"><span><b>${hasLicense ? '免费' : GLORY_FEE + 'G'}</b><small>${hasLicense ? '持证免费进入' : '给营地的服务费'}</small></span><span><b>${SERVICE_SECONDS}s</b><small>一次服务时长</small></span><span><b>Z</b><small>完事后的特殊惊喜</small></span></div>
-        <div class="glory-entry-foot"><span><b>👠 足交服务</b><small>${footOn ? '开启' : '关闭'} · 接客时可选择用双脚服务</small></span><label class="restr-switch"><input type="checkbox" id="glory-entry-foot" ${footOn ? 'checked' : ''}><i></i></label></div>
-        <p class="camp-muted">${hasLicense ? '你出示了妓女许可证，守卫挥挥手放你进洞。' : '没有许可证在这里接客是违法的——每次服务都会让你更危险，被抓到就要进监狱。'}</p>`,
+      body: `<section class="glory-scene">
+          <div class="glory-scene-mark" aria-hidden="true">🍑</div>
+          <div><small>HIDDEN SERVICE · 隐秘接待处</small><h3>墙后的客人已经在等你</h3><p>选好服务后会进入计时任务，完成即可结算报酬。</p></div>
+        </section>
+        <div class="glory-overview">
+          <span><i>💎</i><b>${hasLicense ? '免费' : GLORY_FEE + 'G'}</b><small>${hasLicense ? '持证入场' : '入场费用'}</small></span>
+          <span><i>⏱️</i><b>${SERVICE_SECONDS} 秒</b><small>基础服务时长</small></span>
+          <span class="${hasLicense ? 'is-safe' : 'is-risk'}"><i>${hasLicense ? '🛡️' : '⚠️'}</i><b>${hasLicense ? '合法营业' : '无证营业'}</b><small>${hasLicense ? '不会被守卫抓捕' : '服务会累积危险值'}</small></span>
+        </div>
+        <div class="glory-option-row"><span><i>👠</i><span><b>足交服务</b><small>${footOn ? '已开启，接客时可以选择双脚服务' : '已关闭，不会显示足交选项'}</small></span></span><label class="restr-switch"><input type="checkbox" id="glory-entry-foot" ${footOn ? 'checked' : ''}><i></i></label></div>
+        <div class="glory-entry-note ${hasLicense ? 'is-safe' : 'is-risk'}"><i>${hasLicense ? '✓' : '!'}</i><span>${hasLicense ? '许可证有效，本次进入不收取费用。' : '金币不足时可以赊账，但欠款结清前无法离开营地。'}</span></div>`,
       actions: [
         { label: hasLicense ? '免费进洞' : hasGold ? `付 ${GLORY_FEE}G 进洞` : `先欠 ${GLORY_FEE}G 进洞`, cls: hasLicense ? 'btn-primary' : (hasGold ? 'btn-primary' : 'btn-danger'), handler: () => {
           if (!hasLicense) {
@@ -935,21 +1159,21 @@ window.CampSystem = (function () {
       const isFree = !!state._gloryFreeService
       const forced = debt > 0 || isFree
       const notice = isFree
-        ? '<div class="glory-notice glory-notice-free"><b>😠 客人还要白嫖一次</b><span>这次没钱拿，做完这单才能穿上裤子走人。</span></div>'
+        ? '<div class="glory-status-card is-forced"><i>!</i><span><b>追加服务</b><small>本次没有报酬，完成后才能离开</small></span></div>'
         : debt > 0
-          ? `<div class="glory-notice"><b>💸 还欠营地 ${debt}G</b><span>你卖身挣的钱会先被扣去填债，填满前别想溜。</span></div>`
-          : '<div class="glory-notice glory-notice-safe"><b>✓ 自由接客</b><span>现在想走就走，想干几单都行。</span></div>'
+          ? `<div class="glory-status-card is-debt"><i>💸</i><span><b>欠款 ${debt}G</b><small>本次收入会优先用于偿还欠款</small></span></div>`
+          : '<div class="glory-status-card is-safe"><i>✓</i><span><b>自由接客</b><small>没有欠款，可以随时结束工作</small></span></div>'
       // 女性角色额外提供小穴洞（男性只有嘴和屁股）；贞操装置锁死小穴，只留嘴和屁股
       const canUseVagina = state.gender !== 'male' && !ChastitySystem.isWorn()
       const vaginaBtn = canUseVagina
-        ? `<button class="glory-hole-btn" data-hole="vagina"><i>🌸</i><span><b>把小穴凑过去</b><small>张开双腿任客人使用</small></span></button>`
+        ? `<button class="glory-service-card" data-hole="vagina"><i>🌸</i><span><b>小穴服务</b><small>使用小穴完成本次接待</small></span><em>选择</em></button>`
         : ''
       // 足交服务（玩家主动选择，不进入白嫖指定池；可在 MCM 关闭）
       const footEnabled = (state._glorySettings || {}).footService !== false
       const footBtn = footEnabled
-        ? `<button class="glory-hole-btn" data-hole="foot"><i>👠</i><span><b>伸出双脚</b><small>用双脚和鞋履为客人服务</small></span></button>`
+        ? `<button class="glory-service-card" data-hole="foot"><i>👠</i><span><b>足交服务</b><small>使用双脚完成 BPM 计时任务</small></span><em>选择</em></button>`
         : ''
-      const footHint = footEnabled ? `<div class="glory-foot-hint">${footServiceHint()}</div>` : ''
+      const footHint = footEnabled ? `<div class="glory-gear-strip"><i>👠</i><span><b>当前鞋履联动</b><small>${footServiceHint()}</small></span></div>` : ''
       // 白嫖时：客人随机指定一个洞（指名），玩家不能选
       let namedHole = ''
       if (isFree) {
@@ -960,29 +1184,31 @@ window.CampSystem = (function () {
           anal: { icon: '🍑', name: '菊穴', tip: '撅起屁股，让客人从背后操进来' },
           vagina: { icon: '🌸', name: '小穴', tip: '张开双腿，任客人操弄你的小穴' },
         }[hole]
-        namedHole = `<div class="glory-section"><h3><span>客人指名要你的${holeInfo.name}</span><small>“就用这里，快给我。”</small></h3>
-          <div class="glory-hole-choice">
-            <button class="glory-hole-btn" data-hole="${hole}"><i>${holeInfo.icon}</i><span><b>把${holeInfo.name === '嘴穴' ? '嘴' : holeInfo.name === '小穴' ? '小穴' : '屁股'}凑过去</b><small>${holeInfo.tip}</small></span></button>
-          </div></div>`
+        namedHole = `<section class="glory-work-head"><small>指定服务</small><h3>客人已经选好了服务方式</h3><p>完成这次追加服务后才能离开。</p></section>
+          <div class="glory-service-grid is-single">
+            <button class="glory-service-card" data-hole="${hole}"><i>${holeInfo.icon}</i><span><b>${holeInfo.name}服务</b><small>${holeInfo.tip}</small></span><em>开始</em></button>
+          </div>`
       }
       // 危险值显示（无证卖淫时）
+      const exitRisk = gloryArrestChance(state._gloryWanted || 0)
       const wantHtml = state._prostituteLicensed
-        ? `<div class="glory-wanted glory-wanted-safe"><span>🛡️ 持证营业</span><em>安全，不会被抓</em></div>`
-        : `<div class="glory-wanted"><span>🚨 危险值 <b>${state._gloryWanted || 0}%</b></span><em>越高越容易被抓</em></div>`
+        ? `<div class="glory-status-card is-safe"><i>🛡️</i><span><b>持证营业</b><small>本次服务不会增加危险值</small></span></div>`
+        : state._prisonPardon
+          ? `<div class="glory-status-card is-safe"><i>🕊️</i><span><b>队长豁免</b><small>危险值 ${state._gloryWanted || 0} · 当前不会入狱</small></span></div>`
+          : `<div class="glory-status-card is-risk"><i>🚨</i><span><b>危险值 ${state._gloryWanted || 0}</b><small>离开时被拦概率 ${exitRisk}%</small></span></div>`
       campShow({
         title: '🍑 荣耀洞 · 接客', className: 'glory-modal',
-        body: `${notice}${wantHtml}${isFree ? namedHole : `<div class="glory-section"><h3><span>洞后已经有人了</span><small>把身体凑过去，剩下的交给客人</small></h3>
-          <div class="glory-hole-choice">
-            <button class="glory-hole-btn" data-hole="oral"><i>👄</i><span><b>把嘴凑过去</b><small>任由客人操弄你的嘴</small></span></button>
-            <button class="glory-hole-btn" data-hole="anal"><i>🍑</i><span><b>把屁股凑过去</b><small>撅起屁股任客人使用</small></span></button>
+        body: `<div class="glory-status-grid">${notice}${wantHtml}</div>${isFree ? namedHole : `<section class="glory-work-head"><small>AVAILABLE SERVICES · 可选服务</small><h3>选择本次接待方式</h3><p>每项服务都会进入独立的计时任务，完成后自动结算。</p></section>
+          <div class="glory-service-grid">
+            <button class="glory-service-card" data-hole="oral"><i>👄</i><span><b>口部服务</b><small>使用嘴部完成本次接待</small></span><em>选择</em></button>
+            <button class="glory-service-card" data-hole="anal"><i>🍑</i><span><b>菊穴服务</b><small>使用菊穴完成本次接待</small></span><em>选择</em></button>
             ${vaginaBtn}
             ${footBtn}
           </div>
-          ${footHint}</div>`}
-          <p class="camp-footnote">你只负责把洞贴上去，客人会用多少钱、怎么干你，全凭他的心情——完事后掷 Z 看是否有额外惊喜。</p>`,
+          ${footHint}`}`,
         actions: forced ? [] : [{ label: '返回营地', handler: () => { open() } }],
       })
-      document.querySelectorAll('.glory-hole-btn').forEach(btn => {
+      document.querySelectorAll('.glory-service-card').forEach(btn => {
         btn.onclick = () => {
           const hole = btn.dataset.hole
           performService(hole, render)
@@ -1022,7 +1248,7 @@ window.CampSystem = (function () {
         body: `<div class="camp-task"><div class="camp-task-icon">${service.icon}</div><p>${service.desc}。你闭眼咬唇，任由客人享用你这 ${seconds} 秒，全程必须撑住。</p><strong id="camp-task-time" aria-live="polite">${seconds}</strong><span>秒</span><div class="camp-task-track"><i id="camp-task-fill"></i></div><small>撑满整段才拿得到钱；中途受不住可以撤，但拒绝服务要加 ${10} 金币债务。</small></div>`,
         actions: [
           { label: '▶ 开始服务', cls: 'btn-primary', handler: begin },
-          { label: `🙅 拒绝服务`, cls: 'btn-danger', handler: () => { cleanup(); Dialog.close(); resolve('refuse') } },
+          { label: '🙅 拒绝接待', cls: 'btn-danger', handler: () => { cleanup(); Dialog.close(); resolve('refuse') } },
         ],
       })
       function begin () {
@@ -1051,6 +1277,21 @@ window.CampSystem = (function () {
     })
   }
 
+  /** 拒绝荣耀洞服务前二次确认，取消后由调用方重新打开原任务。 */
+  function confirmGloryRefusal (serviceName) {
+    return new Promise(resolve => {
+      Dialog.show({
+        title: '⚠️ 确认拒绝接待？', className: 'glory-refuse-modal',
+        body: `<section class="glory-refuse-card"><i>🙅</i><div><small>拒绝「${serviceName}」</small><h3>现在退出会被记上一笔欠款</h3><p>确认拒绝后，本次服务立即结束，并增加 <b>10G</b> 荣耀洞债务。</p></div></section>
+          <div class="glory-entry-note is-risk"><i>!</i><span>返回任务不会产生任何惩罚，计时也会重新开始。</span></div>`,
+        actions: [
+          { label: '继续接待', cls: 'btn-primary', handler: () => { Dialog.close(); resolve(false) } },
+          { label: '确认拒绝（+10G 欠款）', cls: 'btn-danger', handler: () => { Dialog.close(); resolve(true) } },
+        ],
+      })
+    })
+  }
+
   async function performService (hole, rerender) {
     const state = State.get()
     if (showServiceGearLockout('荣耀洞', rerender)) return
@@ -1065,7 +1306,11 @@ window.CampSystem = (function () {
     const event = wasFree
       ? { z: 0, basePay: false, tip: 0, msg: '客人要求免费的服务，白嫖完后直接走人。' }
       : rollSpecialEvent()
-    const completed = await runServiceTimer(service, SERVICE_SECONDS + (event.extraSeconds || 0))
+    let completed
+    do {
+      completed = await runServiceTimer(service, SERVICE_SECONDS + (event.extraSeconds || 0))
+      if (completed !== 'refuse') break
+    } while (!(await confirmGloryRefusal(service.name)))
     if (completed === 'refuse') {
       // 拒绝服务：一开始就不做，债务 +10
       state._gloryDebt = (state._gloryDebt || 0) + 10
@@ -1087,6 +1332,15 @@ window.CampSystem = (function () {
       state._gloryDebt = (state._gloryDebt || 0) + 30
       EventBus.emit('ui:log', { text: `😤 客人投诉你服务不行，被营地记了 30 金币欠款（现欠 ${state._gloryDebt}G）！`, type: 'danger' })
     }
+    // 小穴服务可获得当前震动档位加成；白嫖或投诉事件不发放额外收入。
+    const vibrationBonus = !wasFree && !event.complain && hole === 'vagina' && typeof RestraintSystem !== 'undefined' && RestraintSystem.vibrationServiceBonus
+      ? RestraintSystem.vibrationServiceBonus('vagina')
+      : 0
+    if (vibrationBonus > 0) {
+      totalEarn += vibrationBonus
+      const vibration = RestraintSystem.vibrationInfo('vagina')
+      EventBus.emit('ui:log', { text: `${vibration && vibration.mode === 'high' ? '⚡' : '〰️'} 震动档位使这次小穴服务额外获得 ${vibrationBonus}G。`, type: 'good' })
+    }
     // 营地税率：按难度从收入中扣除（厕所也交税）
     const taxRate = (CONFIG.difficulty[state.difficulty] || {}).campTax || 0
     const tax = Math.floor(totalEarn * taxRate)
@@ -1104,6 +1358,7 @@ window.CampSystem = (function () {
       state._gloryByGuard = false
     }
     if (event.free) state._gloryFreeService = true
+    if (window.MercenaryContractSystem) MercenaryContractSystem.recordService('glory')
     EventBus.emit('ui:log', { text: wasFree ? `🍑 你伺候完「${service.name}」，客人提起裤子就走，一分钱没给（白嫖）。` : `🍑 你伺候完「${service.name}」，累得腰酸背痛，赚了 ${totalEarn} 金币。`, type: totalEarn > 0 ? 'good' : 'dim' })
     if (repaid > 0) EventBus.emit('ui:log', { text: `💸 你挣的钱先被营地扣去还债 ${repaid} 金币，还剩 ${state._gloryDebt} 没还清。`, type: 'dim' })
     EventBus.emit('ui:log', { text: `🎲 Z=${event.z}：${wasFree && event.tip > 0 ? event.msg.replace(/小费|金币/g, '') : event.msg}`, type: event.tip > 0 && !wasFree ? 'good' : 'dim' })
@@ -1118,21 +1373,6 @@ window.CampSystem = (function () {
         EventBus.emit('ui:log', { text: `🚨 无证卖淫，危险值 +2（现 ${state._gloryWanted}%）。越高越容易被抓！`, type: 'danger' })
       }
       EventBus.emit('state:changed', state)
-      // 按危险值概率被抓进监狱（有队长豁免则不会被抓）
-      const wantRoll = Math.floor(Math.random() * 100)
-      if (wantRoll < state._gloryWanted && !state._prisonPardon) {
-        EventBus.emit('ui:log', { text: `⛓️ 危险值过高，守卫冲进来把你逮个正着！`, type: 'danger' })
-        state._gloryWanted = 0
-        EventBus.emit('state:changed', state)
-        Dialog.close()
-        enterPrison()
-        return
-      }
-      if (state._prisonPardon && wantRoll < state._gloryWanted) {
-        EventBus.emit('ui:log', { text: `🕊️ 危险值 ${state._gloryWanted}% 触顶，但队长的豁免罩着你，守卫不敢抓你。`, type: 'good' })
-        state._gloryWanted = Math.max(0, state._gloryWanted - 10)
-        EventBus.emit('state:changed', state)
-      }
     }
     const forced = state._gloryDebt > 0 || state._gloryFreeService
     campShow({
@@ -1177,18 +1417,22 @@ window.CampSystem = (function () {
     const heelDef = heelId ? RestraintSystem.defOf(heelId) : null
     EventBus.emit('ui:log', { text: `👠 你伸出双脚，客人开始「${service.name}」。`, type: 'danger' })
 
-    const result = (typeof BattleUI !== 'undefined' && BattleUI.showTaskDialog)
-      ? await BattleUI.showTaskDialog({
-          enemyName: '🍑 荣耀洞客人',
-          attackName: service.name,
-          desc: `用双脚为客人足交，${service.bpm} BPM 持续 60 秒`,
-          bpm: service.bpm,
-          seconds: service.seconds,
-          dmg: 0,
-          noDamage: true,
-          refuseLabel: '🙅 拒绝服务',
-        })
-      : (confirm('足交服务：完成代表伺候完了。') ? false : true)
+    let result
+    do {
+      result = (typeof BattleUI !== 'undefined' && BattleUI.showTaskDialog)
+        ? await BattleUI.showTaskDialog({
+            enemyName: '🍑 荣耀洞客人',
+            attackName: service.name,
+            desc: `用双脚为客人足交，${service.bpm} BPM 持续 60 秒`,
+            bpm: service.bpm,
+            seconds: service.seconds,
+            dmg: 0,
+            noDamage: true,
+            refuseLabel: '🙅 拒绝接待',
+          })
+        : (confirm('足交服务：完成代表伺候完了。') ? false : true)
+      if (result !== 'refuse') break
+    } while (!(await confirmGloryRefusal(service.name)))
 
     if (result === 'refuse') {
       // 拒绝服务：沿用荣耀洞规则，+10 债务
@@ -1253,6 +1497,7 @@ window.CampSystem = (function () {
       state._gloryByGuard = false
     }
     if (event.free) state._gloryFreeService = true
+    if (window.MercenaryContractSystem) MercenaryContractSystem.recordService('foot')
     EventBus.emit('ui:log', { text: `👠 你伺候完「${service.name}」，累得双脚发酸，赚了 ${totalEarn} 金币。`, type: totalEarn > 0 ? 'good' : 'dim' })
     if (repaid > 0) EventBus.emit('ui:log', { text: `💸 你挣的钱先被营地扣去还债 ${repaid} 金币，还剩 ${state._gloryDebt} 没还清。`, type: 'dim' })
     EventBus.emit('ui:log', { text: `🎲 Z=${event.z}：${event.msg}`, type: event.tip > 0 ? 'good' : 'dim' })
@@ -1271,20 +1516,6 @@ window.CampSystem = (function () {
         EventBus.emit('ui:log', { text: `🚨 无证卖淫，危险值 +2（现 ${state._gloryWanted}%）。越高越容易被抓！`, type: 'danger' })
       }
       EventBus.emit('state:changed', state)
-      const wantRoll = Math.floor(Math.random() * 100)
-      if (wantRoll < state._gloryWanted && !state._prisonPardon) {
-        EventBus.emit('ui:log', { text: `⛓️ 危险值过高，守卫冲进来把你逮个正着！`, type: 'danger' })
-        state._gloryWanted = 0
-        EventBus.emit('state:changed', state)
-        Dialog.close()
-        enterPrison()
-        return
-      }
-      if (state._prisonPardon && wantRoll < state._gloryWanted) {
-        EventBus.emit('ui:log', { text: `🕊️ 危险值 ${state._gloryWanted}% 触顶，但队长的豁免罩着你，守卫不敢抓你。`, type: 'good' })
-        state._gloryWanted = Math.max(0, state._gloryWanted - 10)
-        EventBus.emit('state:changed', state)
-      }
     }
 
     const forced = state._gloryDebt > 0 || state._gloryFreeService
@@ -2019,8 +2250,96 @@ window.CampSystem = (function () {
     showPunish()
   }
 
-  /** 还清欠款后离开荣耀洞：根据来源触发卫兵嘲笑 / 队长羞辱，再回营地 */
+  /** 离开荣耀洞时的实际抓捕率：20 点安全线，之后每 2 点 +1%，最高 40%。 */
+  function gloryArrestChance (wanted) {
+    return Math.min(40, Math.max(0, (Math.max(0, wanted) - 20) / 2))
+  }
+
+  function sendGloryToPrison () {
+    const state = State.get()
+    state._gloryWanted = 0
+    state._gloryJustCleared = false
+    state._gloryByGuard = false
+    state._gloryByCaptain = false
+    EventBus.emit('state:changed', state)
+    State.save()
+    Dialog.close()
+    enterPrison()
+  }
+
+  /** 守卫拦下后先给玩家处理机会，不再直接送进监狱。 */
+  function gloryGuardInterception (chance) {
+    const state = State.get()
+    const wanted = state._gloryWanted || 0
+    campShow({
+      title: '🛡️ 荣耀洞出口 · 守卫盘查', className: 'glory-guard-modal',
+      body: `<section class="glory-guard-card"><i>🛡️</i><div><small>EXIT INSPECTION · 出口盘查</small><h3>守卫叫住了你</h3><p>你的无证营业引起了注意。先处理这次盘查，否则会被押进监狱。</p></div></section>
+        <div class="glory-overview"><span><i>🚨</i><b>${wanted}</b><small>当前危险值</small></span><span class="is-risk"><i>⚠️</i><b>${chance}%</b><small>本次拦截率</small></span><span><i>💎</i><b>${state.gold}G</b><small>随身金币</small></span></div>
+        <div class="glory-entry-note is-risk"><i>!</i><span>缴纳罚款最稳妥；求情成功率 40%，逃跑成功率 50%。</span></div>`,
+      actions: [
+        ...(state.gold >= 50 ? [{ label: '💎 缴纳 50G 罚款', cls: 'btn-primary', handler: () => {
+          state.gold -= 50
+          state._gloryWanted = Math.max(0, wanted - 30)
+          EventBus.emit('ui:log', { text: `💎 你缴纳 50G 罚款，守卫将危险值降到 ${state._gloryWanted} 后放行。`, type: 'good' })
+          EventBus.emit('state:changed', state)
+          finishGloryLeave()
+        } }] : []),
+        { label: '🕊️ 尝试求情（40%）', handler: () => {
+          if (Math.random() < 0.4) {
+            state._gloryWanted = Math.max(0, wanted - 15)
+            EventBus.emit('ui:log', { text: `🕊️ 守卫接受了你的求情，危险值降到 ${state._gloryWanted}。`, type: 'good' })
+            EventBus.emit('state:changed', state)
+            finishGloryLeave()
+          } else {
+            EventBus.emit('ui:log', { text: '⛓️ 求情失败，守卫不再听你解释，将你押进监狱。', type: 'danger' })
+            sendGloryToPrison()
+          }
+        } },
+        { label: '🏃 尝试逃跑（50%）', handler: () => {
+          if (Math.random() < 0.5) {
+            state._gloryWanted = Math.min(100, wanted + 10)
+            EventBus.emit('ui:log', { text: `🏃 你甩开守卫逃回营地，但危险值升到 ${state._gloryWanted}。`, type: 'good' })
+            EventBus.emit('state:changed', state)
+            finishGloryLeave()
+          } else {
+            EventBus.emit('ui:log', { text: '⛓️ 逃跑失败，守卫将你按倒并押进监狱。', type: 'danger' })
+            sendGloryToPrison()
+          }
+        } },
+        ...((state._pillorySettings || {}).enabled !== false ? [{ label: '🪵 接受广场木枷处罚', cls: 'btn-danger', handler: () => {
+          EventBus.emit('ui:log', { text: '🪵 你接受 90 秒广场木枷处罚，避免被直接押进监狱。', type: 'danger' })
+          startPillory('punishment', 90, 0)
+        } }] : []),
+        { label: '⛓️ 放弃抵抗', cls: 'btn-danger', handler: () => {
+          EventBus.emit('ui:log', { text: '⛓️ 你放弃抵抗，被守卫押进监狱。', type: 'danger' })
+          sendGloryToPrison()
+        } },
+      ],
+    })
+  }
+
+  /** 仅在离开荣耀洞时判定一次，服务过程中不再反复抓捕。 */
   function gloryClearedLeave () {
+    const state = State.get()
+    if (!state._prostituteLicensed) {
+      const chance = gloryArrestChance(state._gloryWanted || 0)
+      if (chance > 0 && Math.random() * 100 < chance) {
+        if (state._prisonPardon) {
+          state._gloryWanted = Math.max(0, (state._gloryWanted || 0) - 10)
+          EventBus.emit('ui:log', { text: `🕊️ 队长豁免让守卫放行，危险值降到 ${state._gloryWanted}。`, type: 'good' })
+          EventBus.emit('state:changed', state)
+        } else {
+          EventBus.emit('ui:log', { text: `🛡️ 离开荣耀洞时触发守卫盘查（${chance}%）。`, type: 'danger' })
+          gloryGuardInterception(chance)
+          return
+        }
+      }
+    }
+    finishGloryLeave()
+  }
+
+  /** 完成出口判定后，根据原有来源触发嘲笑 / 队长羞辱并回营地。 */
+  function finishGloryLeave () {
     const state = State.get()
     if (!state._gloryJustCleared) { open(); return }
     state._gloryJustCleared = false
@@ -2204,13 +2523,16 @@ window.CampSystem = (function () {
   /** 铁匠主界面：聊天 / 商店 / 解锁监狱贞操装备 */
   function blacksmithShop () {
     const state = State.get()
+    const unlockableRestraints = typeof RestraintSystem !== 'undefined'
+      ? RestraintSystem.SLOT_ORDER.filter(slot => RestraintSystem.isLocked(slot) && !RestraintSystem.isStory(slot) && !RestraintSystem.isContractLock(slot))
+      : []
     campShow({
       title: '🔨 铁匠铺', className: 'blacksmith-modal',
       body: `<div class="camp-character"><i>🔨</i><div><b>“想看点什么？”</b><p>铁匠磨着刀，扫了你一眼："家伙什儿都在架上，自己挑。"</p></div></div>
         <div class="camp-grid">
           <button class="camp-opt" data-bs="buy"><i>🛒</i><span><b>商店</b><small>武器与饰品</small></span><em>进店</em></button>
           <button class="camp-opt" data-bs="chat"><i>💬</i><span><b>聊天</b><small>听铁匠唠唠</small></span><em>搭话</em></button>
-          ${(typeof RestraintSystem !== 'undefined' && RestraintSystem.countLocked() > 0) ? `<button class="camp-opt" data-bs="unlockrestr"><i>⛓️</i><span><b>解开妖缚装置</b><small>付费开锁，金属装置也能拆</small></span><em>${RestraintSystem.countLocked()} 件</em></button>` : ''}
+          ${unlockableRestraints.length ? `<button class="camp-opt" data-bs="unlockrestr"><i>⛓️</i><span><b>解开妖缚装置</b><small>付费开锁，金属装置也能拆</small></span><em>${unlockableRestraints.length} 件</em></button>` : ''}
           ${state._prisonChastity ? `<button class="camp-opt" data-bs="unlock"><i>🔓</i><span><b>解锁监狱贞操装备</b><small>求铁匠打开你身上的锁</small></span><em>求解锁</em></button>` : ''}
         </div>`,
       actions: [{ label: '返回营地', handler: () => { Dialog.close(); open() } }],
@@ -2230,7 +2552,7 @@ window.CampSystem = (function () {
   /** 铁匠付费开锁：为妖缚装置开锁（金属也能拆，卡死/诅咒收费更高；剧情锁不可拆） */
   function blacksmithUnlockRestraint () {
     const state = State.get()
-    const locked = (typeof RestraintSystem !== 'undefined' ? RestraintSystem.SLOT_ORDER : []).filter(slot => RestraintSystem.isLocked(slot) && !RestraintSystem.isStory(slot))
+    const locked = (typeof RestraintSystem !== 'undefined' ? RestraintSystem.SLOT_ORDER : []).filter(slot => RestraintSystem.isLocked(slot) && !RestraintSystem.isStory(slot) && !RestraintSystem.isContractLock(slot))
     const cards = locked.length
       ? locked.map(slot => {
         const d = RestraintSystem.get(slot)
@@ -2404,7 +2726,10 @@ window.CampSystem = (function () {
           <button class="tavern-card tavern-card-barkeep" data-tavern="barkeep"><i>💃</i><span><b>酒馆老板娘</b><small>酒单、闲聊与工作机会</small></span><em>去吧台</em></button>
           <button class="tavern-card tavern-card-captain" data-tavern="captain"><i>🛡️</i><span><b>守卫队队长</b><small>军官的架子与门道</small></span><em>搭话</em></button>
           <button class="tavern-card tavern-card-enchanter" data-tavern="enchanter"><i>🧙</i><span><b>附魔师</b><small>装备充能、灵魂石与附魔知识</small></span><em>搭话</em></button>
-          ${state._mercenary ? '' : `<button class="tavern-card tavern-card-futa" data-tavern="futa"><i>⚔️</i><span><b>角落的女战士</b><small>沉默寡言，独自喝着不动的酒</small></span><em>搭话</em></button>`}
+          <button class="tavern-card tavern-card-contract${state._restraintContract && state._restraintContract.ready ? ' is-ready' : ''}" data-tavern="contract"><i>${state._restraintContract && state._restraintContract.ready ? '🏅' : '📜'}</i><span><b>妖缚委托板</b><small>${state._restraintContract ? `${state._restraintContract.name} · ${state._restraintContract.progress}/${state._restraintContract.required}` : '佩戴契约装备完成冒险委托'}</small></span><em>${state._restraintContract ? (state._restraintContract.ready ? '可领奖' : '进行中') : '查看委托'}</em></button>
+          ${state._mercenary
+            ? `<button class="tavern-card tavern-card-futa${state._mercenaryContract && state._mercenaryContract.debt > 0 ? ' has-debt' : ''}" data-tavern="merc-contract"><i>⚔️</i><span><b>芙蕾雅的佣兵契约</b><small>${state._mercenaryContract && state._mercenaryContract.active ? `${state._mercenaryContract.active.name} · ${state._mercenaryContract.active.progress}/${state._mercenaryContract.active.required}` : state._mercenaryContract && state._mercenaryContract.debt > 0 ? `当前欠款 ${state._mercenaryContract.debt}G` : '还款、垫付与抵债契约'}</small></span><em>${state._mercenaryContract && state._mercenaryContract.debt > 0 ? '处理债务' : '查看'}</em></button>`
+            : `<button class="tavern-card tavern-card-futa" data-tavern="futa"><i>⚔️</i><span><b>角落的女战士</b><small>沉默寡言，独自喝着不动的酒</small></span><em>搭话</em></button>`}
           <button class="tavern-card tavern-card-guest ${guestGone ? 'is-empty' : ''}" data-tavern="guest"><i>${guestGone ? '🪑' : '🎲'}</i><span><b>${guestGone ? '空着的赌桌' : '爱赌的老顾客'}</b><small>${guestGone ? '打赢敌人后他会带着 50G 回来' : `还剩 ${state._tavernGuest}G 可赢`}</small></span><em>${guestGone ? '查看' : '开一局'}</em></button>
         </div>`,
       actions: [{ label: '返回营地', handler: () => { open() } }],
@@ -2417,7 +2742,85 @@ window.CampSystem = (function () {
         else if (opt === 'captain') tavernCaptain()
         else if (opt === 'futa') tavernFuta()
         else if (opt === 'enchanter') enchanter()
+        else if (opt === 'contract') restraintContractBoard()
+        else if (opt === 'merc-contract' && window.MercenaryContractSystem) MercenaryContractSystem.openPanel()
       }
+    })
+  }
+
+  /** 妖缚委托板：一次一个委托，胜利进度由 RestraintContractSystem 统一记录。 */
+  function restraintContractBoard () {
+    const state = State.get()
+    const system = window.RestraintContractSystem
+    if (!system) { EventBus.emit('ui:log', { text: '委托板暂时无法使用。', type: 'danger' }); renderTavern(); return }
+    const active = system.active()
+    const rankName = { easy: '简单', normal: '普通', hard: '困难' }
+    const rankIcon = { easy: '🌿', normal: '⚖️', hard: '🔥' }
+    let body = `<section class="contract-hero"><i>📜</i><div><small>RESTRAINT COMMISSIONS · 酒馆公告</small><h3>带着契约锁走进妖林，把胜利带回来。</h3><p>委托装备由酒馆暂借，不占用你的永久库存。Boss、逃跑和投降不计进度。</p></div></section>`
+    let actions = [{ label: '返回酒馆', handler: () => { renderTavern() } }]
+
+    if (active) {
+      const progress = Math.min(100, Math.round((active.progress / active.required) * 100))
+      const gear = active.gear.map(entry => {
+        const def = RestraintSystem.defOf(entry.id)
+        return `<span>${RestraintSystem.SLOT_ICONS[entry.slot] || '⛓️'} ${def ? def.name : entry.id}</span>`
+      }).join('')
+      const item = active.rewardItem && ItemLib.get(active.rewardItem)
+      body += `<div class="contract-active${active.ready ? ' is-ready' : ''}">
+        <div class="contract-active-head"><span><i>${active.ready ? '🏅' : rankIcon[active.rank]}</i><small>${active.ready ? '等待结算' : `${rankName[active.rank]}委托`}</small><b>${active.name}</b></span><em>${active.progress}/${active.required}</em></div>
+        <div class="contract-progress"><i style="width:${progress}%"></i></div>
+        <p>${active.ready ? '要求已经达成。领取报酬后，所有契约锁和暂借装备会一并回收。' : `继续赢得 ${Math.max(0, active.required - active.progress)} 场普通战斗即可完成。`}</p>
+        <div class="contract-gear">${gear}</div>
+        <div class="contract-reward"><span>委托报酬</span><b>💎 ${active.rewardGold}G${item ? ` · ${item.name} ×1` : ''}</b></div>
+      </div>`
+      actions = active.ready
+        ? [
+            { label: '🏅 领取报酬', cls: 'btn-primary', handler: () => { system.claim(); restraintContractBoard() } },
+            { label: '返回酒馆', handler: () => { renderTavern() } },
+          ]
+        : [
+            { label: `放弃委托（最多 ${system.ABANDON_FEE}G）`, cls: 'btn-danger', handler: () => restraintContractAbandonPrompt() },
+            { label: '返回酒馆', handler: () => { renderTavern() } },
+          ]
+    } else {
+      const offers = system.ensureOffers()
+      body += `<div class="contract-board">${offers.map(offer => {
+        const available = system.availability(offer)
+        const rewardItem = offer.rewardItem && ItemLib.get(offer.rewardItem)
+        const gear = offer.gear.map(entry => {
+          const def = RestraintSystem.defOf(entry.id)
+          return def ? def.name : entry.id
+        }).join(' · ')
+        return `<button class="contract-card rank-${offer.rank}${available.ok ? '' : ' is-disabled'}" data-contract="${offer.id}" ${available.ok ? '' : 'disabled'}>
+          <span class="contract-rank">${rankIcon[offer.rank]} ${rankName[offer.rank]}</span><i>${offer.icon}</i><b>${offer.name}</b><small>${offer.desc}</small>
+          <span class="contract-gear-line">⛓️ ${gear}</span>
+          <em>${available.ok ? `💎 ${offer.rewardGold}G${rewardItem ? ` + ${rewardItem.name}` : ''}` : available.reason}</em>
+        </button>`
+      }).join('')}</div><p class="camp-footnote">接取后装备立即上锁；完成前只能从这里解约。被占用的身体槽位需先自行腾空。</p>`
+    }
+
+    campShow({ title: '📜 妖缚委托板', className: 'camp-tavern-modal contract-modal', body, actions })
+    document.querySelectorAll('[data-contract]').forEach(btn => {
+      btn.onclick = () => {
+        const result = system.accept(btn.dataset.contract)
+        if (!result.ok) EventBus.emit('ui:log', { text: result.msg, type: 'danger' })
+        restraintContractBoard()
+      }
+    })
+  }
+
+  function restraintContractAbandonPrompt () {
+    const system = window.RestraintContractSystem
+    const active = system && system.active()
+    if (!active) { restraintContractBoard(); return }
+    const payable = Math.min(system.ABANDON_FEE, Math.max(0, State.get().gold || 0))
+    Dialog.show({
+      title: '📜 放弃妖缚委托？', className: 'camp-tavern-modal contract-confirm-modal',
+      body: `<div class="contract-confirm"><i>🔓</i><div><b>解除「${active.name}」</b><p>当前进度会清空，契约装备将被回收，并支付 <strong>${payable}G</strong> 解约金。</p></div></div>`,
+      actions: [
+        { label: '确认解约', cls: 'btn-danger', handler: () => { Dialog.close(); system.abandon(); restraintContractBoard() } },
+        { label: '继续委托', handler: () => Dialog.close() },
+      ],
     })
   }
 
@@ -3158,6 +3561,7 @@ window.CampSystem = (function () {
           <span class="rpg-gear-stat"><em>防护充能</em><strong>可充能 ${chargeCount}</strong></span>
           <small class="rpg-gear-hint">每点充能完全抵挡一次对应部位的攻击：0 伤害、0 效果</small>
           <span class="rpg-gear-special"><em>特殊</em><strong>${bonusText}</strong></span>
+          ${r.vibrate ? '<small class="rpg-gear-hint">震动控制：关闭 / 低档 / 高档；提高服务收入，同时降低战斗专注与逃跑率</small>' : ''}
           <span class="rpg-gear-warning">🔒 上锁后：酒馆妓女与荣耀洞均不可用</span>
         </span>
         <span class="merchant-item-price">${full ? '已达上限' : canBuy ? `<b>${r.price}G</b><small>${countText}</small>` : `<small>金币不足</small>`}</span>
@@ -3313,25 +3717,42 @@ window.CampSystem = (function () {
   function hireFuta () {
     const state = State.get()
     if (state._mercenary) { tavernFuta(); return }
-    if (state.gold < FUTA_WARRIOR.price) { EventBus.emit('ui:log', { text: '💰 钱不够招募芙蕾雅。', type: 'dim' }); tavernFuta(); return }
+    const canFinance = state.gold < FUTA_WARRIOR.price && window.MercenaryContractSystem && MercenaryContractSystem.canFinanceRecruitment(FUTA_WARRIOR.price)
     campShow({
       title: '⚔️ 招募芙蕾雅', className: 'camp-tavern-modal',
-      body: `<div class="camp-character"><i>⚔️</i><div><b>“一千金币，买我这条命。”</b><p>她站起身，比你高出半个头：“你攻击的时候我会跟上补刀。你要是打空了，我也收招。”她顿了顿，“我不会死——但你要是死了，我会护到你咽气。”</p></div></div>`,
+      body: `<div class="camp-character"><i>⚔️</i><div><b>“一千金币，买我这条命。”</b><p>她站起身，比你高出半个头：“你攻击的时候我会跟上补刀。你要是打空了，我也收招。”她顿了顿，“我不会死——但你要是死了，我会护到你咽气。”</p></div></div>
+        ${state.gold < FUTA_WARRIOR.price ? `<div class="merc-rule-list"><span>随身金币 ${state.gold}G</span><span>还差 ${FUTA_WARRIOR.price - state.gold}G</span><span>${canFinance ? '可申请招募分期' : '招募分期当前不可用'}</span></div>` : ''}`,
       actions: [
-        { label: state.gold >= 1000 ? '💸 花 1000G 招募' : '💰 钱不够（1000G）', cls: state.gold >= 1000 ? 'btn-primary' : 'btn-danger', handler: () => {
-          if (state.gold < 1000) { EventBus.emit('ui:log', { text: '💰 钱不够招募。', type: 'dim' }); hireFuta(); return }
+        ...(state.gold >= FUTA_WARRIOR.price ? [{ label: '💸 花 1000G 招募', cls: 'btn-primary', handler: () => {
+          if (state.gold < FUTA_WARRIOR.price) { hireFuta(); return }
           state.gold -= 1000
           state._mercenary = { id: 'futa_warrior', name: '芙蕾雅', icon: '⚔️', dmg: 2, lust: 0 }
           EventBus.emit('ui:log', { text: '⚔️ 芙蕾雅加入了你的队伍！你攻击命中后她会补上 2 点伤害。', type: 'good' })
           EventBus.emit('state:changed', state)
-          Dialog.close(); renderTavern()
-        } },
+          Dialog.close()
+          if (window.MercenaryContractSystem) MercenaryContractSystem.showIntro(renderTavern)
+          else renderTavern()
+        } }] : []),
+        ...(canFinance ? [{ label: '🤝 分期招募芙蕾雅', cls: 'btn-primary', handler: () => {
+          MercenaryContractSystem.offerRecruitmentFinance(
+            { id: FUTA_WARRIOR.id, name: FUTA_WARRIOR.name, icon: FUTA_WARRIOR.icon, dmg: FUTA_WARRIOR.dmg, lust: 0 },
+            FUTA_WARRIOR.price,
+            renderTavern,
+          )
+        } }] : []),
         { label: '返回', handler: () => { Dialog.close(); tavernFuta() } },
       ],
     })
   }
 
-  /** 服务佣兵：选择服务方式降低性欲（口交 -40 / 肛交 -50 / 性交 -60 女性专用） */
+  /** 服务佣兵：选择服务方式降低性欲（口交 -20 / 肛交 -30 / 性交 -30，女性专用） */
+  function closeMercenaryService () {
+    // 佣兵服务以前是 Dialog 弹窗，现在使用营地内嵌面板。
+    // 在营地内返回酒馆；从地图 HUD 打开则关闭面板并恢复地图。
+    if (State.get().phase === 'camp') renderTavern()
+    else campClose()
+  }
+
   function serveMercenary () {
     const state = State.get()
     const merc = state._mercenary
@@ -3356,7 +3777,7 @@ window.CampSystem = (function () {
           <button class="camp-opt" data-serve="anal" ${analLocked ? 'disabled' : ''}><i>🍑</i><span><b>肛交服务</b><small>${analLocked ? '菊穴装备已上锁，无法使用' : '撅起屁股让她从背后操进来'}</small></span><em>${analLocked ? '已锁定' : '欲 -30'}</em></button>
           ${sexBtn}
         </div>`,
-      actions: [{ label: '返回', handler: () => { Dialog.close() } }],
+      actions: [{ label: '返回', handler: closeMercenaryService }],
     })
     document.querySelectorAll('[data-serve]').forEach(btn => {
       btn.onclick = () => {
@@ -3415,11 +3836,14 @@ window.CampSystem = (function () {
     if (failed) {
       EventBus.emit('ui:log', { text: `🏃 你半途停下来，${merc.icon} ${merc.name} 不满地瞪了你一眼（性欲没降）。`, type: 'danger' })
       EventBus.emit('state:changed', state)
+      closeMercenaryService()
       return
     }
     merc.lust = Math.max(0, (merc.lust || 0) - cfg.dmg)
     EventBus.emit('ui:log', { text: `💋 你给${merc.icon} ${merc.name}做了${cfg.name}，她满足地哼了一声，性欲降到 ${merc.lust}%。`, type: 'good' })
+    if (window.MercenaryContractSystem) MercenaryContractSystem.recordService('mercenary')
     EventBus.emit('state:changed', state)
+    closeMercenaryService()
   }
 
   /** 老板娘聊天：随机循环闲话；聊到打工话题后解锁打工 */
@@ -3626,11 +4050,14 @@ window.CampSystem = (function () {
       ;['anal', 'vagina'].forEach(slot => {
         const entry = RestraintSystem.insertionDevice(slot)
         if (!entry) return
+        const baseBonus = Math.max(0, entry.def.prostituteBonus || 0) * (entry.def.stackable ? Math.max(1, entry.device.count || 1) : 1)
+        const vibration = entry.def.vibrate && RestraintSystem.vibrationInfo ? RestraintSystem.vibrationInfo(slot) : null
+        const vibrationText = vibration && vibration.mode !== 'off' ? ` · ${RestraintSystem.VIBRATION_MODES[vibration.mode].label}额外 +${vibration.serviceExtra}G` : ''
         ownedList.push({
           id: entry.def.id,
           name: entry.def.name,
           icon: slot === 'vagina' ? '🌸' : '🍑',
-          desc: `${RestraintSystem.SLOT_NAMES[slot]} · 插入任务额外 +${entry.def.prostituteBonus || 0}G`,
+          desc: `${RestraintSystem.SLOT_NAMES[slot]} · 插入任务额外 +${baseBonus}G${vibrationText}`,
         })
       })
     }
@@ -4178,6 +4605,7 @@ window.CampSystem = (function () {
     } else {
       state._prostituteLevel += effLevel   // 只有完成才升级
       state._prostituteSwapCost = 20   // 服务完成，换客费用重置
+      if (window.MercenaryContractSystem) MercenaryContractSystem.recordService('tavern')
     }
     state._prostitutePendingTask = null
     // 卫兵任务奖励：出城免检查卷
@@ -4324,5 +4752,5 @@ window.CampSystem = (function () {
     })
   }
 
-  return { open, gloryHole, renderToilet, investigateStall, enterGlory, useToilet, deer, tavern, serveMercenary, ddShop, resumeGuardSearch }
+  return { open, gloryHole, renderToilet, investigateStall, enterGlory, useToilet, deer, tavern, serveMercenary, ddShop, squarePillory, resumeGuardSearch }
 })()

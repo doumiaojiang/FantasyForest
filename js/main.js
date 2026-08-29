@@ -343,7 +343,7 @@
         ${sect('🧭 基础资源', cheatBtn('cheat-hp', '❤️ 回满 HP') + cheatBtn('cheat-gold', '💰 金币 +500') + cheatBtn('cheat-supply', '🎒 全补给 ×5') + cheatBtn('cheat-clear-status', '✨ 清除状态'))}
         ${sect('⚔️ 战斗', cheatBtn('cheat-kill', '💀 击杀当前敌人') + cheatBtn('cheat-win', '🏆 直接通关') + cheatBtn('cheat-god', '🛡️ 无敌模式', 'btn-cheat') + cheatBtn('cheat-orb', '🔮 力量宝珠') )}
         ${sect('🧰 装备', cheatBtn('cheat-weapons', '⚔️ 全部武器') + cheatBtn('cheat-accessories', '📿 全部饰品') + cheatBtn('cheat-items', '🧪 全部消耗品') + cheatBtn('cheat-material', '🔧 升级材料 ×3'))}
-        ${sect('🔧 调试', cheatBtn('cheat-goto', '📍 移动到坐标') + cheatBtn('cheat-mob', '👺 遭遇怪物') + cheatBtn('cheat-boss', '👑 遭遇 BOSS') + cheatBtn('cheat-position', '📌 查看坐标'))}
+        ${sect('🔧 调试', cheatBtn('cheat-goto', '📍 移动到坐标') + cheatBtn('cheat-mob', '👺 遭遇怪物') + cheatBtn('cheat-boss', '👑 遭遇 BOSS') + cheatBtn('cheat-position', '📌 查看坐标') + cheatBtn('cheat-merc-debt', '💸 佣兵债务 +100') + cheatBtn('cheat-merc-clear', '✓ 清除佣兵债务'))}
       `,
       actions: [{ label: '关闭', handler: () => Dialog.close() }],
     })
@@ -377,7 +377,7 @@
         return '❤️ HP 已回满。'
       case 'cheat-gold':
         state.gold += 500
-        return `💰 金币 +500（当前 ${state.gold}）。`
+        return '💰 金币 +500；若存在佣兵债务，新增收入会按规则自动还款。'
       case 'cheat-supply':
         ITEMS.consumables.forEach(it => {
           if (it.id !== 'weapon_upgrade_material' && it.id !== 'twig') {
@@ -428,6 +428,14 @@
       case 'cheat-material':
         state.inventory.consumables['weapon_upgrade_material'] = (state.inventory.consumables['weapon_upgrade_material'] || 0) + 3
         return '🔧 升级材料 +3。'
+      case 'cheat-merc-debt':
+        if (!state._mercenary || !window.MercenaryContractSystem) return '⚔️ 尚未招募芙蕾雅。'
+        MercenaryContractSystem.addDebt(100, '调试', { allowOverLimit: true })
+        return `💸 佣兵债务已增加到 ${MercenaryContractSystem.debt()}G。`
+      case 'cheat-merc-clear':
+        if (!state._mercenaryContract) return '⚔️ 没有佣兵债务数据。'
+        state._mercenaryContract.debt = 0
+        return '✓ 已清除佣兵债务。'
     }
     return ''
   }
@@ -754,11 +762,46 @@
     MapLib.parse()
     MapUI.render()
     HUD.render()
+    // 旧存档已招募芙蕾雅时，补一次债务契约说明；战斗和商店中不抢占当前流程。
+    if (state._mercenary && state._mercenaryContract && !state._mercenaryContract.introSeen && !['battle', 'shop', 'boss', 'gameover'].includes(state.phase)) {
+      setTimeout(() => {
+        const current = State.get()
+        if (current === state && current._mercenaryContract && !current._mercenaryContract.introSeen && window.MercenaryContractSystem) MercenaryContractSystem.showIntro()
+      }, 350)
+    }
     EventBus.emit('ui:log', { text: '🏘️ 村庄已成废墟。向东进入营地，向西进入森林。', type: 'dim' })
     // 新游戏初始化后立即存档，防止刷新丢失进度
     State.save()
     // 新手引导：进入营地找鹿（出生点右侧）
     readyToRoll()
+    showStartTownGuide()
+  }
+
+  /** 新角色首次进图提示：明确标出出生点右侧的林缘城镇。 */
+  function showStartTownGuide () {
+    const highlightEast = () => {
+      setTimeout(() => {
+        const eastButtons = document.querySelectorAll('[data-dir="e"]')
+        eastButtons.forEach(btn => btn.classList.add('start-guide-target'))
+        setTimeout(() => eastButtons.forEach(btn => btn.classList.remove('start-guide-target')), 5000)
+      }, 80)
+    }
+    Dialog.show({
+      title: '🧭 出发前先看看右边', className: 'start-guide-modal',
+      body: `<section class="start-guide-hero"><div class="start-guide-compass">→</div><div><small>STARTING AREA · 起点提示</small><h3>出生点右边就是林缘城镇</h3><p>第一次游玩建议先往东走。踏入营地不会消耗额外回合，离开后仍会回到出生点继续探索。</p></div></section>
+        <div class="start-guide-route" aria-label="起点路线图"><span><i>🌲</i><b>妖林</b><small>向西冒险</small></span><em>←</em><span class="is-player"><i>🧭</i><b>出生点</b><small>你在这里</small></span><em>→</em><span class="is-town"><i>⛺</i><b>林缘城镇</b><small>就在右边</small></span></div>
+        <div class="start-guide-grid">
+          <div><i>🔥</i><span><b>安全整备</b><small>营地内行动不消耗回合</small></span></div>
+          <div><i>🏪</i><span><b>商店补给</b><small>武器、道具与妖缚装备</small></span></div>
+          <div><i>🍺</i><span><b>酒馆与厕所</b><small>打工、接客和隐藏区域</small></span></div>
+          <div><i>💾</i><span><b>存档与传送</b><small>随时保存，激活传送阵</small></span></div>
+        </div>
+        <div class="start-guide-note"><i>!</i><span>点击方向栏里的<b>东 →</b>即可前往；掷出的步数再多，也会先停在营地。</span></div>`,
+      actions: [
+        { label: '→ 标出右侧城镇', cls: 'btn-primary', handler: () => { Dialog.close(); highlightEast() } },
+        { label: '我想自己探索', handler: () => { Dialog.close() } },
+      ],
+    })
   }
 
   function loadGame () {

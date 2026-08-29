@@ -155,13 +155,13 @@ window.RESTRAINTS = [
   {
     id: 'vibrator_egg', name: '震动跳蛋', slot: 'vagina', allowedSlots: ['vagina'], material: 'silicone', price: 70, difficulty: 1,
     insert: true, stackable: true, maxStack: 4, femaleOnly: true, sizeCm: 2.8, block: 1, prostituteBonus: 10, vibrate: true,
-    desc: '2.8 cm · 女性专用小穴装备：每颗增加 1 点防护充能上限（最多 4 点），可找附魔师或在野外使用灵魂石补充；插入类接客 +10G。',
+    desc: '2.8 cm · 女性专用小穴装备：每颗增加 1 点防护充能上限（最多 4 点）；支持关闭/低档/高档震动，档位越高服务收入越高，但更容易战斗分心且更难逃跑。',
     effect: 'insert_block',
   },
   {
     id: 'vibrating_dildo', name: '震动棒', slot: 'vagina', allowedSlots: ['vagina'], material: 'silicone', price: 130, difficulty: 2,
     insert: true, femaleOnly: true, sizeCm: 3.8, block: 3, prostituteBonus: 20, vibrate: true,
-    desc: '3.8 cm · 女性专用小穴装备：防护充能上限 3 点；每点抵挡 1 次小穴攻击及其效果，可找附魔师或在野外使用灵魂石补充；插入类接客 +20G。',
+    desc: '3.8 cm · 女性专用小穴装备：防护充能上限 3 点；支持关闭/低档/高档震动，档位越高服务收入越高，但更容易战斗分心且更难逃跑。',
     effect: 'insert_block',
   },
   {

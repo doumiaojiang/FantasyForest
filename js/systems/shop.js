@@ -404,14 +404,18 @@ window.ShopSystem = (function () {
   }
 
   /** 复活佣兵：死亡佣兵花 50G 复活 */
-  function reviveMercenary () {
+  function reviveMercenary (useDebt = false) {
     const state = State.get()
     if (!state._mercenary || !state._mercenary.dead) return { ok: false, msg: '没有需要复活的佣兵' }
     const price = 50
-    if (state.gold < price) return { ok: false, msg: '金币不足（需要 50G）' }
-    state.gold -= price
+    if (!useDebt && state.gold < price) return { ok: false, msg: '金币不足（需要 50G）' }
+    if (useDebt) {
+      if (!window.MercenaryContractSystem || !MercenaryContractSystem.enabled()) return { ok: false, msg: '佣兵债务系统未启用' }
+      const debtResult = MercenaryContractSystem.addDebt(price, '复活佣兵')
+      if (!debtResult.ok) return debtResult
+    } else state.gold -= price
     state._mercenary.dead = false
-    EventBus.emit('ui:log', { text: `💚 ${state._mercenary.icon} ${state._mercenary.name} 在商店治好了伤，重新站了起来！`, type: 'good' })
+    EventBus.emit('ui:log', { text: `💚 ${state._mercenary.icon} ${state._mercenary.name} 在商店治好了伤，重新站了起来${useDebt ? '（费用记入佣兵债务）' : ''}！`, type: 'good' })
     EventBus.emit('state:changed', state)
     return { ok: true }
   }

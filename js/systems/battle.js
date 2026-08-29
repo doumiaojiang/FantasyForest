@@ -43,6 +43,12 @@ window.BattleSystem = (function () {
       if (insertionBlocks.vagina > 0) parts.push(`小穴 ${insertionBlocks.vagina}`)
       EventBus.emit('ui:log', { text: `⚡ 当前插入装备防护充能：${parts.join(' · ')}。`, type: 'good' })
     }
+    if (typeof RestraintSystem !== 'undefined' && RestraintSystem.vibrationInfo) {
+      const vibration = RestraintSystem.vibrationInfo('vagina')
+      if (vibration && vibration.mode !== 'off') {
+        EventBus.emit('ui:log', { text: `${vibration.mode === 'high' ? '⚡' : '〰️'} ${vibration.def.name}保持${RestraintSystem.VIBRATION_MODES[vibration.mode].label}：攻击分心 ${Math.round(vibration.distractionChance * 100)}%，逃跑率 -${Math.round(vibration.escapePenalty * 100)}%。`, type: 'danger' })
+      }
+    }
 
     // 陷阱效果：HP 翻倍
     if (state._nextEnemyHpDouble) {
@@ -113,6 +119,17 @@ window.BattleSystem = (function () {
 
     if (roll === undefined) roll = Dice.rollAttack()
     const result = AttackResolver.resolvePlayer(roll, battle)
+    if (typeof RestraintSystem !== 'undefined' && RestraintSystem.vibrationDistraction && !result.hitSelf && !result.stunned && !result.miss) {
+      const distraction = RestraintSystem.vibrationDistraction()
+      if (distraction.triggered) {
+        result.dmg = 0
+        result.crit = false
+        result.miss = true
+        result.vibrationDistracted = true
+        result.vibrationMode = distraction.mode
+        result.vibrationName = distraction.name
+      }
+    }
     let bossDefeated = false
 
     // 命中目标
@@ -131,7 +148,7 @@ window.BattleSystem = (function () {
 
     // 佣兵攻击：玩家命中后，佣兵补一刀（玩家 miss 时她也 miss）；发情时无法专心攻击
     const mercenary = state._mercenary
-    if (mercenary && !mercenary.dead && !result.hitSelf && !result.miss && battle.targets.length > 0 && state.hp > 0) {
+    if (mercenary && !mercenary.dead && (!window.MercenaryContractSystem || MercenaryContractSystem.supportAvailable()) && !result.hitSelf && !result.miss && battle.targets.length > 0 && state.hp > 0) {
       if (mercenary.lust >= 100) {
         result.mercenary = { name: mercenary.name, icon: mercenary.icon, dmg: 0, target: '发情中', lustBlocked: true }
         EventBus.emit('ui:log', { text: `💢 ${mercenary.icon} ${mercenary.name} 欲火焚身，夹着腿扭来扭去，没法专心攻击！快去服务她。`, type: 'danger' })
@@ -221,11 +238,15 @@ window.BattleSystem = (function () {
     const battle = state._battle
     if (!battle) return { ok: false }
 
-    const chance = CONFIG.battle.fleeChance[state.difficulty] || 0.5
+    const baseChance = CONFIG.battle.fleeChance[state.difficulty] || 0.5
+    const vibrationPenalty = !force && typeof RestraintSystem !== 'undefined' && RestraintSystem.vibrationEscapePenalty
+      ? RestraintSystem.vibrationEscapePenalty()
+      : 0
+    const chance = Math.max(0.05, baseChance - vibrationPenalty)
     const roll = Math.random()
     const success = force ? true : (roll < chance)
 
-    EventBus.emit('ui:log', { text: force ? '🏳️ 你选择投降……' : `🏃 尝试逃跑... (概率 ${Math.round(chance*100)}%) 掷骰: ${roll.toFixed(2)} ${success ? '✅ 成功！' : '❌ 失败！'}`, type: success ? 'good' : 'danger' })
+    EventBus.emit('ui:log', { text: force ? '🏳️ 你选择投降……' : `🏃 尝试逃跑... (概率 ${Math.round(chance*100)}%${vibrationPenalty > 0 ? `，震动 -${Math.round(vibrationPenalty * 100)}%` : ''}) 掷骰: ${roll.toFixed(2)} ${success ? '✅ 成功！' : '❌ 失败！'}`, type: success ? 'good' : 'danger' })
 
     if (success) {
       // 结束战斗

@@ -15,6 +15,11 @@ window.RestraintSystem = (function () {
   const SLOT_NAMES = { eyes: '眼部', lip: '口唇妆容', face: '面部妆容', mouth: '嘴部', neck: '颈部', chest: '胸部', arms: '手臂', arms_heavy: '束臂', torso: '躯干', outfit: '服装', waist: '腰部', legs: '腿部', feet: '鞋履', ankles: '脚踝', anal: '菊穴', vagina: '小穴' }
   const SLOT_ICONS = { eyes: '😵', lip: '💄', face: '✨', mouth: '🤐', neck: '🐕', chest: '🎀', arms: '⛓️', arms_heavy: '🪢', torso: '🩱', outfit: '👗', waist: '🔒', legs: '🦶', feet: '👠', ankles: '⛓️', anal: '🍑', vagina: '🌸' }
   const BLADES = ['rusty_knife', 'basic_sword', 'master_sword', 'sharp_rock']
+  const VIBRATION_MODES = {
+    off: { label: '关闭', icon: '○', serviceRate: 0, distraction: 0, escapePenalty: 0 },
+    low: { label: '低档', icon: '〰️', serviceRate: 0.25, distraction: 0.05, escapePenalty: 0.05 },
+    high: { label: '高档', icon: '⚡', serviceRate: 0.50, distraction: 0.15, escapePenalty: 0.15 },
+  }
 
   function raw () { return State.get()._restraints || {} }
   function get (slot) { return raw()[slot] || null }
@@ -91,6 +96,7 @@ window.RestraintSystem = (function () {
     list.push({
       charge: Math.max(0, Math.min(insertChargeMax(def, device), Math.floor(Number(device.charge) || 0))),
       count: def.stackable ? Math.max(1, Math.floor(Number(device.count) || 1)) : 1,
+      vibrationMode: def.vibrate && VIBRATION_MODES[device.vibrationMode] ? device.vibrationMode : 'off',
     })
     pool[device.id] = list
   }
@@ -101,10 +107,15 @@ window.RestraintSystem = (function () {
     return `${def.sizeCm} cm`
   }
 
-  function insertDetailsHtml (def, charge) {
+  function insertDetailsHtml (def, charge, device) {
     const slotLabel = allowedSlotsOf(def).map(s => SLOT_NAMES[s] || s).join(' / ')
     const chargeLimit = def.stackable ? `${def.block} 次/颗` : `${charge.max} 次`
     const bonus = `${def.prostituteBonus} 金币${def.stackable ? '/颗' : ''}`
+    const vibration = def.vibrate ? vibrationInfo(device && device.slot) : null
+    const vibrationHtml = vibration ? `<span class="restr-vibration mode-${vibration.mode}${vibration.controlEnabled ? '' : ' is-paused'}">
+      <b>${VIBRATION_MODES[vibration.mode].icon} 震动：${VIBRATION_MODES[vibration.mode].label}${vibration.controlEnabled ? '' : '（MCM 已暂停）'}</b>
+      <small>${vibration.mode === 'off' ? '无额外收益或战斗影响' : `服务额外 +${vibration.serviceExtra}G · 攻击分心 ${Math.round(vibration.distractionChance * 100)}% · 逃跑 -${Math.round(vibration.escapePenalty * 100)}%`}${vibration.locked ? ' · 上锁后无法调档' : ''}</small>
+    </span>` : ''
     return `<span class="rpg-gear-details">
       <span class="rpg-gear-kicker">插入装备 · ${slotLabel}</span>
       <span class="rpg-gear-stat"><em>尺寸</em><strong>${insertSizeText(def)}</strong></span>
@@ -113,6 +124,7 @@ window.RestraintSystem = (function () {
       <span class="rpg-gear-special"><em>特殊</em><strong>酒馆妓女：+${bonus}</strong></span>
       <span class="rpg-gear-warning">🔒 上锁后：酒馆妓女与荣耀洞均不可用</span>
       <span class="restr-charge${charge.current <= 0 ? ' is-empty' : ''}">⚡ 当前充能 ${charge.current}/${charge.max}${charge.current < charge.max ? ' · 去酒馆找附魔师' : ''}</span>
+      ${vibrationHtml}
     </span>`
   }
 
@@ -203,6 +215,10 @@ window.RestraintSystem = (function () {
       jammed: !!opts.jammed,
       count: def.stackable ? Math.max(1, Math.min(ownedCount(id), Math.floor(Number(opts.count) || storedCount || 1))) : 1,
     }
+    if (def.vibrate) {
+      const savedMode = opts.vibrationMode || (storedInsertion && storedInsertion.vibrationMode)
+      device.vibrationMode = VIBRATION_MODES[savedMode] ? savedMode : 'off'
+    }
     if (def.insert) {
       const state = State.get()
       if (!state._insertionCharges || typeof state._insertionCharges !== 'object') state._insertionCharges = {}
@@ -224,9 +240,15 @@ window.RestraintSystem = (function () {
     set(slot, device)
   }
 
-  function remove (slot) {
+  function isContractLock (slot) {
+    const d = get(slot)
+    return !!(d && d.locked && ['contract', 'mercenary_contract'].includes(d.lockType))
+  }
+
+  function remove (slot, force = false) {
     const d = get(slot)
     if (!d) return { ok: false, msg: '这里没有装置' }
+    if (!force && isContractLock(slot)) return { ok: false, msg: '契约锁只能在对应契约面板结算或解约' }
     const def = defOf(d.id)
     storeInsertion(d, def)
     if (def && def.insert) {
@@ -289,6 +311,7 @@ window.RestraintSystem = (function () {
   function canCut (slot) {
     const d = get(slot)
     if (!d || !d.locked || d.jammed) return false
+    if (isContractLock(slot)) return false
     if (isStory(slot)) return false
     const def = defOf(d.id)
     if (def && def.material === 'metal') return false
@@ -298,6 +321,7 @@ window.RestraintSystem = (function () {
   function cut (slot) {
     const d = get(slot)
     if (!d) return { ok: false, msg: '这里没有装置' }
+    if (isContractLock(slot)) return { ok: false, msg: '契约锁受魔法保护，无法割断' }
     if (!d.locked) { remove(slot); return { ok: true, msg: '已脱下' } }
     if (isCursed(slot)) return { ok: false, msg: '诅咒锁割不断，需要驱咒符' }
     if (!canCut(slot)) return { ok: false, msg: '需要尖石/刀/剑割断皮革或绳索' }
@@ -310,6 +334,7 @@ window.RestraintSystem = (function () {
   function struggle (slot) {
     const d = get(slot)
     if (!d) return { ok: false, msg: '这里没有装置' }
+    if (isContractLock(slot)) return { ok: false, msg: '契约锁不会因挣扎松动；请完成委托或回酒馆解约' }
     if (!d.locked) { remove(slot); return { ok: true, msg: '已脱下' } }
     if (isStory(slot)) return { ok: false, msg: '剧情锁只能通过对应剧情解除' }
     if (d.jammed) return { ok: false, msg: '锁卡住了，挣扎没用' }
@@ -332,6 +357,7 @@ window.RestraintSystem = (function () {
   function useKey (slot) {
     const d = get(slot)
     if (!d || !d.locked) return { ok: false, msg: '这里没有上锁的装置' }
+    if (isContractLock(slot)) return { ok: false, msg: '普通钥匙打不开契约锁' }
     if (isCursed(slot)) return { ok: false, msg: '诅咒锁钥匙打不开，需要驱咒符' }
     if (isStory(slot)) return { ok: false, msg: '剧情锁只能走剧情解除' }
     const inv = State.get().inventory.consumables
@@ -348,6 +374,7 @@ window.RestraintSystem = (function () {
   function useLockpick (slot) {
     const d = get(slot)
     if (!d || !d.locked) return { ok: false, msg: '这里没有上锁的装置' }
+    if (isContractLock(slot)) return { ok: false, msg: '契约锁没有可撬开的机械锁芯' }
     if (isCursed(slot)) return { ok: false, msg: '诅咒锁撬不动，需要驱咒符' }
     const inv = State.get().inventory.consumables
     if ((inv.lockpick || 0) <= 0) return { ok: false, msg: '没有开锁工具' }
@@ -368,6 +395,7 @@ window.RestraintSystem = (function () {
   function useCurseRemover (slot) {
     const d = get(slot)
     if (!d || !d.locked) return { ok: false, msg: '这里没有上锁的装置' }
+    if (isContractLock(slot)) return { ok: false, msg: '契约锁不是诅咒，驱咒符无效' }
     if (!isCursed(slot)) return { ok: false, msg: '这没被诅咒，驱咒符没用' }
     const inv = State.get().inventory.consumables
     if ((inv.curse_remover || 0) <= 0) return { ok: false, msg: '没有驱咒符' }
@@ -423,6 +451,7 @@ window.RestraintSystem = (function () {
   function npcUnlock (slot) {
     const d = get(slot)
     if (!d) return { ok: false, msg: '这里没有装置' }
+    if (isContractLock(slot)) return { ok: false, msg: '铁匠拒绝破坏契约锁；请回对应契约面板处理' }
     if (!d.locked) { remove(slot); return { ok: true, msg: '已脱下' } }
     if (isStory(slot)) return { ok: false, msg: '这是剧情锁，只有剧情能解除（攒积分出狱或铁匠契约）' }
     const state = State.get()
@@ -564,10 +593,65 @@ window.RestraintSystem = (function () {
     EventBus.emit('state:changed', state)
     return { ok: true, current: next, max: info.max }
   }
+  /** 当前震动装备档位与统一收益/风险；关闭 MCM 时保留所选档位但暂停效果。 */
+  function vibrationInfo (slot = 'vagina') {
+    const entry = insertionDevice(slot)
+    if (!entry || !entry.def.vibrate) return null
+    const configuredMode = VIBRATION_MODES[entry.device.vibrationMode] ? entry.device.vibrationMode : 'off'
+    const controlEnabled = settings().vibrationControl !== false
+    const mode = controlEnabled ? configuredMode : 'off'
+    const rule = VIBRATION_MODES[mode]
+    const count = entry.def.stackable ? Math.max(1, Math.floor(Number(entry.device.count) || 1)) : 1
+    const baseBonus = Math.max(0, Number(entry.def.prostituteBonus) || 0) * count
+    const inCombat = !!(State.get()._battle || State.get()._ambush || ['battle', 'boss'].includes(State.get().phase))
+    return {
+      slot, device: entry.device, def: entry.def, configuredMode, mode, controlEnabled,
+      count, locked: !!entry.device.locked, inCombat,
+      serviceExtra: Math.round(baseBonus * rule.serviceRate),
+      distractionChance: rule.distraction,
+      escapePenalty: rule.escapePenalty,
+      adjustable: controlEnabled && !entry.device.locked && !inCombat,
+    }
+  }
+
+  function setVibrationMode (slot, mode) {
+    const info = vibrationInfo(slot)
+    if (!info) return { ok: false, msg: '该部位没有可调档的震动装备' }
+    if (!VIBRATION_MODES[mode]) return { ok: false, msg: '未知震动档位' }
+    if (!info.controlEnabled) return { ok: false, msg: '震动控制玩法已在妖缚 MCM 中关闭' }
+    if (info.locked) return { ok: false, msg: '装备已经上锁，无法手动调整震动档位' }
+    if (info.inCombat) return { ok: false, msg: '战斗已经开始，现在无法调整震动档位' }
+    info.device.vibrationMode = mode
+    const rule = VIBRATION_MODES[mode]
+    EventBus.emit('ui:log', { text: `${rule.icon} ${info.def.name}已切换为${rule.label}${mode === 'off' ? '。' : `：服务收入提高，但攻击和逃跑会受到影响。`}`, type: mode === 'high' ? 'danger' : mode === 'low' ? 'dim' : 'good' })
+    EventBus.emit('state:changed', State.get())
+    State.save()
+    return { ok: true, msg: `已切换为${rule.label}`, mode }
+  }
+
+  function vibrationServiceBonus (slot = 'vagina') {
+    const info = vibrationInfo(slot)
+    return info && !info.locked ? info.serviceExtra : 0
+  }
+
+  function vibrationDistraction (random = Math.random) {
+    const info = vibrationInfo('vagina')
+    if (!info || info.distractionChance <= 0) return { triggered: false, chance: 0, mode: 'off' }
+    const triggered = Math.max(0, Math.min(1, Number(random()) || 0)) < info.distractionChance
+    return { triggered, chance: info.distractionChance, mode: info.mode, name: info.def.name }
+  }
+
+  function vibrationEscapePenalty () {
+    const info = vibrationInfo('vagina')
+    return info ? info.escapePenalty : 0
+  }
+
   function insertionProstituteBonus () {
     return ['anal', 'vagina'].reduce((sum, slot) => {
       const entry = insertionDevice(slot)
-      return sum + (entry && !entry.device.locked ? Math.max(0, entry.def.prostituteBonus || 0) * (entry.def.stackable ? Math.max(1, entry.device.count || 1) : 1) : 0)
+      if (!entry || entry.device.locked) return sum
+      const base = Math.max(0, entry.def.prostituteBonus || 0) * (entry.def.stackable ? Math.max(1, entry.device.count || 1) : 1)
+      return sum + base + (entry.def.vibrate ? vibrationServiceBonus(slot) : 0)
     }, 0)
   }
   /** 酒馆禁止携带上锁的插入装备工作。 */
@@ -650,7 +734,7 @@ window.RestraintSystem = (function () {
             device = get(slot)
             def = device && defOf(device.id)
           }
-          if (!device || !def || !device.locked || device.jammed || isStory(slot) || isCursed(slot)) return
+          if (!device || !def || !device.locked || device.jammed || isStory(slot) || isCursed(slot) || isContractLock(slot)) return
           const blocksPart = part === 'oral'
             ? def.id !== 'slut_gag'
             : part === 'anal'
@@ -732,6 +816,7 @@ window.RestraintSystem = (function () {
     st._restraintSettings.trapAutoLock = st._restraintSettings.trapAutoLock !== false
     st._restraintSettings.redirectAttacks = st._restraintSettings.redirectAttacks !== false
     st._restraintSettings.bossForcedUnlock = st._restraintSettings.bossForcedUnlock !== false
+    st._restraintSettings.vibrationControl = st._restraintSettings.vibrationControl !== false
     st._restraintSettings.chargeNotice = ['detail', 'compact', 'off'].includes(st._restraintSettings.chargeNotice)
       ? st._restraintSettings.chargeNotice
       : 'detail'
@@ -787,6 +872,8 @@ window.RestraintSystem = (function () {
   function openSettings () {
     const s = settings()
     const gs = State.get()._guardSearchSettings || {}
+    const ps = State.get()._pillorySettings || (State.get()._pillorySettings = {})
+    const mcs = State.get()._mercenaryContractSettings || (State.get()._mercenaryContractSettings = {})
     const unlocked = SLOT_ORDER.filter(slot => { const d = get(slot); return d && !d.locked })
     const FREQ = { low: '低（10%/15%）', standard: '标准（25%/35%）', high: '高（40%/60%）', always: '每次（100%）' }
     const DUR = { fast: '快速（5~10 秒）', standard: '标准（10~30 秒）', immersive: '沉浸（30~60 秒）', fixed: '固定（60 秒）' }
@@ -868,9 +955,49 @@ window.RestraintSystem = (function () {
         <div class="restr-collapse" data-collapse="service" data-target="restr-service-body"><span>💋 服务联动</span><i>▾</i></div>
         <div class="restr-collapse-body" id="restr-service-body" hidden>
           <div class="restr-setting-row">
+            <span><b>震动控制玩法</b><small>启用跳蛋与震动棒档位、服务加成和战斗代价</small></span>
+            <label class="restr-switch"><input type="checkbox" id="restr-set-vibration" ${s.vibrationControl ? 'checked' : ''}><i></i></label>
+          </div>
+          <div class="restr-setting-row">
             <span><b>荣耀洞足交服务</b><small>关闭后隐藏荣耀洞的足交选项</small></span>
             <label class="restr-switch"><input type="checkbox" id="glory-foot" ${((State.get()._glorySettings || {}).footService) !== false ? 'checked' : ''}><i></i></label>
           </div>
+          <div class="restr-setting-row">
+            <span><b>广场木枷</b><small>在营地显示公开展示与抵债设施</small></span>
+            <label class="restr-switch"><input type="checkbox" id="pillory-enabled" ${ps.enabled !== false ? 'checked' : ''}><i></i></label>
+          </div>
+          <div class="restr-setting-row${ps.enabled === false ? ' is-muted' : ''}">
+            <span><b>木枷成人围观事件</b><small>每 15 秒有 30% 概率；一次展示最多触发一项</small></span>
+            <label class="restr-switch"><input type="checkbox" id="pillory-adult" ${ps.adultEvents !== false ? 'checked' : ''} ${ps.enabled === false ? 'disabled' : ''}><i></i></label>
+          </div>
+        </div>
+        <div class="restr-collapse" data-collapse="mercenary" data-target="restr-mercenary-body"><span>⚔️ 佣兵债务契约</span><i>▾</i></div>
+        <div class="restr-collapse-body" id="restr-mercenary-body" hidden>
+          <div class="restr-setting-row">
+            <span><b>启用佣兵债务系统</b><small>招募后不收日薪，仅借款、代付与违约产生债务</small></span>
+            <label class="restr-switch"><input type="checkbox" id="merc-contract-enabled" ${mcs.enabled !== false ? 'checked' : ''}><i></i></label>
+          </div>
+          <div class="restr-setting-row">
+            <span><b>允许借款与代付</b><small>启用现金借款、招募分期和必要费用代付</small></span>
+            <label class="restr-switch"><input type="checkbox" id="merc-contract-advance" ${mcs.allowAdvance !== false ? 'checked' : ''}><i></i></label>
+          </div>
+          <div class="restr-setting-row">
+            <span><b>妖缚装备契约</b><small>抵债契约可以暂借并锁上兼容装备</small></span>
+            <label class="restr-switch"><input type="checkbox" id="merc-contract-gear" ${mcs.gearContracts !== false ? 'checked' : ''}><i></i></label>
+          </div>
+          <div class="restr-setting-row">
+            <span><b>酒馆服务契约</b><small>允许通过酒馆、荣耀洞与足交任务抵债</small></span>
+            <label class="restr-switch"><input type="checkbox" id="merc-contract-tavern" ${mcs.tavernContracts !== false ? 'checked' : ''}><i></i></label>
+          </div>
+          <div class="restr-setting-row">
+            <span><b>债务难度</b><small>${({ lenient: '宽松 · 上限400G', standard: '标准 · 上限300G', strict: '严格 · 上限200G' })[mcs.difficulty || 'standard']}</small></span>
+            <button class="btn restr-btn" data-merc-cycle="difficulty">切换</button>
+          </div>
+          <div class="restr-setting-row">
+            <span><b>违约处罚</b><small>${({ warning: '仅警告', standard: '标准', strict: '严格' })[mcs.penalty || 'standard']}</small></span>
+            <button class="btn restr-btn" data-merc-cycle="penalty">切换</button>
+          </div>
+          ${State.get()._mercenary ? '<button class="btn restr-btn merc-open-contract" data-act="merc-open">打开芙蕾雅契约面板</button>' : '<p class="camp-footnote">招募芙蕾雅后可使用此系统。</p>'}
         </div>
         <p class="camp-footnote">已佩戴 ${countWorn()} 件 · 上锁 ${countLocked()} 件 · 战斗金币加成 +${Math.round(goldBonus() * 100)}%。</p>
       </div>`,
@@ -892,6 +1019,7 @@ window.RestraintSystem = (function () {
     bindRuleToggle('restr-set-auto-lock', 'trapAutoLock')
     bindRuleToggle('restr-set-redirect', 'redirectAttacks')
     bindRuleToggle('restr-set-boss-unlock', 'bossForcedUnlock')
+    bindRuleToggle('restr-set-vibration', 'vibrationControl', true)
     document.querySelectorAll('[data-rule-cycle]').forEach(btn => {
       btn.onclick = () => {
         const modes = Object.keys(NOTICE)
@@ -938,6 +1066,34 @@ window.RestraintSystem = (function () {
     bindToggle('gs-confiscate', 'confiscateLockpick')
     bindToggle('gs-bribe', 'allowBribe')
     bindToggle('gs-device', 'deviceComments')
+    const bindMercToggle = (id, key) => {
+      const el = document.getElementById(id)
+      if (el) el.onchange = () => {
+        const cfg = State.get()._mercenaryContractSettings || (State.get()._mercenaryContractSettings = {})
+        cfg[key] = el.checked
+        EventBus.emit('state:changed', State.get())
+        State.save()
+      }
+    }
+    bindMercToggle('merc-contract-enabled', 'enabled')
+    bindMercToggle('merc-contract-advance', 'allowAdvance')
+    bindMercToggle('merc-contract-gear', 'gearContracts')
+    bindMercToggle('merc-contract-tavern', 'tavernContracts')
+    document.querySelectorAll('[data-merc-cycle]').forEach(btn => {
+      btn.onclick = () => {
+        const cfg = State.get()._mercenaryContractSettings || (State.get()._mercenaryContractSettings = {})
+        if (btn.dataset.mercCycle === 'difficulty') {
+          const modes = ['lenient', 'standard', 'strict']
+          cfg.difficulty = modes[(modes.indexOf(cfg.difficulty || 'standard') + 1) % modes.length]
+        } else {
+          const modes = ['warning', 'standard', 'strict']
+          cfg.penalty = modes[(modes.indexOf(cfg.penalty || 'standard') + 1) % modes.length]
+        }
+        EventBus.emit('state:changed', State.get()); State.save(); Dialog.close(); openSettings()
+      }
+    })
+    const mercOpen = document.querySelector('[data-act="merc-open"]')
+    if (mercOpen) mercOpen.onclick = () => { Dialog.close(); MercenaryContractSystem.openPanel() }
     // 频率/时长循环切换
     document.querySelectorAll('[data-cycle]').forEach(btn => {
       btn.onclick = () => {
@@ -968,6 +1124,19 @@ window.RestraintSystem = (function () {
       EventBus.emit('state:changed', State.get())
       State.save()
     }
+    const bindPilloryToggle = (id, key, rerender = false) => {
+      const el = document.getElementById(id)
+      if (!el) return
+      el.onchange = () => {
+        const cfg = State.get()._pillorySettings || (State.get()._pillorySettings = {})
+        cfg[key] = el.checked
+        EventBus.emit('state:changed', State.get())
+        State.save()
+        if (rerender) { Dialog.close(); openSettings() }
+      }
+    }
+    bindPilloryToggle('pillory-enabled', 'enabled', true)
+    bindPilloryToggle('pillory-adult', 'adultEvents')
     // 恢复默认
     document.querySelectorAll('[data-act="gs-reset"]').forEach(btn => {
       btn.onclick = () => {
@@ -1017,15 +1186,19 @@ window.RestraintSystem = (function () {
         return `<div class="restr-card restr-empty"><i>${SLOT_ICONS[slot]}</i><span><b>${SLOT_NAMES[slot]}</b><small>${emptyHint}</small></span></div>`
       }
       const lockTag = d.locked
-        ? `<em class="restr-lock">${d.jammed ? '⛓️ 卡死' : isCursed(slot) ? '🧿 诅咒锁' : isStory(slot) ? '📜 剧情锁' : '🔒 上锁'}${d.timer ? ` · ⏲️${d.timer}` : ''}</em>`
+        ? `<em class="restr-lock${isContractLock(slot) ? ' is-contract' : ''}">${d.jammed ? '⛓️ 卡死' : isCursed(slot) ? '🧿 诅咒锁' : isStory(slot) ? '📜 剧情锁' : isContractLock(slot) ? '📜 契约锁' : '🔒 上锁'}${d.timer ? ` · ⏲️${d.timer}` : ''}</em>`
         : `<em class="restr-open">✓ 未锁</em>`
       const lockCount = State.get().inventory.consumables.restraint_lock || 0
       const lockButton = !def.cosmetic && !def.story
         ? `<button class="btn restr-btn" data-act="lock" data-slot="${slot}" ${lockCount > 0 ? '' : 'disabled'}>🔒 ${lockCount > 0 ? `上锁（剩 ${lockCount}）` : '没有普通锁'}</button>`
         : ''
+      const vibration = def.vibrate ? vibrationInfo(slot) : null
+      const vibrationButtons = vibration
+        ? Object.entries(VIBRATION_MODES).map(([mode, rule]) => `<button class="btn restr-btn restr-vibration-btn${vibration.configuredMode === mode ? ' is-active' : ''}" data-act="vibration" data-mode="${mode}" data-slot="${slot}" ${vibration.adjustable && vibration.configuredMode !== mode ? '' : 'disabled'}>${rule.icon} ${rule.label}</button>`).join('')
+        : ''
       const actionsHtml = d.locked
-        ? isStory(slot)
-          ? `<div class="restr-actions"><span class="camp-muted">📜 剧情锁只能通过对应剧情解除</span></div>`
+        ? (isStory(slot) || isContractLock(slot))
+          ? `<div class="restr-actions"><span class="camp-muted">${isContractLock(slot) ? '📜 契约装备：完成任务或回对应契约面板解约' : '📜 剧情锁只能通过对应剧情解除'}</span></div>`
           : `<div class="restr-actions">
              ${d.jammed ? '' : `<button class="btn restr-btn" data-act="struggle" data-slot="${slot}">💪 挣扎</button>`}
              ${canCut(slot) ? `<button class="btn restr-btn" data-act="cut" data-slot="${slot}">🔪 割断</button>` : ''}
@@ -1038,13 +1211,14 @@ window.RestraintSystem = (function () {
                <button class="btn restr-btn" data-act="stack-minus" data-slot="${slot}" ${(d.count || 1) <= 1 ? 'disabled' : ''}>➖ 取出一颗</button>
                <button class="btn restr-btn" data-act="stack-plus" data-slot="${slot}" ${(d.count || 1) >= ownedCount(d.id) ? 'disabled' : ''}>➕ 再塞一颗</button>
                <button class="btn restr-btn" data-act="remove" data-slot="${slot}">✋ 全部取出</button>
+               ${vibrationButtons}
                ${lockButton}
              </div>`
-          : `<div class="restr-actions"><button class="btn restr-btn" data-act="remove" data-slot="${slot}">✋ 脱下</button>${lockButton}</div>`
+          : `<div class="restr-actions"><button class="btn restr-btn" data-act="remove" data-slot="${slot}">✋ 脱下</button>${vibrationButtons}${lockButton}</div>`
       const countLabel = def.stackable ? ` ×${Math.max(1, d.count || 1)}` : ''
       const charge = def.insert ? insertionCharge(slot) : null
       const chargeHtml = charge
-        ? insertDetailsHtml(def, charge)
+        ? insertDetailsHtml(def, charge, d)
         : ''
       const serviceHtml = !def.insert ? serviceDetailsHtml(def) : ''
       const tone = def.insert ? 'insert' : gearTone(def)
@@ -1081,6 +1255,7 @@ window.RestraintSystem = (function () {
           else if (act === 'npc') result = npcUnlock(slot)
           else if (act === 'stack-minus') result = adjustStack(slot, -1)
           else if (act === 'stack-plus') result = adjustStack(slot, 1)
+          else if (act === 'vibration') result = setVibrationMode(slot, btn.dataset.mode)
           else if (act === 'remove') result = remove(slot)
           if (result && result.msg) EventBus.emit('ui:log', { text: result.msg, type: result.ok ? 'good' : 'danger' })
           Dialog.close()
@@ -1093,12 +1268,13 @@ window.RestraintSystem = (function () {
   return {
     SLOT_ORDER, SLOT_NAMES, SLOT_ICONS,
     get, defOf, isWorn, isLocked, countLocked, countWorn, goldBonus,
-    equip, remove, restore, lockDevice, isStory, isHeavy, isCursed, canCut, cut, struggle,
+    equip, remove, restore, lockDevice, isStory, isContractLock, isHeavy, isCursed, canCut, cut, struggle,
     useKey, useLockpick, useCurseRemover, npcUnlock, npcUnlockCost,
     setTimer, tickTimers, lockedSlots,
     hasGag, hasHandcuffs, hasLegCuffs, hasCollar, hasArmbinder, hasBlindfold, hasWaistChastity, hasHandsBlocked,
     hasNipple, hasCorset, hasAnkleChains, hasDevice, ownedCount, grant, adjustStack,
     allowedSlotsOf, canEquip, insertionDevice, insertionBlocks, insertionCharge, setInsertionCharge, insertionProstituteBonus, lockedInsertionDevices, lockedServiceDevices, resolveMonsterOrifice, resolveServiceOrifice,
+    VIBRATION_MODES, vibrationInfo, setVibrationMode, vibrationServiceBonus, vibrationDistraction, vibrationEscapePenalty,
     effectiveMaxOwn, wornCountOf,
     settings, chargeNoticeText, toggleTrap, removeAllUnlocked, bodyDiagram,
     openManage, openSettings,

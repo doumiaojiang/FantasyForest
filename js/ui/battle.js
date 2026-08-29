@@ -98,7 +98,7 @@ window.BattleUI = (function () {
       <button class="btn" id="btn-skip">⏭ 跳过</button>
       ${_enemy && _enemy.surrender ? '<button class="btn" id="btn-flee">🏳️ 投降</button>' : ''}
       <button class="btn" id="btn-item">🧪 物品</button>
-      ${(typeof RestraintSystem !== 'undefined' && RestraintSystem.countLocked() > 0) ? '<button class="btn" id="btn-struggle">⛓️ 挣脱</button>' : ''}
+      ${(typeof RestraintSystem !== 'undefined' && RestraintSystem.lockedSlots().some(slot => !RestraintSystem.isContractLock(slot))) ? '<button class="btn" id="btn-struggle">⛓️ 挣脱</button>' : ''}
     `
 
     document.getElementById('btn-attack').onclick = () => { playerAttack() }
@@ -131,7 +131,7 @@ window.BattleUI = (function () {
   /** 战斗中挣脱：消耗本回合攻击机会，尝试挣脱一件上锁妖缚装置 */
   function doBattleStruggle () {
     if (typeof RestraintSystem === 'undefined') { showPlayerTurn(); return }
-    const slots = RestraintSystem.lockedSlots()
+    const slots = RestraintSystem.lockedSlots().filter(slot => !RestraintSystem.isContractLock(slot))
     if (!slots.length) { showPlayerTurn(); return }
     const html = slots.map(slot => {
       const d = RestraintSystem.get(slot)
@@ -326,6 +326,7 @@ window.BattleUI = (function () {
     let msg = ''
     if (result.stunned) msg = '⚡ 你被眩晕了，无法攻击！'
     else if (result.hitSelf) msg = `🌀 混乱中你打中了自己！-${result.dmg} HP`
+    else if (result.vibrationDistracted) msg = `${result.vibrationMode === 'high' ? '⚡' : '〰️'} ${result.vibrationName || '震动装备'}突然加速，你分心打空了！`
     else if (result.miss) msg = '❌ 未命中！'
     else if (result.crit) msg = `🔥 暴击！${result.target?.name || '敌人'} 受到 ${result.dmg} 点伤害！`
     else msg = `⚔️ 命中！${result.target?.name || '敌人'} 受到 ${result.dmg} 点伤害`
@@ -747,7 +748,7 @@ window.BattleUI = (function () {
       function beginTask () {
         const layer = document.getElementById('modal-layer')
         const btns = (layer ? layer : document).querySelectorAll('.modal-actions button')
-        btns.forEach(b => { if (b.textContent.includes('开始任务') || b.textContent.includes('拒绝服务')) b.style.display = 'none' })
+        btns.forEach(b => { if (b.textContent.includes('开始任务') || (refuseLabel && b.textContent.includes(refuseLabel))) b.style.display = 'none' })
         // 添加跳过计时器按钮
         const actionsDiv = (layer ? layer : document).querySelector('.modal-actions')
         if (actionsDiv && hasTimer && allowSkip) {
