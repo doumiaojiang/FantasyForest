@@ -44,7 +44,24 @@ window.CampSystem = (function () {
     { duration: 60, reward: 25, label: '标准展示', note: '60 秒 · 25G' },
     { duration: 90, reward: 45, label: '长时展示', note: '90 秒 · 45G' },
   ]
+  const PILLORY_AMBIENT_EVENTS = [
+    { id: 'coin_tip', kind: 'ambient', icon: '🪙', name: '路人投币', desc: '一名路人把几枚金币丢进木枷旁的铁碗。', gold: 5, type: 'good' },
+    { id: 'quiet_crowd', kind: 'ambient', icon: '👥', name: '驻足围观', desc: '几名镇民停下脚步，小声议论片刻后继续赶路。', gold: 0, type: 'dim' },
+    { id: 'public_mockery', kind: 'ambient', icon: '📣', name: '公开嘲笑', desc: '围观者起哄嘲笑，你只能保持姿势把这一段熬过去。', gold: 0, type: 'dim' },
+    { id: 'light_fingers', kind: 'ambient', icon: '🫳', name: '顺手牵羊', desc: '有人趁你动弹不得，摸走了最多 5 枚金币。', gold: -5, type: 'danger' },
+  ]
+  const PILLORY_ADULT_EVENTS = [
+    { id: 'oral_slow', kind: 'adult', part: 'oral', bpm: 60, seconds: 30, name: '缓慢口部服务', style: '缓慢试探' },
+    { id: 'oral_fast', kind: 'adult', part: 'oral', bpm: 120, seconds: 30, name: '快速口部服务', style: '快速操弄' },
+    { id: 'anal_standard', kind: 'adult', part: 'anal', bpm: 90, seconds: 30, name: '后穴围观服务', style: '稳定抽插' },
+    { id: 'anal_hard', kind: 'adult', part: 'anal', bpm: 150, seconds: 30, name: '激烈后穴服务', style: '猛烈抽插' },
+    { id: 'vagina_standard', kind: 'adult', part: 'vagina', bpm: 90, seconds: 30, name: '小穴围观服务', style: '稳定抽插' },
+    { id: 'vagina_hard', kind: 'adult', part: 'vagina', bpm: 150, seconds: 30, name: '激烈小穴服务', style: '猛烈抽插' },
+  ]
   let pilloryRunning = false
+  function townPrice (price, category = 'general') {
+    return window.TownReputationSystem ? TownReputationSystem.getPrice(price, category) : price
+  }
   function setCampPhase () {
     const state = State.get()
     if (state.phase !== 'camp') {
@@ -165,6 +182,8 @@ window.CampSystem = (function () {
     const deerStatus = state._campDeerTaken ? '已领取' : '有礼物'
     const toiletStatus = state._gloryDiscovered ? '已解锁' : '可探索'
     const toiletHint = state._gloryDiscovered ? '普通厕所 · 隐藏隔间已发现' : '普通厕所 · 隔间有些不一样'
+    const townRank = window.TownReputationSystem ? TownReputationSystem.rank() : { icon: '🧭', name: '外来的旅人', tone: 'neutral' }
+    const townFame = window.TownReputationSystem ? TownReputationSystem.fameLabel() : '无人认识'
     campShow({
       title: '⛺ 林缘营地',
       className: 'camp-modal',
@@ -174,6 +193,7 @@ window.CampSystem = (function () {
           <div><small>SAFE HAVEN · 林缘休憩地</small><h3>篝火还暖着，森林暂时安静。</h3><p>补充物资、打听消息，准备好后再回到妖林。</p></div>
         </section>
         <div class="camp-stats" aria-label="营地状态"><span>❤️ ${state.hp}/${state.maxHp}</span><span>💎 ${state.gold} 金币</span><span>🧭 出生点东侧</span></div>
+        <button class="town-rep-strip town-rep-${townRank.tone}" data-town-reputation><i>${townRank.icon}</i><span><small>MISTLAMP REPUTATION · 雾灯镇评价</small><b>${townRank.name}</b><em>📣 ${townFame}</em></span><strong>${state._townReputation && state._townReputation.score > 0 ? '+' : ''}${state._townReputation ? state._townReputation.score : 0}</strong></button>
         <div class="camp-grid">
           <button class="camp-opt camp-opt-tavern" data-opt="tavern"><i>🍺</i><span><b>雾灯酒馆</b><small>摇骰子、买酒</small></span><em>营业中</em></button>
           <button class="camp-opt camp-opt-blacksmith" data-opt="blacksmith"><i>🔨</i><span><b>铁匠铺</b><small>武器与饰品</small></span><em>营业中</em></button>
@@ -205,6 +225,8 @@ window.CampSystem = (function () {
         else if (opt === 'ddshop') ddShop()
       }
     })
+    const reputationBtn = document.querySelector('[data-town-reputation]')
+    if (reputationBtn && window.TownReputationSystem) reputationBtn.onclick = () => TownReputationSystem.openPanel(open)
   }
 
   /** 城镇广场常驻木枷：自愿展示，或在有佣兵债务时用一次任务抵债。 */
@@ -221,14 +243,14 @@ window.CampSystem = (function () {
       body: `<section class="pillory-hero"><div class="pillory-mark" aria-hidden="true">🪵</div><div><small>TOWN SQUARE · PUBLIC PILLORY</small><h3>旧木枷立在广场中央，围观者来来往往。</h3><p>你可以自愿接受一段公开展示来赚取金币；任务期间可能发生围观事件。</p></div></section>
         <div class="pillory-status-grid">
           <span><i>⏱️</i><b>三档时长</b><small>30 / 60 / 90 秒</small></span>
-          <span class="${adultOn ? 'is-active' : 'is-muted'}"><i>${adultOn ? '💋' : '🚫'}</i><b>成人事件</b><small>${adultOn ? '已开启 · 每 15 秒判定' : '已在 MCM 关闭'}</small></span>
+          <span class="${adultOn ? 'is-active' : 'is-muted'}"><i>${adultOn ? '💋' : '👥'}</i><b>随机事件</b><small>${adultOn ? '普通 + 成人 · 防重复' : '仅普通围观事件'}</small></span>
           <span><i>🔒</i><b>装备联动</b><small>上锁部位会自动换位</small></span>
         </div>
         <section class="pillory-section"><div class="pillory-section-head"><span><small>VOLUNTARY WORK</small><b>选择公开展示时长</b></span><em>时间越长，报酬越高</em></div>
           <div class="pillory-choice-grid">${PILLORY_OPTIONS.map((opt, index) => `<button class="pillory-choice" data-pillory-choice="${index}"><i>${index === 0 ? '🌿' : index === 1 ? '⚖️' : '🔥'}</i><span><b>${opt.label}</b><small>${opt.note}</small></span><em>开始</em></button>`).join('')}</div>
         </section>
         ${mercDebt > 0 ? `<section class="pillory-debt"><i>⚔️</i><span><small>芙蕾雅的抵债方式</small><b>公开受枷 60 秒</b><p>不领取普通工资，完成后抵扣最多 <strong>40G</strong> 债务；若发生成人事件，再额外抵扣最多 10G。</p></span><button data-pillory-debt>接受抵债</button></section>` : ''}
-        <p class="camp-footnote">木枷是广场设施，不占用妖缚装备栏。成人事件不会消耗插入装备的战斗充能，也不会强拆任何上锁装置。</p>`,
+        <p class="camp-footnote">每 15 秒判定一次，一轮最多发生一项随机事件，且不会连续抽中同一项。成人事件不会消耗插入装备的战斗充能，也不会强拆任何上锁装置。</p>`,
       actions: [{ label: '返回营地', handler: () => open() }],
     })
     document.querySelectorAll('[data-pillory-choice]').forEach(btn => {
@@ -241,10 +263,9 @@ window.CampSystem = (function () {
     if (debtBtn) debtBtn.onclick = () => startPillory('mercenary', 60, 0)
   }
 
-  /** 每 15 秒进行一次围观判定；只保存真正会发生的一次成人事件，避免连续弹出太多任务。 */
+  /** 每 15 秒进行一次围观判定；一轮最多保留一项，并排除上次事件。 */
   function rollPilloryEvent (duration, source = 'voluntary', random = Math.random) {
     const state = State.get()
-    if ((state._pillorySettings || {}).adultEvents === false) return null
     const checks = Math.max(1, Math.floor(duration / 15))
     let triggered = false
     const chance = source === 'punishment' ? 0.45 : 0.30
@@ -252,23 +273,32 @@ window.CampSystem = (function () {
       if (random() < chance) { triggered = true; break }
     }
     if (!triggered) return null
-    const parts = state.gender === 'male' ? ['oral', 'anal'] : ['oral', 'anal', 'vagina']
-    const part = parts[Math.min(parts.length - 1, Math.floor(random() * parts.length))]
-    const bpms = part === 'oral' ? [60, 90, 120] : [90, 120, 150]
-    return { part, bpm: bpms[Math.min(bpms.length - 1, Math.floor(random() * bpms.length))], seconds: 30 }
+    const adultOn = (state._pillorySettings || {}).adultEvents !== false
+    const adultPool = adultOn
+      ? PILLORY_ADULT_EVENTS.filter(event => state.gender !== 'male' || event.part !== 'vagina')
+      : []
+    const wantsAdult = adultPool.length && random() < (source === 'punishment' ? 0.65 : 0.45)
+    let pool = wantsAdult ? adultPool : PILLORY_AMBIENT_EVENTS
+    const withoutRepeat = pool.filter(event => event.id !== state._pilloryLastEventId)
+    if (withoutRepeat.length) pool = withoutRepeat
+    const picked = pool[Math.min(pool.length - 1, Math.floor(random() * pool.length))]
+    return picked ? { ...picked, applied: false } : null
   }
 
   function startPillory (source, duration, reward) {
     const state = State.get()
     if (state._pillory || pilloryRunning) return
+    const event = rollPilloryEvent(duration, source)
     state._pillory = {
       source: ['mercenary', 'fine', 'punishment'].includes(source) ? source : 'voluntary',
       duration,
       reward,
       stage: 'restraint',
-      event: rollPilloryEvent(duration, source),
+      event,
+      results: [],
       returnTo: source === 'fine' ? 'leave' : 'camp',
     }
+    if (event) state._pilloryLastEventId = event.id
     EventBus.emit('ui:log', { text: `🪵 你把头和双手放进广场木枷，开始 ${duration} 秒公开展示。`, type: 'dim' })
     EventBus.emit('state:changed', state)
     State.save()
@@ -302,7 +332,7 @@ window.CampSystem = (function () {
         State.save()
       }
       if (task.stage === 'adult') {
-        await runPilloryAdultEvent(task)
+        await runPilloryEvent(task)
         task.stage = 'settle'
         EventBus.emit('state:changed', state)
         State.save()
@@ -313,13 +343,49 @@ window.CampSystem = (function () {
     }
   }
 
-  async function runPilloryAdultEvent (task) {
+  function addPilloryResult (task, result) {
+    if (!Array.isArray(task.results)) task.results = []
+    task.results.push(result)
+    task.results = task.results.slice(-6)
+  }
+
+  function pilloryEventDef (event) {
+    return [...PILLORY_AMBIENT_EVENTS, ...PILLORY_ADULT_EVENTS].find(item => item.id === event.id) || event
+  }
+
+  async function runPilloryEvent (task) {
     const state = State.get()
     let event = task.event
-    if (!event) return
+    if (!event || event.applied) return
+    const def = pilloryEventDef(event)
+    if (event.kind === 'ambient') {
+      let detail = def.desc || '广场上发生了一阵小小骚动。'
+      let type = def.type || 'dim'
+      let icon = def.icon || '👥'
+      if ((def.gold || 0) < 0) {
+        const lost = Math.min(Math.abs(def.gold), Math.max(0, state.gold || 0))
+        state.gold -= lost
+        event.gold = -lost
+        detail = lost > 0 ? `趁你无法动弹，身上的 ${lost}G 被摸走了。` : '小偷翻了半天，却发现你身上一枚金币都没有。'
+        type = lost > 0 ? 'danger' : 'dim'
+      } else if ((def.gold || 0) > 0) {
+        event.gold = def.gold
+        detail = task.source === 'voluntary'
+          ? `铁碗里多了 ${def.gold}G，结算时一起交给你。`
+          : task.source === 'mercenary'
+            ? `铁碗里的 ${def.gold}G 会一并用于抵债。`
+            : '围观者投下的金币被负责看守的卫兵收走了。'
+      }
+      event.applied = true
+      addPilloryResult(task, { icon, label: def.name || '围观事件', detail, type })
+      EventBus.emit('ui:log', { text: `${icon} 木枷事件「${def.name || '围观事件'}」：${detail}`, type })
+      EventBus.emit('state:changed', state)
+      State.save()
+      return
+    }
     if (event.part !== 'spank') {
       const route = routeTownService(event.part)
-      if (route.mode === 'unavailable') event = { part: 'spank', bpm: 60, seconds: 30 }
+      if (route.mode === 'unavailable') event = { ...event, part: 'spank', bpm: 60, seconds: 30 }
       else event = { ...event, part: route.part }
       task.event = event
       State.save()
@@ -331,12 +397,14 @@ window.CampSystem = (function () {
       vagina: townServiceDesc('vagina', '一名围观者'),
       spank: '三个可用部位都被装备挡住，围观者改为按节奏拍打你的屁股',
     }
-    EventBus.emit('ui:log', { text: `💋 木枷围观事件：${names[event.part]}。`, type: 'danger' })
+    const eventName = event.part === def.part && def.name ? def.name : names[event.part]
+    const style = def.style ? `，以${def.style}的方式，` : '，'
+    EventBus.emit('ui:log', { text: `💋 木枷围观事件：${eventName}。`, type: 'danger' })
     if (typeof BattleUI !== 'undefined' && BattleUI.showTaskDialog) {
       await BattleUI.showTaskDialog({
         enemyName: '👥 广场围观者',
-        attackName: names[event.part],
-        desc: `${descriptions[event.part]}，${event.bpm} BPM 持续 ${event.seconds} 秒。`,
+        attackName: eventName,
+        desc: `${descriptions[event.part]}${style}${event.bpm} BPM 持续 ${event.seconds} 秒。`,
         bpm: event.bpm,
         seconds: event.seconds,
         dmg: 0,
@@ -352,17 +420,29 @@ window.CampSystem = (function () {
       state._gloryWanted = Math.min(100, (state._gloryWanted || 0) + 5)
       EventBus.emit('ui:log', { text: `🚨 广场成人服务被卫兵记下，无证危险值 +5（现 ${state._gloryWanted}%）。`, type: 'danger' })
     }
+    event.applied = true
+    task.event = event
+    addPilloryResult(task, {
+      icon: event.part === 'spank' ? '🍑' : '💋',
+      label: eventName,
+      detail: `${event.bpm} BPM · ${event.seconds} 秒${!state._prostituteLicensed && event.part !== 'spank' ? ' · 无证危险 +5' : ''}`,
+      type: event.part === 'spank' ? 'dim' : 'danger',
+    })
+    EventBus.emit('state:changed', state)
+    State.save()
   }
 
   function settlePillory (task) {
     const state = State.get()
-    const hadAdult = !!task.event
+    const hadEvent = !!task.event
+    const hadAdult = hadEvent && task.event.kind !== 'ambient'
     const adultBonus = hadAdult && task.event.part !== 'spank'
       ? (task.event.part === 'oral' ? 10 : 15)
       : 0
+    const ambientBonus = task.event && task.event.kind === 'ambient' ? Math.max(0, task.event.gold || 0) : 0
     let resultText = ''
     if (task.source === 'mercenary') {
-      const requested = 40 + (hadAdult ? 10 : 0)
+      const requested = 40 + (hadAdult ? 10 : 0) + ambientBonus
       const result = typeof MercenaryContractSystem !== 'undefined'
         ? MercenaryContractSystem.repay(requested, '广场木枷契约', { external: true })
         : { ok: false, amount: 0 }
@@ -372,25 +452,45 @@ window.CampSystem = (function () {
       EventBus.emit('ui:log', { text: '🪵 你完成公开木枷处罚，卫兵勾掉了 100G 罚款。', type: 'good' })
     } else if (task.source === 'punishment') {
       state._gloryWanted = Math.max(0, (state._gloryWanted || 0) - 10)
+      // 木枷已经替代本轮守卫盘查；清掉荣耀洞离场断点，避免回营地后再次判定抓捕。
+      state._gloryJustCleared = false
+      state._gloryByGuard = false
+      state._gloryByCaptain = false
       resultText = `完成无证营业处罚 · 危险值降至 ${state._gloryWanted}`
       EventBus.emit('ui:log', { text: `🪵 你完成广场木枷处罚，危险值降至 ${state._gloryWanted}。`, type: 'good' })
     } else {
-      const earned = Math.max(0, task.reward || 0) + adultBonus
+      const earned = Math.max(0, task.reward || 0) + adultBonus + ambientBonus
       state.gold += earned
-      resultText = `获得 ${earned}G${adultBonus ? `（含围观事件奖励 ${adultBonus}G）` : ''}`
+      const extra = adultBonus + ambientBonus
+      resultText = `获得 ${earned}G${extra ? `（含随机事件奖励 ${extra}G）` : ''}`
       EventBus.emit('ui:log', { text: `🪵 木枷展示完成，${resultText}。`, type: 'good' })
     }
+    const resultRows = [
+      { icon: '⏱️', label: '公开展示', detail: `${task.duration} 秒 · 已完成`, type: 'good' },
+      ...(Array.isArray(task.results) ? task.results : []),
+    ]
+    const eventSummary = !hadEvent
+      ? '本轮没有触发随机事件。'
+      : hadAdult
+        ? `本轮触发了${task.event.part === 'spank' ? '公开打屁股' : '成人围观'}事件。`
+        : '本轮触发了一项普通围观事件。'
+    if (window.TownReputationSystem) TownReputationSystem.recordPillory()
     state._pillory = null
     EventBus.emit('state:changed', state)
     State.save()
     campShow({
       title: '🪵 木枷展示结束',
       className: 'camp-tavern-modal pillory-modal',
-      body: `<section class="pillory-result"><i>✓</i><div><small>PUBLIC PILLORY · COMPLETE</small><h3>${resultText}</h3><p>${hadAdult ? `本次发生了${task.event.part === 'spank' ? '公开打屁股' : '成人围观'}事件。` : '这次只有普通围观，没有发生额外事件。'}你重新活动发麻的手腕，走下广场台阶。</p></div></section>`,
-      actions: [
-        { label: '再看看木枷', cls: 'btn-primary', handler: squarePillory },
-        { label: task.returnTo === 'leave' ? '离开城镇' : '返回营地', handler: task.returnTo === 'leave' ? doLeaveCamp : open },
-      ],
+      body: `<section class="pillory-result"><i>✓</i><div><small>PUBLIC PILLORY · COMPLETE</small><h3>${resultText}</h3><p>${eventSummary}你重新活动发麻的手腕，走下广场台阶。</p></div></section>
+        <div class="pillory-result-list">${resultRows.map(row => `<span class="is-${row.type || 'dim'}"><i>${row.icon}</i><b>${row.label}</b><small>${row.detail}</small></span>`).join('')}</div>`,
+      actions: task.source === 'fine'
+        ? [{ label: '离开城镇', cls: 'btn-primary', handler: doLeaveCamp }]
+        : task.source === 'punishment'
+          ? [{ label: '返回营地', cls: 'btn-primary', handler: open }]
+          : [
+              { label: '再看看木枷', cls: 'btn-primary', handler: squarePillory },
+              { label: '返回营地', handler: open },
+            ],
     })
   }
 
@@ -614,7 +714,8 @@ window.CampSystem = (function () {
     if (!s.enabled) return false
     if (state._guardCheckedThisVisit) return false
     const freq = GUARD_FREQ[s.frequency]
-    return Math.random() < (direction === 'enter' ? freq.enter : freq.exit)
+    const multiplier = window.TownReputationSystem ? TownReputationSystem.guardMultiplier() : 1
+    return Math.random() < Math.min(1, (direction === 'enter' ? freq.enter : freq.exit) * multiplier)
   }
 
   /** 妖缚装置台词：最多显示三条，额外装备汇总，避免移动端弹窗过长。 */
@@ -668,10 +769,13 @@ window.CampSystem = (function () {
     const hasLockpick = (state.inventory.consumables.lockpick || 0) > 0
     const hasPass = (state.inventory.consumables.guard_pass || 0) > 0
     const wearing = typeof RestraintSystem !== 'undefined' ? RestraintSystem.countWorn() : 0
+    const reputation = window.TownReputationSystem ? TownReputationSystem.rank() : null
+    const guardGreeting = window.TownReputationSystem ? TownReputationSystem.guardGreeting() : '“站住，例行检查。”'
     const body = `
-      <div class="guard-search-hero"><i>🛡️</i><div><small>GATE CHECK · 城门例行检查</small><b>“站住，例行检查。”</b><p>卫兵抬手挡住去路，目光在你的武器、背包和身上的束缚装置间来回扫视。<br>“最近有人往城里带违禁品。站好别动，检查一小会儿。”</p></div></div>
+      <div class="guard-search-hero"><i>🛡️</i><div><small>GATE CHECK · 城门例行检查</small><b>${guardGreeting}</b><p>卫兵抬手挡住去路，目光在你的武器、背包和身上的束缚装置间来回扫视。<br>“最近有人往城里带违禁品。站好别动，检查一小会儿。”</p></div></div>
       <div class="guard-search-status">
         <div><span>金币</span><b>${state.gold}G</b></div>
+        <div><span>城镇评价</span><b>${reputation ? `${reputation.icon} ${reputation.name}` : '中立'}</b></div>
         <div><span>妓女许可证</span><b>${state._prostituteLicensed ? '📜 持证' : '无'}</b></div>
         <div><span>妖缚装置</span><b>${wearing ? `⛓️ ${wearing} 件` : '无'}</b></div>
         <div><span>开锁工具</span><b>${hasLockpick ? `🛠️ ×${state.inventory.consumables.lockpick}` : '无'}</b></div>
@@ -690,7 +794,7 @@ window.CampSystem = (function () {
           state.gold -= 50
           EventBus.emit('ui:log', { text: '💸 交了 50G，卫兵痛快放行。', type: 'danger' })
           EventBus.emit('state:changed', state)
-          finishGuardPass(direction)
+          finishGuardPass(direction, false)
         },
       }] : []),
       ...(!isEnter && hasPass ? [{ label: '📜 出示免检查卷', cls: 'btn-success', handler: () => { Dialog.close(); useGuardPass() } }] : []),
@@ -753,14 +857,19 @@ window.CampSystem = (function () {
       title: '🛡️ 城门检查 · 卫兵',
       className: 'guard-search-modal inventory-modal restraint-modal',
       body: `<div class="guard-search-hero"><i>🛡️</i><div><small>GATE CHECK · 检查结果</small><b>${confiscated ? '“开锁工具？我可记下了。”' : '“没发现违禁品。走吧，别在门口磨蹭。”'}</b><p>${confiscated ? '卫兵把搜出的开锁工具收进口袋，侧身让你过去。' : '卫兵收起打量的目光，侧身让开道。'}</p></div>${guardDeviceComment()}</div>`,
-      actions: [{ label: direction === 'enter' ? '✅ 进城' : '✅ 出城', cls: 'btn-primary', handler: () => { Dialog.close(); finishGuardPass(direction) } }],
+      actions: [{ label: direction === 'enter' ? '✅ 进城' : '✅ 出城', cls: 'btn-primary', handler: () => { Dialog.close(); finishGuardPass(direction, true) } }],
     })
   }
 
   /** 检查通过：进入/离开统一收尾（每个分支只执行一次位置切换） */
-  function finishGuardPass (direction) {
+  function finishGuardPass (direction, inspected = false) {
     const state = State.get()
     state._guardCheckedThisVisit = true
+    if (inspected && window.TownReputationSystem && state._townReputation && state._townReputation.counters) {
+      const counters = state._townReputation.counters
+      counters.guardChecks = (counters.guardChecks || 0) + 1
+      if (counters.guardChecks % 3 === 0) TownReputationSystem.addScore(1, '多次配合城门例行检查')
+    }
     EventBus.emit('state:changed', state)
     if (direction === 'enter') {
       open()
@@ -1341,6 +1450,7 @@ window.CampSystem = (function () {
       const vibration = RestraintSystem.vibrationInfo('vagina')
       EventBus.emit('ui:log', { text: `${vibration && vibration.mode === 'high' ? '⚡' : '〰️'} 震动档位使这次小穴服务额外获得 ${vibrationBonus}G。`, type: 'good' })
     }
+    if (!wasFree && !event.complain && window.TownReputationSystem) totalEarn = TownReputationSystem.getServiceIncome(totalEarn)
     // 营地税率：按难度从收入中扣除（厕所也交税）
     const taxRate = (CONFIG.difficulty[state.difficulty] || {}).campTax || 0
     const tax = Math.floor(totalEarn * taxRate)
@@ -1359,6 +1469,7 @@ window.CampSystem = (function () {
     }
     if (event.free) state._gloryFreeService = true
     if (window.MercenaryContractSystem) MercenaryContractSystem.recordService('glory')
+    if (window.TownReputationSystem) TownReputationSystem.recordLegalService('公共厕所')
     EventBus.emit('ui:log', { text: wasFree ? `🍑 你伺候完「${service.name}」，客人提起裤子就走，一分钱没给（白嫖）。` : `🍑 你伺候完「${service.name}」，累得腰酸背痛，赚了 ${totalEarn} 金币。`, type: totalEarn > 0 ? 'good' : 'dim' })
     if (repaid > 0) EventBus.emit('ui:log', { text: `💸 你挣的钱先被营地扣去还债 ${repaid} 金币，还剩 ${state._gloryDebt} 没还清。`, type: 'dim' })
     EventBus.emit('ui:log', { text: `🎲 Z=${event.z}：${wasFree && event.tip > 0 ? event.msg.replace(/小费|金币/g, '') : event.msg}`, type: event.tip > 0 && !wasFree ? 'good' : 'dim' })
@@ -1458,6 +1569,7 @@ window.CampSystem = (function () {
       state._gloryDebt = (state._gloryDebt || 0) + 30
       EventBus.emit('ui:log', { text: `😤 客人投诉你服务不行，被营地记了 30 金币欠款（现欠 ${state._gloryDebt}G）！`, type: 'danger' })
     }
+    if (!event.complain && window.TownReputationSystem) totalEarn = TownReputationSystem.getServiceIncome(totalEarn)
 
     // 射精位置事件（独立掷骰，不替换 Z 特殊事件）
     let shoeInside = false
@@ -1498,6 +1610,7 @@ window.CampSystem = (function () {
     }
     if (event.free) state._gloryFreeService = true
     if (window.MercenaryContractSystem) MercenaryContractSystem.recordService('foot')
+    if (window.TownReputationSystem) TownReputationSystem.recordLegalService('足交服务')
     EventBus.emit('ui:log', { text: `👠 你伺候完「${service.name}」，累得双脚发酸，赚了 ${totalEarn} 金币。`, type: totalEarn > 0 ? 'good' : 'dim' })
     if (repaid > 0) EventBus.emit('ui:log', { text: `💸 你挣的钱先被营地扣去还债 ${repaid} 金币，还剩 ${state._gloryDebt} 没还清。`, type: 'dim' })
     EventBus.emit('ui:log', { text: `🎲 Z=${event.z}：${event.msg}`, type: event.tip > 0 ? 'good' : 'dim' })
@@ -1593,12 +1706,17 @@ window.CampSystem = (function () {
   /** 被抓进监狱：无证卖淫的惩罚，需按难度攒积分出狱 */
   function enterPrison () {
     const state = State.get()
+    const wasInPrison = !!state._inPrison
     const prisonDevice = state.gender === 'male' ? '贞操锁' : '贞操带'
     const lockedPart = state.gender === 'male' ? '生殖器' : '小穴'
     state._inPrison = true
     state._prisonPoints = 0
     state._wanted = false   // 已被收监，不再通缉
     state.phase = 'camp'
+    if (!wasInPrison && window.TownReputationSystem) {
+      TownReputationSystem.addScore(-3, '因无证营业被收监')
+      TownReputationSystem.addFame(3, '入狱消息传遍雾灯镇')
+    }
     EventBus.emit('state:changed', state)
     // 监狱专用贞操带/贞操锁：小穴被锁死（作为装备 + 妖缚腰部槽剧情锁）
     state._prisonChastity = true
@@ -1675,6 +1793,10 @@ window.CampSystem = (function () {
       state._prisonEscapeFails = 0
       state._prisonEscapePenalty = 0
       state._wanted = true   // 越狱 = 犯罪，出城会被卫兵查、找队长会被抓
+      if (window.TownReputationSystem) {
+        TownReputationSystem.addScore(-20, '从深喉监狱越狱')
+        TownReputationSystem.addFame(15, '成为监狱通缉犯')
+      }
       restorePrisonMouth()
       EventBus.emit('state:changed', state)
       Dialog.show({
@@ -2024,6 +2146,10 @@ window.CampSystem = (function () {
     state._prisonEscapeFails = 0
     state._prisonEscapePenalty = 0
     state._prisonChastity = false   // 正常出狱：解锁监狱贞操装备
+    if (window.TownReputationSystem) {
+      if (state._townReputation && state._townReputation.counters) state._townReputation.counters.prisonReleases = (state._townReputation.counters.prisonReleases || 0) + 1
+      TownReputationSystem.addScore(5, '服满刑期并正常获释')
+    }
     if (typeof RestraintSystem !== 'undefined') {
       const prev = state._prisonWaistPrev
       state._prisonWaistPrev = null
@@ -2275,7 +2401,7 @@ window.CampSystem = (function () {
       title: '🛡️ 荣耀洞出口 · 守卫盘查', className: 'glory-guard-modal',
       body: `<section class="glory-guard-card"><i>🛡️</i><div><small>EXIT INSPECTION · 出口盘查</small><h3>守卫叫住了你</h3><p>你的无证营业引起了注意。先处理这次盘查，否则会被押进监狱。</p></div></section>
         <div class="glory-overview"><span><i>🚨</i><b>${wanted}</b><small>当前危险值</small></span><span class="is-risk"><i>⚠️</i><b>${chance}%</b><small>本次拦截率</small></span><span><i>💎</i><b>${state.gold}G</b><small>随身金币</small></span></div>
-        <div class="glory-entry-note is-risk"><i>!</i><span>缴纳罚款最稳妥；求情成功率 40%，逃跑成功率 50%。</span></div>`,
+        <div class="glory-entry-note is-risk"><i>!</i><span>可以缴纳罚款、接受木枷处罚，或冒险求情与逃跑。</span></div>`,
       actions: [
         ...(state.gold >= 50 ? [{ label: '💎 缴纳 50G 罚款', cls: 'btn-primary', handler: () => {
           state.gold -= 50
@@ -3399,7 +3525,7 @@ window.CampSystem = (function () {
       const entry = RestraintSystem.insertionDevice(slot)
       const info = RestraintSystem.insertionCharge(slot)
       const missing = Math.max(0, info.max - info.current)
-      const goldCost = missing * 30
+      const goldCost = townPrice(missing * 30, 'enchanter')
       const methods = [
         `<button class="btn restr-btn" data-recharge-slot="${slot}" data-recharge-method="gold" ${missing > 0 && state.gold >= goldCost ? '' : 'disabled'}>💰 ${missing > 0 ? `充满 · ${goldCost}G` : '已经充满'}</button>`,
         ...SOUL_GEMS.map(gem => `<button class="btn restr-btn" data-recharge-slot="${slot}" data-recharge-method="${gem.id}" ${missing > 0 && (state.inventory.consumables[gem.id] || 0) > 0 ? '' : 'disabled'}>${gem.icon} ${gem.name} ×${state.inventory.consumables[gem.id] || 0}</button>`),
@@ -3421,7 +3547,7 @@ window.CampSystem = (function () {
         if (missing <= 0) return
         let added = 0
         if (method === 'gold') {
-          const cost = missing * 30
+          const cost = townPrice(missing * 30, 'enchanter')
           if (state.gold < cost) return
           state.gold -= cost
           added = missing
@@ -3443,8 +3569,9 @@ window.CampSystem = (function () {
     const state = State.get()
     const cards = SOUL_GEMS.map(gem => {
       const count = state.inventory.consumables[gem.id] || 0
-      const canBuy = state.gold >= gem.price
-      return `<button class="merchant-item${canBuy ? '' : ' is-unaffordable'}" data-soul-buy="${gem.id}" ${canBuy ? '' : 'disabled'}><span class="merchant-item-icon">${gem.icon}</span><span class="merchant-item-info"><b>${gem.name}</b><small>${gem.desc} · 可在野外从背包使用</small></span><span class="merchant-item-price">${canBuy ? `<b>${gem.price}G</b><small>×${count}</small>` : '<small>金币不足</small>'}</span></button>`
+      const price = townPrice(gem.price, 'enchanter')
+      const canBuy = state.gold >= price
+      return `<button class="merchant-item${canBuy ? '' : ' is-unaffordable'}" data-soul-buy="${gem.id}" ${canBuy ? '' : 'disabled'}><span class="merchant-item-icon">${gem.icon}</span><span class="merchant-item-info"><b>${gem.name}</b><small>${gem.desc} · 可在野外从背包使用</small></span><span class="merchant-item-price">${canBuy ? `<b>${price}G</b>${price !== gem.price ? `<s>${gem.price}G</s>` : ''}<small>×${count}</small>` : '<small>金币不足</small>'}</span></button>`
     }).join('')
     campShow({
       title: '💎 附魔师 · 灵魂石', className: 'enchanter-modal',
@@ -3454,8 +3581,9 @@ window.CampSystem = (function () {
     document.querySelectorAll('[data-soul-buy]').forEach(btn => {
       btn.onclick = () => {
         const gem = SOUL_GEMS.find(item => item.id === btn.dataset.soulBuy)
-        if (!gem || state.gold < gem.price) return
-        state.gold -= gem.price
+        const price = gem ? townPrice(gem.price, 'enchanter') : 0
+        if (!gem || state.gold < price) return
+        state.gold -= price
         state.inventory.consumables[gem.id] = (state.inventory.consumables[gem.id] || 0) + 1
         EventBus.emit('ui:log', { text: `💎 买下${gem.name}。`, type: 'good' })
         EventBus.emit('state:changed', state)
@@ -3525,7 +3653,8 @@ window.CampSystem = (function () {
       const wornThis = typeof RestraintSystem !== 'undefined' && RestraintSystem.hasDevice(r.id)
       const owned = ownedCount > 0 || (state._ownedRestraints || []).includes(r.id) || wornThis || (state._prostituteGear && state._prostituteGear[r.id === 'chastity_device' ? 'chastity' : r.id])
       const full = owned
-      const canBuy = state.gold >= r.price && !full
+      const price = townPrice(r.price, 'dream')
+      const canBuy = state.gold >= price && !full
       const meta = rpgCardMeta(r)
       const detailHtml = `<span class="rpg-gear-kicker">${meta.kind} · ${meta.part}</span>
           <b class="rpg-gear-name">${r.name}</b>
@@ -3537,7 +3666,7 @@ window.CampSystem = (function () {
       return `<button class="merchant-item rpg-gear-card rpg-gear-${meta.tone}${full ? ' is-owned' : ''}${!full && !canBuy ? ' is-unaffordable' : ''}" data-restr="${r.id}" ${full || !canBuy ? 'disabled' : ''}>
         <span class="merchant-item-icon rpg-gear-icon">${itemIcon(r)}</span>
         <span class="merchant-item-info rpg-gear-info">${detailHtml}</span>
-        <span class="merchant-item-price">${full ? '✓ 已拥有' : canBuy ? `<b>${r.price}G</b>` : '<small>金币不足</small>'}</span>
+        <span class="merchant-item-price">${full ? '✓ 已拥有' : canBuy ? `<b>${price}G</b>${price !== r.price ? `<s>${r.price}G</s>` : ''}` : '<small>金币不足</small>'}</span>
       </button>`
     }
 
@@ -3546,7 +3675,8 @@ window.CampSystem = (function () {
       const ownedCount = typeof RestraintSystem !== 'undefined' ? RestraintSystem.ownedCount(r.id) : 0
       const maxOwn = r.dildo ? RestraintSystem.effectiveMaxOwn(r) : (r.stackable ? (r.maxStack || 99) : 1)
       const full = ownedCount >= maxOwn
-      const canBuy = state.gold >= r.price && !full
+      const price = townPrice(r.price, 'dream')
+      const canBuy = state.gold >= price && !full
       const unit = r.dildo ? '根' : (r.stackable ? '颗' : '个')
       const countText = `${r.dildo ? (isMale ? '男性最多 1 根 · ' : '') : ''}已有 ${ownedCount}/${maxOwn}${unit}`
       const chargeCount = r.stackable ? `${r.block} 次/颗` : `${r.block} 次`
@@ -3564,7 +3694,7 @@ window.CampSystem = (function () {
           ${r.vibrate ? '<small class="rpg-gear-hint">震动控制：关闭 / 低档 / 高档；提高服务收入，同时降低战斗专注与逃跑率</small>' : ''}
           <span class="rpg-gear-warning">🔒 上锁后：酒馆妓女与荣耀洞均不可用</span>
         </span>
-        <span class="merchant-item-price">${full ? '已达上限' : canBuy ? `<b>${r.price}G</b><small>${countText}</small>` : `<small>金币不足</small>`}</span>
+        <span class="merchant-item-price">${full ? '已达上限' : canBuy ? `<b>${price}G</b>${price !== r.price ? `<s>${r.price}G</s>` : ''}<small>${countText}</small>` : `<small>金币不足</small>`}</span>
       </button>`
     }
 
@@ -3577,11 +3707,12 @@ window.CampSystem = (function () {
     ]
     const renderToolCard = t => {
       const ownedCount = state.inventory.consumables[t.id] || 0
-      const canBuy = state.gold >= t.price
+      const price = townPrice(t.price, 'dream')
+      const canBuy = state.gold >= price
       return `<button class="merchant-item rpg-gear-card rpg-gear-tool${!canBuy ? ' is-unaffordable' : ''}" data-tool="${t.id}" ${canBuy ? '' : 'disabled'}>
         <span class="merchant-item-icon rpg-gear-icon">${t.icon}</span>
         <span class="merchant-item-info rpg-gear-info"><span class="rpg-gear-kicker">解锁工具 · 消耗品</span><b class="rpg-gear-name">${t.name}</b><span class="rpg-gear-rule"></span><span class="rpg-gear-stat"><em>当前持有</em><strong>${ownedCount}</strong></span><span class="rpg-gear-special"><em>用途</em><strong>${t.desc}</strong></span></span>
-        <span class="merchant-item-price">${canBuy ? `<b>${t.price}G</b><small>×${ownedCount}</small>` : '<small>金币不足</small>'}</span>
+        <span class="merchant-item-price">${canBuy ? `<b>${price}G</b>${price !== t.price ? `<s>${t.price}G</s>` : ''}<small>×${ownedCount}</small>` : '<small>金币不足</small>'}</span>
       </button>`
     }
 
@@ -3623,11 +3754,12 @@ window.CampSystem = (function () {
         const id = btn.dataset.restr
         const def = RESTRAINTS.find(r => r.id === id)
         if (!def) return
-        if (state.gold < def.price) return
+        const price = townPrice(def.price, 'dream')
+        if (state.gold < price) return
         if (def.stackable || (def.maxOwn && def.maxOwn > 1)) {
           if (RestraintSystem.ownedCount(def.id) >= (def.stackable ? (def.maxStack || 99) : RestraintSystem.effectiveMaxOwn(def))) return
         } else if (RestraintSystem.ownedCount(def.id) > 0) return
-        state.gold -= def.price
+        state.gold -= price
         const grantResult = RestraintSystem.grant(def.id, 1)
         const possibleSlots = typeof RestraintSystem !== 'undefined'
           ? RestraintSystem.allowedSlotsOf(def).filter(slot => !RestraintSystem.get(slot) && RestraintSystem.canEquip(slot, def.id).ok)
@@ -3652,8 +3784,9 @@ window.CampSystem = (function () {
       btn.onclick = () => {
         const id = btn.dataset.tool
         const tool = { restraint_lock: { name: '普通锁', price: 80 }, restraint_key: { name: '普通钥匙', price: 200 }, master_key: { name: '万能钥匙', price: 500 }, lockpick: { name: '开锁工具', price: 150 }, curse_remover: { name: '驱咒符', price: 250 } }[id]
-        if (!tool || state.gold < tool.price) return
-        state.gold -= tool.price
+        const price = tool ? townPrice(tool.price, 'dream') : 0
+        if (!tool || state.gold < price) return
+        state.gold -= price
         state.inventory.consumables[id] = (state.inventory.consumables[id] || 0) + 1
         EventBus.emit('ui:log', { text: `🔑 买下${tool.name}。`, type: 'good' })
         EventBus.emit('state:changed', state)
@@ -4590,6 +4723,7 @@ window.CampSystem = (function () {
     if (levelMult > 2) levelMult = 2
 
     gold = gold * goldMult + goldBonus
+    if (!failed && window.TownReputationSystem) gold = TownReputationSystem.getServiceIncome(gold)
     effLevel = effLevel * levelMult
 
     // 营地税率：按难度从接客收入中扣除（抢钱任务不征税）
@@ -4606,6 +4740,7 @@ window.CampSystem = (function () {
       state._prostituteLevel += effLevel   // 只有完成才升级
       state._prostituteSwapCost = 20   // 服务完成，换客费用重置
       if (window.MercenaryContractSystem) MercenaryContractSystem.recordService('tavern')
+      if (window.TownReputationSystem) TownReputationSystem.recordLegalService('雾灯酒馆')
     }
     state._prostitutePendingTask = null
     // 卫兵任务奖励：出城免检查卷
@@ -4726,12 +4861,13 @@ window.CampSystem = (function () {
       title: '🍷 吧台酒单', className: 'glory-modal',
       body: `<div class="drink-wallet"><span>🍷 雾灯酒馆 · 吧台酒单</span><strong>💎 ${state.gold}G</strong></div><div class="glory-section"><h3><span>想喝点什么？</span><small>喝完有劲，但也有代价</small></h3>
         <div class="drink-list">${DRINKS.map(d => {
-          const canBuy = state.gold >= d.price
+          const price = townPrice(d.price, 'tavern')
+          const canBuy = state.gold >= price
           return `
           <button class="drink-option${canBuy ? '' : ' is-unaffordable'}" data-drink="${d.id}" ${canBuy ? '' : 'disabled'}>
             <span class="drink-emoji">${d.id === 'beer' ? '🍺' : d.id === 'liquor' ? '🥃' : '🍷'}</span>
             <span class="drink-info"><b>${d.name}</b><small>${d.desc}</small></span>
-            <span class="drink-price">${canBuy ? `${d.price}G` : '金币不足'}</span>
+            <span class="drink-price">${canBuy ? `${price}G${price !== d.price ? ` · 原价 ${d.price}G` : ''}` : '金币不足'}</span>
           </button>`
         }).join('')}</div></div>`,
       actions: [{ label: '返回老板娘', handler: () => { Dialog.close(); tavernBarkeep() } }],
@@ -4739,9 +4875,10 @@ window.CampSystem = (function () {
     document.querySelectorAll('[data-drink]').forEach(btn => {
       btn.onclick = () => {
         const drink = DRINKS.find(d => d.id === btn.dataset.drink)
+        const price = drink ? townPrice(drink.price, 'tavern') : 0
         Dialog.close()
-        if (state.gold < drink.price) { EventBus.emit('ui:log', { text: '💰 钱不够买这杯。', type: 'dim' }); tavernDrink(); return }
-        state.gold -= drink.price
+        if (!drink || state.gold < price) { EventBus.emit('ui:log', { text: '💰 钱不够买这杯。', type: 'dim' }); tavernDrink(); return }
+        state.gold -= price
         state.hp = Math.min(state.maxHp, state.hp + drink.heal)
         StatusSystem.apply('drunk', drink.drunk, { source: 'player' })
         if (drink.regen) StatusSystem.apply('regeneration', 1, { level: 1, source: 'player' })

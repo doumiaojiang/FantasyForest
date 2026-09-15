@@ -186,9 +186,9 @@ window.Dialog = (function () {
 
     const renderItem = (item) => {
       const regularPrice = isHalf ? Math.floor(item.price / 2) : item.price
-      let price = regularPrice
+      let price = ShopSystem.getPrice ? ShopSystem.getPrice(item) : regularPrice
       if (state._freeUpgrade && item.type === 'weapon' && item.id !== 'master_sword') price = 0
-      if (state._freeUpgrade && item.id === 'master_sword' && hasMasterPrerequisites) price = Math.max(0, regularPrice - 500)
+      if (state._freeUpgrade && item.id === 'master_sword' && hasMasterPrerequisites) price = Math.max(0, price - 500)
       const owned = item.type === 'consumable' ? (state.inventory.consumables[item.id] || 0)
         : ownedEquipment.includes(item.id) ? 1 : 0
       const equipped = item.type === 'weapon' ? (state.inventory.weapon === item.id)
@@ -223,7 +223,7 @@ window.Dialog = (function () {
       return `
         <article class="shop-item${unavailable ? ' is-unavailable' : ''}${equipped || owned ? ' is-owned' : ''}">
           <div class="shop-item-main"><span class="shop-item-icon">${itemIcons[item.id] || (item.type === 'weapon' ? '⚔️' : item.type === 'accessory' ? '📿' : '🎒')}</span><div>
-            <div class="shop-item-head"><b>${item.name}</b> ${(isHalf || price !== regularPrice) && price > 0 ? `<s>${item.price}G</s>` : ''} <span class="shop-price">${price === 0 ? '免费' : `${price}G`}</span></div>
+            <div class="shop-item-head"><b>${item.name}</b> ${(price !== item.price || isHalf) && price > 0 ? `<s>${item.price}G</s>` : ''} <span class="shop-price">${price === 0 ? '免费' : `${price}G`}</span></div>
             <div class="shop-item-desc">${item.desc}</div>
           </div></div>
           ${item.type === 'consumable'

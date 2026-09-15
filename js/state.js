@@ -126,7 +126,32 @@ window.State = (function () {
         enabled: true,                      // 城镇广场显示并启用木枷
         adultEvents: true,                  // 木枷期间允许成人围观事件
       },
-      _pillory: null,                       // 木枷任务断点 { source, duration, reward, stage, event, returnTo }
+      _pilloryLastEventId: '',              // 上次木枷随机事件，防止连续重复
+      _pillory: null,                       // 木枷任务断点 { source, duration, reward, stage, event, results, returnTo }
+      _townReputation: {                    // 雾灯镇长期评价；危险值与通缉仍独立计算
+        score: 0,                           // -100~100：居民长期好恶
+        fame: 0,                            // 0~100：知名度，只会上升
+        history: [],                        // 最近声望/知名度变化
+        counters: {
+          enemyKills: 0,
+          enemyKillMilestones: 0,
+          contractsCompleted: 0,
+          legalServices: 0,
+          prisonReleases: 0,
+          pilloryUses: 0,
+          guardChecks: 0,
+          bossRewarded: 0,
+        },
+        seeded: true,
+      },
+      _townReputationSettings: {
+        enabled: true,
+        economy: true,
+        guardEffects: true,
+        serviceEffects: true,
+        gainRate: 1,
+        detailedNotice: true,
+      },
       _freeMeatBrand: false,            // 大腿上"免费肉便器"烙印（铁匠解锁后永久）
       _blacksmithContract: false,       // 与铁匠签的契约：每次进铺子要先服务
       _gloryDiscovered: false,          // 是否已发现荣耀洞（调查隔间后）
@@ -697,27 +722,82 @@ window.State = (function () {
     if (!state._pillorySettings || typeof state._pillorySettings !== 'object' || Array.isArray(state._pillorySettings)) state._pillorySettings = {}
     state._pillorySettings.enabled = state._pillorySettings.enabled !== false
     state._pillorySettings.adultEvents = state._pillorySettings.adultEvents !== false
+    state._pilloryLastEventId = typeof state._pilloryLastEventId === 'string' && /^[a-z0-9_-]{0,40}$/i.test(state._pilloryLastEventId)
+      ? state._pilloryLastEventId
+      : ''
     if (!state._pillory || typeof state._pillory !== 'object' || Array.isArray(state._pillory)) {
       state._pillory = null
     } else {
       const p = state._pillory
       const duration = Math.max(15, Math.min(180, Math.floor(finite(p.duration, 30))))
-      const event = p.event && typeof p.event === 'object' && ['oral', 'anal', 'vagina', 'spank'].includes(p.event.part)
+      const event = p.event && typeof p.event === 'object' && ['oral', 'anal', 'vagina', 'spank', null, undefined].includes(p.event.part)
         ? {
-            part: p.event.part,
+            id: typeof p.event.id === 'string' && /^[a-z0-9_-]{1,40}$/i.test(p.event.id) ? p.event.id : 'legacy_adult',
+            kind: p.event.kind === 'ambient' ? 'ambient' : 'adult',
+            part: ['oral', 'anal', 'vagina', 'spank'].includes(p.event.part) ? p.event.part : null,
             bpm: Math.max(0, Math.min(240, Math.floor(finite(p.event.bpm, 0)))),
             seconds: Math.max(15, Math.min(120, Math.floor(finite(p.event.seconds, 30)))),
+            gold: Math.max(-50, Math.min(50, Math.floor(finite(p.event.gold, 0)))),
+            applied: !!p.event.applied,
           }
         : null
+      const results = Array.isArray(p.results)
+        ? p.results.slice(0, 6).filter(entry => entry && typeof entry === 'object').map(entry => ({
+            icon: String(entry.icon || '•').replace(/[<>&"'\u0000-\u001f]/g, '').slice(0, 4),
+            label: String(entry.label || '事件').replace(/[<>&"'\u0000-\u001f]/g, '').slice(0, 24),
+            detail: String(entry.detail || '').replace(/[<>&"'\u0000-\u001f]/g, '').slice(0, 80),
+            type: ['good', 'danger', 'dim'].includes(entry.type) ? entry.type : 'dim',
+          }))
+        : []
       state._pillory = {
         source: ['voluntary', 'mercenary', 'fine', 'punishment'].includes(p.source) ? p.source : 'voluntary',
         duration,
         reward: Math.max(0, Math.min(999, Math.floor(finite(p.reward, 0)))),
         stage: ['restraint', 'adult', 'settle'].includes(p.stage) ? p.stage : 'restraint',
         event,
+        results,
         returnTo: p.returnTo === 'leave' ? 'leave' : 'camp',
       }
     }
+    // 雾灯镇声望：旧档只根据可验证的永久进度补发一次，不从日志反向猜测。
+    const hadTownReputation = !!(state._townReputation && typeof state._townReputation === 'object' && !Array.isArray(state._townReputation))
+    if (!hadTownReputation) state._townReputation = JSON.parse(JSON.stringify(def._townReputation))
+    const tr = state._townReputation
+    tr.score = Math.max(-100, Math.min(100, Math.floor(finite(tr.score, 0))))
+    tr.fame = Math.max(0, Math.min(100, Math.floor(finite(tr.fame, 0))))
+    tr.history = Array.isArray(tr.history)
+      ? tr.history.slice(0, 12).filter(entry => entry && typeof entry === 'object').map(entry => ({
+          kind: entry.kind === 'fame' ? 'fame' : 'score',
+          amount: Math.max(-100, Math.min(100, Math.floor(finite(entry.amount, 0)))),
+          reason: String(entry.reason || '城镇事件').replace(/[<>&"'\u0000-\u001f]/g, '').slice(0, 60),
+          at: Math.max(0, Math.floor(finite(entry.at, 0))),
+        })).filter(entry => entry.amount !== 0)
+      : []
+    if (!tr.counters || typeof tr.counters !== 'object' || Array.isArray(tr.counters)) tr.counters = {}
+    const tc = tr.counters
+    ;['enemyKills', 'enemyKillMilestones', 'contractsCompleted', 'legalServices', 'prisonReleases', 'pilloryUses', 'guardChecks', 'bossRewarded'].forEach(key => {
+      tc[key] = Math.max(0, Math.min(99999, Math.floor(finite(tc[key], 0))))
+    })
+    if (!hadTownReputation) {
+      const bossDone = !!state.bossDefeated || (state.defeated || []).includes('spirit_of_forest')
+      const contractCount = Math.max(0, Math.floor(finite(state._restraintContractCompleted, 0)))
+      tr.score = Math.max(-100, Math.min(100, (bossDone ? 30 : 0) + Math.min(15, contractCount * 3) - (state._wanted ? 20 : 0)))
+      tr.fame = Math.max(0, Math.min(100, (bossDone ? 40 : 0) + Math.min(20, contractCount * 2) + (state._wanted ? 15 : 0)))
+      tc.contractsCompleted = contractCount
+      tc.bossRewarded = bossDone ? 1 : 0
+      if (bossDone) tr.history.push({ kind: 'score', amount: 30, reason: '旧档：击败森林之灵', at: 0 })
+      if (contractCount) tr.history.push({ kind: 'score', amount: Math.min(15, contractCount * 3), reason: `旧档：完成 ${contractCount} 项妖缚委托`, at: 0 })
+      if (state._wanted) tr.history.push({ kind: 'score', amount: -20, reason: '旧档：监狱逃犯', at: 0 })
+    }
+    tr.seeded = true
+    if (!state._townReputationSettings || typeof state._townReputationSettings !== 'object' || Array.isArray(state._townReputationSettings)) state._townReputationSettings = {}
+    const trs = state._townReputationSettings
+    trs.enabled = trs.enabled !== false
+    trs.economy = trs.economy !== false
+    trs.guardEffects = trs.guardEffects !== false
+    trs.serviceEffects = trs.serviceEffects !== false
+    trs.gainRate = [0.5, 1, 1.5].includes(Number(trs.gainRate)) ? Number(trs.gainRate) : 1
+    trs.detailedNotice = trs.detailedNotice !== false
     state._freeMeatBrand = !!state._freeMeatBrand
     state._blacksmithContract = !!state._blacksmithContract
     if (state._gloryDiscovered === undefined) state._gloryDiscovered = !!state._gloryDiscovered

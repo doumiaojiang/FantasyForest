@@ -135,6 +135,12 @@ window.RestraintContractSystem = (function () {
     st._restraintContractCompleted = (st._restraintContractCompleted || 0) + 1
     st._restraintContract = null
     st._restraintContractOffers = []
+    if (window.TownReputationSystem) {
+      const rep = st._townReputation
+      if (rep && rep.counters) rep.counters.contractsCompleted = (rep.counters.contractsCompleted || 0) + 1
+      TownReputationSystem.addScore(contract.rank === 'hard' ? 5 : 3, `完成妖缚委托「${contract.name}」`)
+      TownReputationSystem.addFame(2, '妖缚委托战绩传开')
+    }
     EventBus.emit('ui:log', { text: `🏅 妖缚委托结算：获得 ${contract.rewardGold}G${itemText}，契约装备已回收。`, type: 'good' })
     EventBus.emit('state:changed', st)
     State.save()
@@ -150,6 +156,7 @@ window.RestraintContractSystem = (function () {
     releaseGear(contract)
     st._restraintContract = null
     st._restraintContractOffers = []
+    if (window.TownReputationSystem) TownReputationSystem.addScore(-5, `放弃妖缚委托「${contract.name}」`)
     EventBus.emit('ui:log', { text: `📜 已放弃「${contract.name}」，支付 ${paid}G 解约金，契约装备已回收。`, type: 'dim' })
     EventBus.emit('state:changed', st)
     State.save()

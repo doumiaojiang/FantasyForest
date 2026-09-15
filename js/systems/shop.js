@@ -375,11 +375,13 @@ window.ShopSystem = (function () {
   /** 价格计算（停格半价普通模式） */
   function getPrice (item) {
     const state = State.get()
-    if (state.difficulty !== 'normal') return item.price
+    let price = item.price
     // 检查是否停格在商店
     const tile = MapLib.get(state.position.x, state.position.y)
-    if (tile && tile.type === TILE.SHOP) return Math.floor(item.price / 2)
-    return item.price
+    if (state.difficulty === 'normal' && tile && tile.type === TILE.SHOP) price = Math.floor(item.price / 2)
+    // 声望只影响城镇里的道具商和铁匠铺；野外旅行商人保持原价。
+    if (state._shopReturnToCamp && window.TownReputationSystem) price = TownReputationSystem.getPrice(price, 'shop')
+    return price
   }
 
   function hasAllWeapons () {
@@ -420,5 +422,5 @@ window.ShopSystem = (function () {
     return { ok: true }
   }
 
-  return { open, buy, equip, unequip, close, useConsumable, isSoulGem, useSoulGem, openSoulGemCharge, consumeBlockForPart, getStock, buyClothes, reviveMercenary }
+  return { open, buy, equip, unequip, close, useConsumable, isSoulGem, useSoulGem, openSoulGemCharge, consumeBlockForPart, getPrice, getStock, buyClothes, reviveMercenary }
 })()

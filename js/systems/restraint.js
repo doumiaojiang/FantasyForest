@@ -874,6 +874,7 @@ window.RestraintSystem = (function () {
     const gs = State.get()._guardSearchSettings || {}
     const ps = State.get()._pillorySettings || (State.get()._pillorySettings = {})
     const mcs = State.get()._mercenaryContractSettings || (State.get()._mercenaryContractSettings = {})
+    const trs = State.get()._townReputationSettings || (State.get()._townReputationSettings = {})
     const unlocked = SLOT_ORDER.filter(slot => { const d = get(slot); return d && !d.locked })
     const FREQ = { low: '低（10%/15%）', standard: '标准（25%/35%）', high: '高（40%/60%）', always: '每次（100%）' }
     const DUR = { fast: '快速（5~10 秒）', standard: '标准（10~30 秒）', immersive: '沉浸（30~60 秒）', fixed: '固定（60 秒）' }
@@ -952,6 +953,37 @@ window.RestraintSystem = (function () {
             <button class="btn restr-btn" data-act="gs-reset">↺ 恢复默认</button>
           </div>
         </div>
+        <div class="restr-collapse" data-collapse="reputation" data-target="restr-reputation-body"><span>🏰 城镇声望</span><i>▾</i></div>
+        <div class="restr-collapse-body" id="restr-reputation-body" hidden>
+          <div class="restr-setting-row">
+            <span><b>启用城镇声望</b><small>记录长期评价、知名度、称号与事件履历</small></span>
+            <label class="restr-switch"><input type="checkbox" id="town-rep-enabled" ${trs.enabled !== false ? 'checked' : ''}><i></i></label>
+          </div>
+          <div class="restr-setting-row${trs.enabled === false ? ' is-muted' : ''}">
+            <span><b>影响城镇商店</b><small>高声望获得折扣，负声望会被加价；罚款和剧情费用不变</small></span>
+            <label class="restr-switch"><input type="checkbox" id="town-rep-economy" ${trs.economy !== false ? 'checked' : ''} ${trs.enabled === false ? 'disabled' : ''}><i></i></label>
+          </div>
+          <div class="restr-setting-row${trs.enabled === false ? ' is-muted' : ''}">
+            <span><b>影响卫兵态度</b><small>调整普通城门检查概率，不会免除通缉和无证处罚</small></span>
+            <label class="restr-switch"><input type="checkbox" id="town-rep-guards" ${trs.guardEffects !== false ? 'checked' : ''} ${trs.enabled === false ? 'disabled' : ''}><i></i></label>
+          </div>
+          <div class="restr-setting-row${trs.enabled === false ? ' is-muted' : ''}">
+            <span><b>记录酒馆与服务知名度</b><small>每完成若干次服务提高知名度，不直接降低声望</small></span>
+            <label class="restr-switch"><input type="checkbox" id="town-rep-service" ${trs.serviceEffects !== false ? 'checked' : ''} ${trs.enabled === false ? 'disabled' : ''}><i></i></label>
+          </div>
+          <div class="restr-setting-row${trs.enabled === false ? ' is-muted' : ''}">
+            <span><b>声望变化速度</b><small>${({ 0.5: '缓慢 · 50%', 1: '标准 · 100%', 1.5: '快速 · 150%' })[trs.gainRate || 1]}</small></span>
+            <button class="btn restr-btn" data-town-rep-cycle="gainRate" ${trs.enabled === false ? 'disabled' : ''}>切换</button>
+          </div>
+          <div class="restr-setting-row${trs.enabled === false ? ' is-muted' : ''}">
+            <span><b>显示详细变化</b><small>在冒险日志中显示每次声望与知名度变化</small></span>
+            <label class="restr-switch"><input type="checkbox" id="town-rep-notice" ${trs.detailedNotice !== false ? 'checked' : ''} ${trs.enabled === false ? 'disabled' : ''}><i></i></label>
+          </div>
+          <div class="restr-setting-row">
+            <span><b>重置城镇声望</b><small>清除声望、知名度、称号计数与最近记录</small></span>
+            <button class="btn restr-btn" data-act="town-rep-reset">↺ 重置为中立</button>
+          </div>
+        </div>
         <div class="restr-collapse" data-collapse="service" data-target="restr-service-body"><span>💋 服务联动</span><i>▾</i></div>
         <div class="restr-collapse-body" id="restr-service-body" hidden>
           <div class="restr-setting-row">
@@ -967,7 +999,7 @@ window.RestraintSystem = (function () {
             <label class="restr-switch"><input type="checkbox" id="pillory-enabled" ${ps.enabled !== false ? 'checked' : ''}><i></i></label>
           </div>
           <div class="restr-setting-row${ps.enabled === false ? ' is-muted' : ''}">
-            <span><b>木枷成人围观事件</b><small>每 15 秒有 30% 概率；一次展示最多触发一项</small></span>
+            <span><b>木枷成人围观事件</b><small>关闭后仍会触发投币、围观、嘲笑与小偷等普通事件</small></span>
             <label class="restr-switch"><input type="checkbox" id="pillory-adult" ${ps.adultEvents !== false ? 'checked' : ''} ${ps.enabled === false ? 'disabled' : ''}><i></i></label>
           </div>
         </div>
@@ -1066,6 +1098,41 @@ window.RestraintSystem = (function () {
     bindToggle('gs-confiscate', 'confiscateLockpick')
     bindToggle('gs-bribe', 'allowBribe')
     bindToggle('gs-device', 'deviceComments')
+    const bindTownRepToggle = (id, key, rerender = false) => {
+      const el = document.getElementById(id)
+      if (!el) return
+      el.onchange = () => {
+        const cfg = State.get()._townReputationSettings || (State.get()._townReputationSettings = {})
+        cfg[key] = el.checked
+        EventBus.emit('state:changed', State.get())
+        State.save()
+        if (rerender) { Dialog.close(); openSettings() }
+      }
+    }
+    bindTownRepToggle('town-rep-enabled', 'enabled', true)
+    bindTownRepToggle('town-rep-economy', 'economy')
+    bindTownRepToggle('town-rep-guards', 'guardEffects')
+    bindTownRepToggle('town-rep-service', 'serviceEffects')
+    bindTownRepToggle('town-rep-notice', 'detailedNotice')
+    document.querySelectorAll('[data-town-rep-cycle]').forEach(btn => {
+      btn.onclick = () => {
+        const cfg = State.get()._townReputationSettings || (State.get()._townReputationSettings = {})
+        const modes = [0.5, 1, 1.5]
+        const current = modes.includes(Number(cfg.gainRate)) ? Number(cfg.gainRate) : 1
+        cfg.gainRate = modes[(modes.indexOf(current) + 1) % modes.length]
+        EventBus.emit('state:changed', State.get())
+        State.save()
+        Dialog.close()
+        openSettings()
+      }
+    })
+    document.querySelectorAll('[data-act="town-rep-reset"]').forEach(btn => {
+      btn.onclick = () => {
+        if (window.TownReputationSystem) TownReputationSystem.reset()
+        Dialog.close()
+        openSettings()
+      }
+    })
     const bindMercToggle = (id, key) => {
       const el = document.getElementById(id)
       if (el) el.onchange = () => {
