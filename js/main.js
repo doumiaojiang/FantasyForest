@@ -446,7 +446,6 @@
     if (state._battle) {
       // 战斗中：直接结束并给战利品
       state._battle.targets = []
-      state.defeated.push(state._battle.enemyId)
       BattleSystem.end(true)
       State.save()
       return '💀 已击杀当前敌人。'
@@ -562,6 +561,14 @@
       title: '👺 遭遇怪物',
       className: 'cheat-mob-modal',
       body: `
+        <label for="cheat-elite-mode" style="display:block;color:var(--text-dim);font-size:.72rem;margin-bottom:5px">精英词缀</label>
+        <select id="cheat-elite-mode" style="width:100%;min-height:40px;margin-bottom:10px;padding:7px;border:1px solid var(--border);border-radius:8px;background:var(--panel-2);color:var(--text)">
+          <option value="">普通怪（不随机精英）</option>
+          <option value="toxic">☠️ 剧毒精英</option>
+          <option value="armored">🛡️ 装甲精英</option>
+          <option value="berserk">⚡ 狂暴精英</option>
+          <option value="cunning">🏃 狡猾精英</option>
+        </select>
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px">${cards}</div>
         <button class="btn btn-danger" id="cheat-mob-boss" style="width:100%">👑 森林之灵（BOSS）</button>
       `,
@@ -571,10 +578,11 @@
       document.querySelectorAll('.cheat-mob-card').forEach(btn => {
         btn.onclick = () => {
           const id = btn.dataset.mob
+          const elite = document.getElementById('cheat-elite-mode')?.value || false
           Dialog.close()
           state._battle = null
           state._ambush = null
-          BattleSystem.start(id)
+          BattleSystem.start(id, { elite })
           EventBus.emit('ui:log', { text: `👺 调试：遭遇 ${DATA.monster(id).name}。`, type: 'good' })
         }
       })
@@ -697,12 +705,12 @@
 
     const buildBody = () => {
       const factionsHtml = GENDER_FACTIONS.map(f => `
-        <button type="button" class="gender-opt faction-opt ${f.id === factionId ? 'is-selected' : ''}" data-faction="${f.id}" style="grid-template-columns:1fr">
+        <button type="button" class="gender-opt faction-opt ${f.id === factionId ? 'is-selected' : ''}" data-faction="${f.id}" aria-pressed="${f.id === factionId}" style="grid-template-columns:1fr">
           <span style="font-size:1.5rem">${f.icon}</span>
           <b>${f.name}</b>
         </button>`).join('')
       const labelsHtml = factionOf(factionId).labels.map(l => `
-        <button type="button" class="gender-label ${l.id === labelId ? 'is-selected' : ''}" data-label="${l.id}">${l.label}</button>`).join('')
+        <button type="button" class="gender-label ${l.id === labelId ? 'is-selected' : ''}" data-label="${l.id}" aria-pressed="${l.id === labelId}">${l.label}</button>`).join('')
       return `
         <p style="color:var(--text-dim);font-size:.9rem;margin-bottom:10px">即将进入妖林冒险，勇者如何称呼？</p>
         <input id="input-player-name" type="text" maxlength="10" placeholder="输入勇者名（默认：妖林勇者）"
@@ -740,8 +748,12 @@
         document.querySelectorAll('.gender-label').forEach(btn => {
           btn.onclick = () => {
             labelId = btn.dataset.label
-            document.querySelectorAll('.gender-label').forEach(b => b.classList.remove('is-selected'))
+            document.querySelectorAll('.gender-label').forEach(b => {
+              b.classList.remove('is-selected')
+              b.setAttribute('aria-pressed', 'false')
+            })
             btn.classList.add('is-selected')
+            btn.setAttribute('aria-pressed', 'true')
           }
         })
       }, 50)

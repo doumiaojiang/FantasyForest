@@ -904,6 +904,20 @@ window.State = (function () {
       }
       state._battle.blocked = state._battle.insertionBlocks.anal + state._battle.insertionBlocks.vagina
       state._battle.bossForcedUnlockUsed = !!state._battle.bossForcedUnlockUsed
+      const enemyState = state._battle.enemyState && typeof state._battle.enemyState === 'object'
+        ? state._battle.enemyState
+        : {}
+      const validElite = ['toxic', 'armored', 'berserk', 'cunning']
+      state._battle.enemyState = {
+        elite: validElite.includes(enemyState.elite) ? enemyState.elite : null,
+        enemyTurns: Math.max(0, Math.floor(finite(enemyState.enemyTurns, 0))),
+        guard: Math.max(0, Math.floor(finite(enemyState.guard, 0))),
+        charging: !!enemyState.charging,
+        chargeStrike: !!enemyState.chargeStrike,
+        fleeing: !!enemyState.fleeing,
+        fleeAnnounced: !!enemyState.fleeAnnounced,
+        fleeAttempted: !!enemyState.fleeAttempted,
+      }
     }
 
     // 装备记录：缺则补，并从当前装备重建已购记录（含多饰品数组）

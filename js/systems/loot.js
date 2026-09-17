@@ -30,6 +30,10 @@ window.LootSystem = (function () {
       result.gold = enemy.loot.gold
     }
 
+    // 精英怪：基础金币提高 50%。精英状态保存在当前战斗中，读档后仍可恢复。
+    const elite = state._battle && state._battle.enemyState && state._battle.enemyState.elite
+    if (elite) result.gold = Math.ceil(result.gold * (CONFIG.battle.eliteGoldMult || 1.5))
+
     // 贪婪恶魔翻倍
     if (StatusSystem.has('greed_demon')) result.gold *= 2
 
@@ -98,8 +102,30 @@ window.LootSystem = (function () {
       }
     }
 
+    // 精英怪必定掉落一枚异变结晶；与普通掷骰掉落并存。
+    if (elite) {
+      state.inventory.consumables.mutant_crystal = (state.inventory.consumables.mutant_crystal || 0) + 1
+      result.drops.push({ itemId: 'mutant_crystal', elite: true })
+    }
+
     return result
   }
 
-  return { collect }
+  /** 敌人成功逃跑时，只留下少量金币，不触发掷骰、特殊掉落或精英材料。 */
+  function collectEscape (enemyId, fraction = 0.25) {
+    const state = State.get()
+    const enemy = DATA.monster(enemyId)
+    if (!enemy) return { gold: 0, drops: [] }
+    let base = enemy.loot.gold || 0
+    if (enemy.id === 'goblins') {
+      const count = state._battle ? (state._battle.goblinInitialCount || 3) : 3
+      base *= count
+    }
+    if (state._battle?.enemyState?.elite) base = Math.ceil(base * (CONFIG.battle.eliteGoldMult || 1.5))
+    const gold = Math.max(0, Math.floor(base * fraction))
+    state.gold += gold
+    return { gold, drops: [], partial: true }
+  }
+
+  return { collect, collectEscape }
 })()

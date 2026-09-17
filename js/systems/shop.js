@@ -61,6 +61,7 @@ window.ShopSystem = (function () {
     ITEMS.consumables.forEach(item => {
       if (item.id === 'twig') return   // 树枝只能由小鹿剧情获得
       if (item.id === 'guard_pass') return   // 免检查卷只能由卫兵任务获得
+      if (item.id === 'mutant_crystal') return   // 精英材料只能通过战斗获得
       if (Object.prototype.hasOwnProperty.call(TRAVEL_RESTRAINT_STOCK, item.id)) {
         if (isTravelShop) _stock[item.id] = TRAVEL_RESTRAINT_STOCK[item.id]
         return
@@ -392,6 +393,19 @@ window.ShopSystem = (function () {
 
   function getStock () { return { ..._stock } }
 
+  /** 在铁匠铺用 3 枚异变结晶兑换 1 份武器升级材料。 */
+  function exchangeMutantCrystals () {
+    const state = State.get()
+    const count = state.inventory.consumables.mutant_crystal || 0
+    if (count < 3) return { ok: false, msg: '异变结晶不足（需要 3 个）' }
+    state.inventory.consumables.mutant_crystal = count - 3
+    state.inventory.consumables.weapon_upgrade_material = (state.inventory.consumables.weapon_upgrade_material || 0) + 1
+    state._freeUpgrade = true
+    EventBus.emit('ui:log', { text: '🔨 铁匠将 3 枚异变结晶锻成了 1 份武器升级材料！', type: 'good' })
+    EventBus.emit('state:changed', state)
+    return { ok: true }
+  }
+
   /** 买回衣服（解除全裸状态），代价 200 金币 */
   function buyClothes () {
     const state = State.get()
@@ -422,5 +436,5 @@ window.ShopSystem = (function () {
     return { ok: true }
   }
 
-  return { open, buy, equip, unequip, close, useConsumable, isSoulGem, useSoulGem, openSoulGemCharge, consumeBlockForPart, getPrice, getStock, buyClothes, reviveMercenary }
+  return { open, buy, equip, unequip, close, useConsumable, isSoulGem, useSoulGem, openSoulGemCharge, consumeBlockForPart, getPrice, getStock, exchangeMutantCrystals, buyClothes, reviveMercenary }
 })()

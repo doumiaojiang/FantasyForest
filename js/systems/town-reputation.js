@@ -33,6 +33,8 @@ window.TownReputationSystem = (function () {
     if (fame >= 80) return '全镇皆知'
     if (fame >= 50) return '广为人知'
     if (fame >= 20) return '略有名气'
+    if (fame >= 5) return '有人认得'
+    if (fame >= 1) return '刚被注意'
     return '无人认识'
   }
 

@@ -16,6 +16,9 @@
  *                                }
  * @property {string}  dildo     — 推荐的假阳具类型
  * @property {string?} tagline   — 吐槽/描述
+ * @property {string[]} traits   — 战斗前显示的特性 id
+ * @property {object} abilities  — 数据驱动战斗能力（poison/charge/guard/escape）
+ * @property {string[]} elitePool — 可随机获得的精英词缀
  *
  * 新增怪物：直接在 MONSTERS 数组中追加对象即可。
  */
@@ -28,6 +31,9 @@ window.MONSTERS = [
     intro: ['你被树根绊倒在地，感觉有滑溜溜的东西在试探你的屁眼。', '一只触手怪物开始干你。'],
     tagline: '它到底恶不恶心？还是说……它只是被世人误解了？',
     dildo: 'normal',
+    traits: ['poison'],
+    abilities: { poison: { chance: 0.2, turns: 2 } },
+    elitePool: ['toxic', 'armored', 'cunning'],
     surrender: {
       tribute: 30,
       humiliation: { desc: '你跪下来，让触手怪用滑腻的触手在你脸上轻轻蹭过，逼你说出「我是它的肉便器」才能离开。', dmg: 3 },
@@ -55,6 +61,9 @@ window.MONSTERS = [
     intro: ['你坐下休息了一会儿，一道不祥的阴影笼罩了你。', '一个巨大的兽人从背后抓住你，干了你。'],
     tagline: '他的鸡巴很大，但他的梦想更大。',
     dildo: 'big',
+    traits: ['charge'],
+    abilities: { charge: { every: 3, multiplier: 1.75, interruptDamage: 4 } },
+    elitePool: ['berserk', 'armored', 'toxic'],
     surrender: {
       tribute: 60,
       humiliation: { desc: '兽人让你趴在地上学狗叫，用大鸡巴拍打你的脸羞辱你，直到他满意。', dmg: 4, status: 'sleepy', turns: 2 },
@@ -82,6 +91,9 @@ window.MONSTERS = [
     intro: ['你感觉双脚越来越沉，低头一看已经石化了。', '一个女孩朝你走来，对你下了诅咒。'],
     tagline: '她看起来人畜无害，但她真的会诅咒你的屁眼。',
     dildo: 'normal',
+    traits: ['summon', 'guard'],
+    abilities: { guard: { start: 1, reduction: 0.5, breakDamage: 4 } },
+    elitePool: ['armored', 'toxic', 'cunning'],
     props: { firstStrike: true },
     surrender: {
       tribute: 50,
@@ -110,6 +122,9 @@ window.MONSTERS = [
     intro: ['你面前的地面裂开，一道通往地狱的传送门打开了。', '一只魅魔掌控了你的性欲，开始享用你。'],
     tagline: '她靠吸取你的性能量为生——不过她也喜欢巧克力。',
     dildo: 'normal',
+    traits: ['life_link', 'escape'],
+    abilities: { escape: { threshold: 0.25 } },
+    elitePool: ['cunning', 'toxic', 'berserk'],
     surrender: {
       tribute: 40,
       humiliation: { desc: '魅魔让你亲吻她的脚尖示好，她吸走你一半的精力才肯放过你。', dmg: 3, status: 'sleepy', turns: 2 },
@@ -142,6 +157,8 @@ window.MONSTERS = [
     intro: ['一群哥布林从不同方向朝你冲来。', '它们轮流干你。'],
     tagline: '它们想要你的金币，但有洞插也行。',
     dildo: 'small',
+    traits: ['pack'],
+    elitePool: ['toxic', 'armored', 'berserk'],
     surrender: {
       tribute: 30,
       humiliation: { desc: '哥布林们围着你，让你学它们蹦跳着跳舞取乐，直到它们笑够才放你走。', dmg: 2, status: 'confusion', turns: 2 },
@@ -174,6 +191,9 @@ window.MONSTERS = [
     intro: ['满月当空，你听到尖锐的嚎叫。', '下一秒你就被一只毛茸茸的生物压在身下。'],
     tagline: '不是他的错……他只是控制不住自己。',
     dildo: 'big_knotted',
+    traits: ['charge'],
+    abilities: { charge: { every: 3, multiplier: 1.75, interruptDamage: 4 } },
+    elitePool: ['berserk', 'armored', 'cunning'],
     surrender: {
       tribute: 50,
       humiliation: { desc: '狼人让你趴在他脚边，他嗅了嗅你的全身，用爪子轻拍你的屁股取乐。', dmg: 3, status: 'confusion', turns: 3 },

@@ -1210,8 +1210,23 @@ body:has(.modal-box.boss-ending-modal) #topbar {
   transition: width .4s;
 }
 .enemy-hp { color: #bb94a0; font-size: .68rem; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.enemy-state-chips { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 7px; }
+.enemy-state-chip { display: inline-flex; align-items: center; gap: 3px; padding: 4px 7px; border: 1px solid rgba(255,255,255,.09); border-radius: 999px; background: rgba(255,255,255,.035); color: #c8bdca; font-size: .61rem; font-weight: 700; }
+.enemy-state-chip.is-danger { border-color: rgba(255,107,107,.3); background: rgba(255,107,107,.09); color: #ffaaa8; }
+.enemy-state-chip.is-warning { border-color: rgba(240,190,90,.3); background: rgba(240,190,90,.08); color: #f1ca79; }
+.enemy-state-chip.is-guard { border-color: rgba(112,164,220,.3); background: rgba(112,164,220,.08); color: #a9c9ec; }
+.enemy-state-chip.is-elite { border-color: rgba(183,123,255,.32); background: rgba(183,123,255,.09); color: #d7b9ff; }
 .enemy-requirement { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-top: 10px; padding-top: 9px; border-top: 1px solid rgba(255,107,107,.12); color: var(--text-dim); font-size: .65rem; }
 .enemy-requirement b { color: #f0d9df; font-size: .72rem; }
+
+.enemy-trait-list { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 7px; margin-top: 12px; }
+.enemy-trait-card { min-width: 0; display: flex; align-items: flex-start; gap: 8px; padding: 9px; border: 1px solid rgba(255,107,107,.14); border-radius: 9px; background: rgba(10,8,18,.3); }
+.enemy-trait-card > span { width: 27px; height: 27px; flex: 0 0 27px; display: grid; place-items: center; border-radius: 7px; background: rgba(255,255,255,.04); font-size: .8rem; }
+.enemy-trait-card > div { min-width: 0; display: grid; gap: 2px; }
+.enemy-trait-card b { color: #f1dfe5; font-size: .69rem; }
+.enemy-trait-card p { margin: 0; color: var(--text-dim); font-size: .59rem; line-height: 1.42; }
+.enemy-trait-card.is-elite { border-color: rgba(183,123,255,.28); background: linear-gradient(135deg, rgba(183,123,255,.1), rgba(10,8,18,.3)); }
+.enemy-trait-card.is-elite b { color: #d7b9ff; }
 
 /* =========================================================
    12. 操作栏
@@ -3859,4 +3874,7 @@ body:has(.age-gate:not(.age-gate-hidden)) { overflow: hidden; }
 .town-rep-meter{padding:0 2px}.town-rep-meter>div{display:flex;justify-content:space-between;color:var(--text-dim);font-size:.7rem;margin-bottom:6px}.town-rep-meter>div b{color:var(--text)}.town-rep-meter>em{display:block;position:relative;height:8px;border-radius:999px;overflow:hidden;background:linear-gradient(90deg,rgba(255,91,119,.28),rgba(160,160,180,.18) 50%,rgba(72,205,142,.28))}.town-rep-meter>em i{display:block;height:100%;border-right:2px solid #fff;background:linear-gradient(90deg,var(--danger),var(--accent),var(--ok))}
 .town-rep-overview{display:grid;grid-template-columns:repeat(3,1fr);gap:9px}.town-rep-overview>span{min-width:0;padding:11px 8px;border:1px solid rgba(255,255,255,.08);border-radius:13px;background:rgba(255,255,255,.035);text-align:center;display:grid;gap:2px}.town-rep-overview i{font-style:normal}.town-rep-overview b{font-size:1.05rem}.town-rep-overview small{color:var(--text-dim);font-size:.68rem}.town-rep-effects{display:grid;grid-template-columns:repeat(2,1fr);gap:9px}.town-rep-effects>span{display:grid;gap:3px;padding:11px 12px;border-radius:13px;background:rgba(169,110,255,.07);border:1px solid rgba(169,110,255,.18)}.town-rep-effects small{color:var(--text-dim)}
 .town-rep-section{padding:12px;border-radius:14px;background:rgba(255,255,255,.025);border:1px solid rgba(255,255,255,.07)}.town-rep-section h4{margin:0 0 9px;font-size:.82rem}.town-rep-tags{display:flex;flex-wrap:wrap;gap:7px}.town-rep-tags span{padding:5px 9px;border-radius:999px;color:#dcc5ff;background:rgba(169,110,255,.12);border:1px solid rgba(169,110,255,.22);font-size:.72rem}.town-rep-tags .is-empty{color:var(--text-dim);background:rgba(255,255,255,.04);border-color:rgba(255,255,255,.08)}.town-rep-history{list-style:none;padding:0;margin:0;display:grid;gap:6px}.town-rep-history li{display:flex;justify-content:space-between;gap:12px;padding:7px 9px;border-radius:9px;background:rgba(255,255,255,.035);color:var(--text-dim);font-size:.73rem}.town-rep-history li b{color:var(--text)}.town-rep-history-score b{color:var(--ok)!important}.town-rep-history-fame b{color:#c8a8ff!important}.town-rep-history-negative b{color:var(--danger)!important}.merchant-item-price s{display:block;color:var(--text-dim);font-size:.66rem;font-weight:500}
-@media(max-width:620px){.town-rep-strip{grid-template-columns:36px minmax(0,1fr) auto;padding:10px 11px;gap:9px}.town-rep-strip>i{width:36px;height:36px;border-radius:11px;font-size:1.15rem}.town-rep-strip>span{display:block}.town-rep-strip small{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.town-rep-strip em{display:none}.town-rep-strip>strong{min-width:40px;padding:6px}.town-rep-hero{grid-template-columns:48px minmax(0,1fr) auto;padding:13px;gap:10px}.town-rep-hero>i{width:48px;height:48px;border-radius:14px;font-size:1.45rem}.town-rep-hero>strong{min-width:44px;font-size:1.15rem}.town-rep-hero p{display:none}.town-rep-effects{grid-template-columns:1fr}}
+@media(max-width:620px){.town-rep-strip{grid-template-columns:36px minmax(0,1fr) auto;padding:10px 11px;gap:9px}.town-rep-strip>i{width:36px;height:36px;border-radius:11px;font-size:1.15rem}.town-rep-strip>span{display:block}.town-rep-strip small{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.town-rep-strip em{display:block;margin-top:2px;overflow:hidden;font-size:.65rem;text-overflow:ellipsis;white-space:nowrap}.town-rep-strip>strong{min-width:40px;padding:6px}.town-rep-hero{grid-template-columns:48px minmax(0,1fr) auto;padding:13px;gap:10px}.town-rep-hero>i{width:48px;height:48px;border-radius:14px;font-size:1.45rem}.town-rep-hero>strong{min-width:44px;font-size:1.15rem}.town-rep-hero p{display:none}.town-rep-effects{grid-template-columns:1fr}}
+
+@media(max-width:420px){.dpad-float{right:6px;bottom:calc(12px + env(safe-area-inset-bottom,0px));padding:3px}.dpad-float .dpad-grid{--dpad-size:44px}}
+@media(max-width:420px){.enemy-trait-list{grid-template-columns:1fr;gap:5px}.enemy-trait-card{padding:7px}.enemy-trait-card>span{width:24px;height:24px;flex-basis:24px}.enemy-state-chip{padding:3px 6px;font-size:.56rem}}

@@ -5,7 +5,7 @@
  */
 
 window.CONFIG = {
-  version: '0.4.12',
+  version: '0.4.13',
   debug: {
     // 按游戏设计保留公开的作弊 / 调试入口。
     enabled: true,
@@ -72,6 +72,10 @@ window.CONFIG = {
     normalMult: 1,
     defendMult: 0.5,        // 防御减伤比例
     fleeChance: { normal: 0.6, hard: 0.4, brutal: 0.25 },  // 逃跑成功率
+    eliteChance: 0.15,      // 击败足够敌人后，普通遭遇成为精英的概率
+    eliteMinWins: 2,        // 至少完成多少次普通击杀后才开放精英
+    eliteHpMult: 1.5,
+    eliteGoldMult: 1.5,
   },
 
   /* ---------- 玩家初始 ---------- */

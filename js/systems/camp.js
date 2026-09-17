@@ -193,7 +193,7 @@ window.CampSystem = (function () {
           <div><small>SAFE HAVEN · 林缘休憩地</small><h3>篝火还暖着，森林暂时安静。</h3><p>补充物资、打听消息，准备好后再回到妖林。</p></div>
         </section>
         <div class="camp-stats" aria-label="营地状态"><span>❤️ ${state.hp}/${state.maxHp}</span><span>💎 ${state.gold} 金币</span><span>🧭 出生点东侧</span></div>
-        <button class="town-rep-strip town-rep-${townRank.tone}" data-town-reputation><i>${townRank.icon}</i><span><small>MISTLAMP REPUTATION · 雾灯镇评价</small><b>${townRank.name}</b><em>📣 ${townFame}</em></span><strong>${state._townReputation && state._townReputation.score > 0 ? '+' : ''}${state._townReputation ? state._townReputation.score : 0}</strong></button>
+        <button class="town-rep-strip town-rep-${townRank.tone}" data-town-reputation><i>${townRank.icon}</i><span><small>MISTLAMP REPUTATION · 雾灯镇评价</small><b>${townRank.name}</b><em>📣 ${state._townReputation ? state._townReputation.fame : 0} · ${townFame}</em></span><strong>${state._townReputation && state._townReputation.score > 0 ? '+' : ''}${state._townReputation ? state._townReputation.score : 0}</strong></button>
         <div class="camp-grid">
           <button class="camp-opt camp-opt-tavern" data-opt="tavern"><i>🍺</i><span><b>雾灯酒馆</b><small>摇骰子、买酒</small></span><em>营业中</em></button>
           <button class="camp-opt camp-opt-blacksmith" data-opt="blacksmith"><i>🔨</i><span><b>铁匠铺</b><small>武器与饰品</small></span><em>营业中</em></button>

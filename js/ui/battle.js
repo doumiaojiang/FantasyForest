@@ -54,11 +54,11 @@ window.BattleUI = (function () {
     if (_enemy.id === 'goblins') {
       const count = State.get()._battle && State.get()._battle.goblinInitialCount
       setTimeout(() => {
-        Dialog.battleIntro(_enemy, { goblinCount: count })
+        Dialog.battleIntro(_enemy, { goblinCount: count, battle: data.battle })
       }, 800)
       return
     }
-    Dialog.battleIntro(_enemy)
+    Dialog.battleIntro(_enemy, { battle: data.battle })
   }
 
   /* ============ 玩家回合 ============ */
@@ -364,6 +364,16 @@ window.BattleUI = (function () {
       _battle.itemUsedThisTurn = false
     }
 
+    const abilityTurn = EnemyAbilitySystem.beginEnemyTurn(_enemy, _battle)
+    if (abilityTurn.action === 'escaped') return
+    if (abilityTurn.action === 'wait') {
+      hint.textContent = abilityTurn.hint
+      setTimeout(() => {
+        if (State.get().phase === 'battle') showPlayerTurn()
+      }, 450)
+      return
+    }
+
     // BOSS战：森林之灵召唤敌人攻击
     if (_enemy.props && _enemy.props.isBoss) {
       await doBossTurn()
@@ -421,6 +431,9 @@ window.BattleUI = (function () {
       }
       attack = effAttack
     }
+    // 即使攻击被充能装备挡住，也要消耗已经完成的蓄力，避免重击延续到下一回合。
+    effAttack = EnemyAbilitySystem.modifyEnemyAttack(enemy, _battle, effAttack)
+    attack = effAttack
     _lastEnemyAttack = { attack: effAttack, roll, part: attackPart }
 
     EventBus.emit('ui:log', { text: `[${_enemy.name}] ${effAttack.desc}`, type: 'danger' })
@@ -1331,7 +1344,7 @@ window.BattleUI = (function () {
       return
     }
     const items = Object.entries(state.inventory.consumables)
-      .filter(([id, v]) => v > 0 && id !== 'weapon_upgrade_material' && id !== 'twig' && id !== 'restraint_lock' && id !== 'restraint_key' && id !== 'master_key' && id !== 'lockpick' && id !== 'curse_remover')
+      .filter(([id, v]) => v > 0 && id !== 'weapon_upgrade_material' && id !== 'mutant_crystal' && id !== 'twig' && id !== 'restraint_lock' && id !== 'restraint_key' && id !== 'master_key' && id !== 'lockpick' && id !== 'curse_remover')
     const usableItems = state._battle && state._battle.itemUsedThisTurn ? [] : items
     if (!usableItems.length) {
       EventBus.emit('ui:log', { text: '没有可用物品。', type: 'dim' })
@@ -1398,7 +1411,17 @@ window.BattleUI = (function () {
     if (actionBar) actionBar.classList.remove('fixed')
     if (gameScreen) gameScreen.classList.remove('has-fixed-bar')
 
-    if (data.victory) {
+    if (data.enemyEscaped) {
+      const escaped = DATA.monster(data.enemyId)
+      const gold = data.loot?.gold || 0
+      hint.textContent = `🏃 ${escaped ? escaped.name : '敌人'}逃走了！`
+      EventBus.emit('ui:log', { text: `🏃 敌人成功逃走，你只捡到 ${gold} 金币，没有获得特殊掉落。`, type: 'dim' })
+      btns.innerHTML = `<button class="btn btn-primary" id="btn-loot">继续</button>`
+      document.getElementById('btn-loot').onclick = () => {
+        Dialog.close()
+        GameFlow.afterEvent()
+      }
+    } else if (data.victory) {
       if (data.fled) {
         if (data.surrendered) {
           hint.textContent = '🏳️ 你投降了。'

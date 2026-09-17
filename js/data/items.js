@@ -65,6 +65,11 @@ window.ITEMS = {
       effect: { special: 'free_upgrade' },
     },
     {
+      id: 'mutant_crystal', name: '异变结晶', type: 'consumable', price: 0,
+      desc: '精英怪物留下的结晶；可在铁匠铺用 3 个兑换 1 个武器升级材料',
+      effect: { special: 'elite_material' },
+    },
+    {
       id: 'twig', name: '坚韧树枝', type: 'consumable', price: 0,
       desc: '森灵小鹿送的临时武器，可在 4 场战斗中作为武器使用（2 点伤害），战败则断裂',
       effect: { special: 'twig' },

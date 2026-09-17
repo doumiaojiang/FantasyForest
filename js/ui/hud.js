@@ -67,9 +67,12 @@ function render (state) {
     posEl.textContent = tile ? `(${state.position.x},${state.position.y})` : '—'
 
     // 武器
+    const twigUses = Math.max(0, Number(state.inventory.consumables && state.inventory.consumables.twig) || 0)
     weaponEl.textContent = state.inventory.weapon
       ? (ItemLib.weapon(state.inventory.weapon)?.name || state.inventory.weapon)
-      : '赤手空拳'
+      : twigUses > 0
+        ? `坚韧树枝（剩余 ${twigUses} 场）`
+        : '赤手空拳'
 
     // 饰品（贞操装置归妖缚，不在装备栏显示）
     const accs = state.inventory.accessories || []
@@ -159,6 +162,9 @@ function render (state) {
       const enemy = DATA.monster(state._battle.enemyId)
       const dildo = enemy ? DildoSystem.effective(enemy.id) : null
       const dildoText = dildo ? dildo.name : ''
+      const abilityChips = enemy && typeof EnemyAbilitySystem !== 'undefined'
+        ? EnemyAbilitySystem.statusChips(enemy, state._battle)
+        : []
       enemyTargets.innerHTML = state._battle.targets.map(t => {
         const pct2 = Math.max(0, (t.hp / t.maxHp) * 100)
         const targetIcon = t.type === 'goblin' ? '👺'
@@ -172,6 +178,7 @@ function render (state) {
           </span>
         </div>`
       }).join('') +
+      (abilityChips.length ? `<div class="enemy-state-chips" aria-label="敌人当前状态">${abilityChips.map(chip => `<span class="enemy-state-chip is-${chip.tone || 'normal'}">${chip.icon} ${chip.text}</span>`).join('')}</div>` : '') +
       (dildoText ? `<div class="enemy-requirement"><span>战斗需求</span><b>🍆 ${dildoText}</b></div>` : '')
     } else {
       enemyContainer.classList.remove('show')

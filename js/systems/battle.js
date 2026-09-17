@@ -33,9 +33,16 @@ window.BattleSystem = (function () {
       bossForcedUnlockUsed: false,
       defending: false,
       goblinInitialCount: null,
+      enemyState: EnemyAbilitySystem.createState(enemy, opts),
     }
     buildTargets(enemy, state._battle)
+    EnemyAbilitySystem.applyEliteHealth(state._battle)
     state.phase = 'battle'
+
+    const elite = EnemyAbilitySystem.eliteDef(state._battle)
+    if (elite) {
+      EventBus.emit('ui:log', { text: `${elite.icon} 遭遇${elite.name}：生命 +50%、金币 +50%，击败后必定掉落异变结晶。`, type: 'danger' })
+    }
 
     if (state._battle.blocked > 0) {
       const parts = []
@@ -76,13 +83,13 @@ window.BattleSystem = (function () {
       const letters = ['A', 'B', 'C', 'D', 'E']
       for (let i = 0; i < count; i++) {
         const label = letters[i] || (i + 1)
-        battle.targets.push({ id: 'goblin-' + i, name: '哥布林 ' + label, hp: 5, maxHp: 5, type: 'goblin', dmgPerTurn: 0 })
+        battle.targets.push({ id: 'goblin-' + i, name: `${EnemyAbilitySystem.displayName(enemy, battle)} ${label}`, hp: 5, maxHp: 5, type: 'goblin', dmgPerTurn: 0 })
       }
       battle.goblinInitialCount = count  // 供战利品用
       return
     }
     // 普通怪：单目标
-    battle.targets = [{ id: 'main', name: enemy.name, hp: enemy.maxHp, maxHp: enemy.maxHp, type: 'main', dmgPerTurn: 0 }]
+    battle.targets = [{ id: 'main', name: EnemyAbilitySystem.displayName(enemy, battle), hp: enemy.maxHp, maxHp: enemy.maxHp, type: 'main', dmgPerTurn: 0 }]
   }
 
   /** 掷 Z 决定哥布林数量（含骰子动画提示） */
@@ -116,6 +123,7 @@ window.BattleSystem = (function () {
     const state = State.get()
     const battle = state._battle
     if (!battle) return null
+    const enemy = DATA.monster(battle.enemyId)
 
     if (roll === undefined) roll = Dice.rollAttack()
     const result = AttackResolver.resolvePlayer(roll, battle)
@@ -136,14 +144,22 @@ window.BattleSystem = (function () {
     if (!result.hitSelf && result.dmg > 0) {
       const target = battle.targets.find(t => t.id === targetId) || battle.targets[0]
       if (target) {
+        EnemyAbilitySystem.modifyPlayerAttack(enemy, battle, result, target)
         target.hp -= result.dmg
         result.target = { id: target.id, name: target.name }
+        EnemyAbilitySystem.afterPlayerHit(enemy, battle, target, result)
         // 目标死亡
         if (target.hp <= 0) {
           bossDefeated = battle.enemyId === 'spirit_of_forest' && target.id === 'main'
           handleTargetDeath(battle, target)
         }
       }
+    }
+
+    // 目标死亡可能触发群体逃跑并立即结束战斗，不能再继续结算佣兵或胜利。
+    if (state._battle !== battle || state.phase !== 'battle') {
+      EventBus.emit('battle:attack', { roll, result })
+      return result
     }
 
     // 佣兵攻击：玩家命中后，佣兵补一刀（玩家 miss 时她也 miss）；发情时无法专心攻击
@@ -217,8 +233,22 @@ window.BattleSystem = (function () {
     const aliveGoblins = battle.targets.filter(t => t.type === 'goblin').length
     if (aliveGoblins === 1) {
       EventBus.emit('ui:log', { text: '🏃 最后一只哥布林见势不妙，逃跑了！', type: 'good' })
-      end(true)
+      enemyEscape('last_goblin')
     }
+  }
+
+  /** 敌人成功逃跑：只结算少量金币，不计胜利、击杀与特殊掉落。 */
+  function enemyEscape (reason) {
+    const state = State.get()
+    const battle = state._battle
+    if (!battle) return false
+    const enemyId = battle.enemyId
+    const loot = LootSystem.collectEscape(enemyId, 0.25)
+    state._battle = null
+    state.phase = 'idle'
+    EventBus.emit('state:changed', state)
+    EventBus.emit('battle:end', { victory: false, enemyEscaped: true, reason, loot, enemyId })
+    return true
   }
 
   /** 防御：本回合减少敌人伤害 */
@@ -348,7 +378,7 @@ window.BattleSystem = (function () {
     }
   }
 
-  return { start, playerAttack, getTargets, mainTarget, removeTarget, end, defend, flee }
+  return { start, playerAttack, getTargets, mainTarget, removeTarget, end, defend, flee, enemyEscape }
 })()
 
 /* ---------- 掷骰工具 ---------- */

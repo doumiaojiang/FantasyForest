@@ -139,23 +139,37 @@ window.Dialog = (function () {
 
     const dildo = DildoSystem.effective(enemy.id)
     const dildoText = dildo ? dildo.name : ''
+    const enemyName = typeof EnemyAbilitySystem !== 'undefined'
+      ? EnemyAbilitySystem.displayName(enemy, opts.battle)
+      : enemy.name
+    const traits = typeof EnemyAbilitySystem !== 'undefined'
+      ? EnemyAbilitySystem.traitsFor(enemy, opts.battle)
+      : []
+    const traitHtml = traits.length
+      ? `<section class="enemy-trait-list" aria-label="敌人特性">${traits.map(trait => `
+          <article class="enemy-trait-card${trait.elite ? ' is-elite' : ''}">
+            <span aria-hidden="true">${trait.icon || '◆'}</span>
+            <div><b>${trait.name}</b><p>${trait.desc}</p></div>
+          </article>`).join('')}</section>`
+      : ''
 
     const body = lines.map(l => `<p>${l}</p>`).join('') +
       `<div style="margin-top:10px;display:flex;align-items:center;gap:10px">
         <div style="flex:1">
           <div style="display:flex;justify-content:space-between;font-size:.85rem;color:var(--text);margin-bottom:4px">
-            <span>${enemy.name}${opts.goblinCount ? ` ×${opts.goblinCount}` : ''} HP</span>
-            <span>${enemy.maxHp}/${enemy.maxHp}</span>
+            <span>${enemyName}${opts.goblinCount ? ` ×${opts.goblinCount}` : ''} HP</span>
+            <span>${opts.battle?.targets?.[0]?.maxHp || enemy.maxHp}/${opts.battle?.targets?.[0]?.maxHp || enemy.maxHp}</span>
           </div>
           <div style="height:14px;background:var(--hp-bg);border-radius:8px;overflow:hidden">
             <div style="height:100%;width:100%;background:linear-gradient(90deg,var(--danger),#ff8a8a);border-radius:8px"></div>
           </div>
         </div>
       </div>
+      ${traitHtml}
       ${dildoText ? `<p style="margin-top:8px;color:var(--text-dim);font-size:.85rem">🍆 你需要使用：${dildoText}</p>` : ''}`
 
     Dialog.show({
-      title: `⚔️ ${enemy.name}`,
+      title: `⚔️ ${enemyName}`,
       body,
       actions: [
         { label: '⚔️ 战斗开始！', cls: 'btn-primary', handler: () => { Dialog.close(); EventBus.emit('battle:ui:ready', {}) } },
@@ -241,7 +255,7 @@ window.Dialog = (function () {
     // 消耗品（插入用品归入妖缚装备，不在普通药品商店出售）
     if (!isBlacksmith) {
       ITEMS.consumables.filter(it =>
-        it.id !== 'weapon_upgrade_material' && it.id !== 'twig' && it.id !== 'guard_pass' &&
+        it.id !== 'weapon_upgrade_material' && it.id !== 'mutant_crystal' && it.id !== 'twig' && it.id !== 'guard_pass' &&
         !['restraint_lock', 'restraint_key', 'master_key', 'lockpick', 'curse_remover', 'petty_soul_gem', 'lesser_soul_gem', 'common_soul_gem'].includes(it.id)
       ).forEach(item => { html += renderItem(item) })
     }
@@ -286,11 +300,20 @@ window.Dialog = (function () {
         </div>`
     }
 
+    const crystalCount = state.inventory.consumables.mutant_crystal || 0
+    const crystalExchange = isBlacksmith
+      ? `<div class="shop-alert shop-alert--success${crystalCount >= 3 ? '' : ' is-unavailable'}">
+          <div class="shop-alert-title">💠 异变结晶 ×${crystalCount}</div>
+          <div class="shop-item-desc">精英怪物留下的材料；3 个可锻成 1 份武器升级材料。</div>
+          <button class="btn btn-primary" id="btn-exchange-crystal" ${crystalCount >= 3 ? '' : 'disabled'}>🔨 兑换（消耗 3 个）</button>
+        </div>`
+      : ''
+
     const shopTitle = isPotioneer ? '🧪 道具商' : isBlacksmith ? '🔨 铁匠铺' : '🏪 旅行商店'
     Dialog.show({
       title: `${shopTitle} ${isHalf ? '(半价优惠)' : ''}`,
       className: `shop-modal ${isBlacksmith ? 'shop-modal-blacksmith' : isPotioneer ? 'shop-modal-potion' : 'shop-modal-travel'}`,
-      body: `<section class="shop-hero"><span>${isBlacksmith ? '🔨' : isPotioneer ? '🧪' : '🏪'}</span><div><small>${isBlacksmith ? 'FORGE & ARMORY' : isPotioneer ? 'FOREST APOTHECARY' : 'TRAVELING GOODS'}</small><b>${isBlacksmith ? '为下一场战斗换件趁手装备。' : isPotioneer ? '药剂、咒术与旅途补给。' : '旅途补给、应急妖缚工具与灵魂石。'}</b></div><strong>💎 ${state.gold}G</strong></section>${isHalf ? '<div class="shop-sale">🏷️ 普通难度停格优惠 · 本店商品半价</div>' : ''}${clothesBtn}${mercBtn}${html}`,
+      body: `<section class="shop-hero"><span>${isBlacksmith ? '🔨' : isPotioneer ? '🧪' : '🏪'}</span><div><small>${isBlacksmith ? 'FORGE & ARMORY' : isPotioneer ? 'FOREST APOTHECARY' : 'TRAVELING GOODS'}</small><b>${isBlacksmith ? '为下一场战斗换件趁手装备。' : isPotioneer ? '药剂、咒术与旅途补给。' : '旅途补给、应急妖缚工具与灵魂石。'}</b></div><strong>💎 ${state.gold}G</strong></section>${isHalf ? '<div class="shop-sale">🏷️ 普通难度停格优惠 · 本店商品半价</div>' : ''}${crystalExchange}${clothesBtn}${mercBtn}${html}`,
       actions: [
         { label: '离开商店', handler: () => { close(); ShopSystem.close() } },
       ],
@@ -307,6 +330,14 @@ window.Dialog = (function () {
           } else {
             alert(result.msg)
           }
+        })
+      }
+      const btnCrystal = document.getElementById('btn-exchange-crystal')
+      if (btnCrystal) {
+        btnCrystal.addEventListener('click', () => {
+          const result = ShopSystem.exchangeMutantCrystals()
+          if (result.ok) shop(tile, ShopSystem.getStock())
+          else alert(result.msg)
         })
       }
       const btnRevive = document.getElementById('btn-revive-merc')
