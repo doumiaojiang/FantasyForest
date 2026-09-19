@@ -356,10 +356,11 @@ window.BattleSystem = (function () {
           EventBus.emit('ui:log', { text: '🌿 树枝断裂了，恢复赤手空拳。', type: 'dim' })
         }
       }
+      const wasElite = !!(battle.enemyState && battle.enemyState.elite)
       state._battle = null
       state.phase = 'idle'
       EventBus.emit('state:changed', state)
-      EventBus.emit('battle:end', { victory: true, loot, enemyId: battle.enemyId })
+      EventBus.emit('battle:end', { victory: true, loot, enemyId: battle.enemyId, elite: wasElite })
     } else {
       // 战败：树枝断裂
       if (!state.inventory.weapon && (state.inventory.consumables['twig'] || 0) > 0) {

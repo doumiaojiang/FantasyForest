@@ -246,6 +246,7 @@ window.AmbushSystem = {
           chargedBlocked = true
           effAttack = { ...effAttack, dmg: 0, status: null, special: null, turns: 0, level: 0 }
         } else if (targetResult.mode === 'redirect') {
+          EventBus.emit('battle:redirect', { from: attackPart, to: targetResult.part, enemyId: enemy.id, ambush: true })
           const partName = { oral: '嘴穴', anal: '菊穴', vagina: '小穴' }[targetResult.part]
           effAttack = {
             ...effAttack,

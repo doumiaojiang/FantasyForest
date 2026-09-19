@@ -9,11 +9,16 @@
 window.BattleUI = (function () {
   let _enemy = null
   let _lastEnemyAttack = null
+  let _activeTaskCleanup = null
 
   function init () {
     EventBus.on('battle:start', onStart)
     EventBus.on('battle:end', onEnd)
     EventBus.on('battle:ui:ready', onBattleReady)
+    // 任务弹窗被设置、剧情或其他流程提前关闭时，也必须停止后台计时与节拍声。
+    EventBus.on('ui:modalclose', () => {
+      if (_activeTaskCleanup) _activeTaskCleanup()
+    })
   }
 
   function onBattleReady () {
@@ -405,6 +410,7 @@ window.BattleUI = (function () {
         chargedBlocked = true
         effAttack = { ...effAttack, dmg: 0, status: null, special: null, turns: 0, level: 0 }
       } else if (targetResult.mode === 'redirect') {
+        EventBus.emit('battle:redirect', { from: attackPart, to: targetResult.part, enemyId: enemy.id })
         const partName = { oral: '嘴穴', anal: '菊穴', vagina: '小穴' }[targetResult.part]
         effAttack = {
           ...effAttack,
@@ -468,6 +474,7 @@ window.BattleUI = (function () {
           seconds: secondsPerGob,
           dmg: attack.dmg,   // 显示总伤害，与最终结算一致
           dildoName: DildoSystem.describe('goblins'),
+          telemetry: StatsSystem.taskMeta(_enemy.id, roll, _lastEnemyAttack.part),
         })
         if (failed) anyFailed = true
       }
@@ -500,6 +507,7 @@ window.BattleUI = (function () {
           status: attack.status,
           statusTurns: attack.turns,
           dildoName: DildoSystem.describe('goblins'),
+          telemetry: StatsSystem.taskMeta(_enemy.id, roll, _lastEnemyAttack.part),
         })
         if (failed) anyFailed = true
       }
@@ -528,6 +536,7 @@ window.BattleUI = (function () {
           status: attack.status,
           statusTurns: attack.turns,
           dildoName: DildoSystem.describe('goblins'),
+          telemetry: StatsSystem.taskMeta(_enemy.id, roll, _lastEnemyAttack.part),
         })
         if (failed) anyFailed = true
       }
@@ -575,6 +584,7 @@ window.BattleUI = (function () {
       status: attack.status,
       statusTurns: attack.turns,
       dildoName: DildoSystem.describe(_enemy.id),
+      telemetry: StatsSystem.taskMeta(_enemy.id, roll, _lastEnemyAttack.part),
     })
 
     // 断触手：敌人实际插入（有操弄动作的任务）时替换掉假阴茎
@@ -670,7 +680,9 @@ window.BattleUI = (function () {
    *  allowSkip=false 时隐藏"跳过计时器"；showFailure=false 时隐藏"没完成"；
    *  completeLabel 自定义完成按钮文字；dialogClass 附加弹窗样式类；
    *  refuseLabel 提供"拒绝服务"按钮（点击 resolve 'refuse'） */
-  function showTaskDialog ({ enemyName, attackName, desc, bpm, seconds, dmg, status, statusTurns, dildoName, noDamage, allowSkip = true, showFailure = true, completeLabel = '✅ 完成任务', dialogClass = '', refuseLabel = '' }) {
+  function showTaskDialog ({ enemyName, attackName, desc, bpm, seconds, dmg, status, statusTurns, dildoName, noDamage, allowSkip = true, showFailure = true, completeLabel = '✅ 完成任务', dialogClass = '', refuseLabel = '', telemetry = null }) {
+    // 同一时间只允许一个任务计时器；新任务会先彻底清掉可能残留的旧任务。
+    if (_activeTaskCleanup) _activeTaskCleanup()
     return new Promise(resolve => {
       const hasTimer = seconds > 0
       const hasBpm = bpm > 0
@@ -693,9 +705,37 @@ window.BattleUI = (function () {
       let timerValue = seconds
       let timerInterval = null
       let metronomeInterval = null
+      let metronomeStartTimer = null
       let started = false
+      let running = false
       let done = false
       let metronomeDir = 1
+      let audioCtx = null
+
+      const cleanupTask = () => {
+        running = false
+        stopTimer()
+        if (audioCtx) {
+          try { audioCtx.close() } catch (_) {}
+          audioCtx = null
+        }
+        if (_activeTaskCleanup === cleanupTask) _activeTaskCleanup = null
+      }
+      _activeTaskCleanup = cleanupTask
+
+      const finish = failed => {
+        cleanupTask()
+        if (telemetry && failed !== 'refuse') {
+          EventBus.emit('task:complete', {
+            ...telemetry,
+            bpm: Math.max(0, Number(bpm) || 0),
+            seconds: Math.max(0, Number(seconds) || 0),
+            damage: Math.max(0, Number(dmg) || 0),
+            completed: failed === false,
+          })
+        }
+        resolve(failed)
+      }
 
       const bodyHtml = `
         <div class="task-container">
@@ -727,18 +767,18 @@ window.BattleUI = (function () {
         {
           label: completeLabel,
           cls: 'btn-success',
-          handler: () => { Dialog.close(); resolve(false) },
+          handler: () => { Dialog.close(); finish(false) },
         },
         ...(showFailure ? [{
           label: '❌ 没完成',
           cls: 'btn-danger',
-          handler: () => { Dialog.close(); resolve(true) },
+          handler: () => { Dialog.close(); finish(true) },
         }] : []),
       ] : [
         ...(refuseLabel ? [{
           label: refuseLabel,
           cls: 'btn-danger',
-          handler: () => { Dialog.close(); resolve('refuse') },
+          handler: () => { Dialog.close(); finish('refuse') },
         }] : []),
         {
           label: '▶️ 开始任务',
@@ -759,6 +799,8 @@ window.BattleUI = (function () {
       })
 
       function beginTask () {
+        if (running) return
+        running = true
         const layer = document.getElementById('modal-layer')
         const btns = (layer ? layer : document).querySelectorAll('.modal-actions button')
         btns.forEach(b => { if (b.textContent.includes('开始任务') || (refuseLabel && b.textContent.includes(refuseLabel))) b.style.display = 'none' })
@@ -788,7 +830,10 @@ window.BattleUI = (function () {
         if (hasBpm) {
           const intervalMs = Math.round(60000 / bpm)
           // 先往右摆
-          setTimeout(() => tickMetronome(), 0)
+          metronomeStartTimer = setTimeout(() => {
+            metronomeStartTimer = null
+            tickMetronome()
+          }, 0)
           metronomeInterval = setInterval(() => {
             tickMetronome()
           }, intervalMs)
@@ -803,6 +848,7 @@ window.BattleUI = (function () {
       }
 
       function tickMetronome () {
+        if (!running || done || _activeTaskCleanup !== cleanupTask) return
         const p = document.getElementById('metronome-pendulum')
         if (!p) return
         // 左右摆动
@@ -813,9 +859,8 @@ window.BattleUI = (function () {
         playClick()
       }
 
-      let audioCtx = null
-
       function playClick () {
+        if (!running || done || _activeTaskCleanup !== cleanupTask) return
         try {
           if (!audioCtx) {
             audioCtx = new (window.AudioContext || window.webkitAudioContext)()
@@ -855,15 +900,17 @@ window.BattleUI = (function () {
           actionsDiv.querySelectorAll('.task-finish-btn').forEach(btn => {
             btn.onclick = () => {
               Dialog.close()
-              resolve(btn.dataset.result === 'fail')
+              finish(btn.dataset.result === 'fail')
             }
           })
         }
       }
 
       function stopTimer () {
+        running = false
         if (timerInterval) { clearInterval(timerInterval); timerInterval = null }
         if (metronomeInterval) { clearInterval(metronomeInterval); metronomeInterval = null }
+        if (metronomeStartTimer) { clearTimeout(metronomeStartTimer); metronomeStartTimer = null }
         // 复位节拍器
         const p = document.getElementById('metronome-pendulum')
         if (p) p.style.transform = 'rotate(0deg)'
@@ -915,6 +962,7 @@ window.BattleUI = (function () {
         chargedBlocked = true
         effAttack = { ...effAttack, name: `${effAttack.name} · 被充能抵挡`, desc: '插入装备的防护充能完全挡住了召唤怪物的攻击与效果。', dmg: 0, heal: 0, status: null, special: null, turns: 0, level: 0 }
       } else if (targetResult.mode === 'redirect' || targetResult.mode === 'forced_unlock') {
+        if (targetResult.mode === 'redirect') EventBus.emit('battle:redirect', { from: attackPart, to: targetResult.part, enemyId: summoned.id, boss: true })
         const partName = { oral: '嘴穴', anal: '菊穴', vagina: '小穴' }[targetResult.part]
         effAttack = {
           ...effAttack,
@@ -994,6 +1042,7 @@ window.BattleUI = (function () {
           status: attack.status,
           statusTurns: attack.turns ? attack.turns * 2 : 0,
           dildoName: DildoSystem.describe(summoned.id),
+          telemetry: StatsSystem.taskMeta(summoned.id, z, attackPart),
         })
 
     // 结算（BOSS规则）
@@ -1569,6 +1618,7 @@ window.BattleUI = (function () {
         seconds: 45,
         dmg: 8,
         dildoName: '普通假阴茎',
+        telemetry: { source: 'battle', enemyId: 'werewolf', action: 'penetration', part: state.gender !== 'male' && z >= 4 ? 'vagina' : 'anal', depth: 'medium' },
       })
       // 无论完成与否，毒精液伤害都会施加
       state.hp -= 8

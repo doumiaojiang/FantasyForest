@@ -178,6 +178,7 @@ window.EnemyAbilitySystem = (function () {
     if (result.crit || before >= breakDamage) {
       es.guard = 0
       result.enemyGuardBroken = true
+      EventBus.emit('battle:guardBreak', { enemyId: enemy.id })
       EventBus.emit('ui:log', { text: `💥 ${displayName(enemy, battle)}的防御被打破了！`, type: 'good' })
       return result
     }
@@ -196,12 +197,14 @@ window.EnemyAbilitySystem = (function () {
     if (es.charging && result.dmg >= (cfg.charge?.interruptDamage || 4)) {
       es.charging = false
       es.chargeStrike = false
+      EventBus.emit('battle:chargeInterrupt', { enemyId: enemy.id })
       EventBus.emit('ui:log', { text: `💥 你打断了${displayName(enemy, battle)}的蓄力！`, type: 'good' })
     }
 
     if (es.fleeing) {
       es.fleeing = false
       es.fleeAnnounced = false
+      EventBus.emit('battle:escapeStopped', { enemyId: enemy.id })
       EventBus.emit('ui:log', { text: `🎯 你阻止了${displayName(enemy, battle)}逃跑！`, type: 'good' })
       return
     }

@@ -195,6 +195,7 @@
             <button class="btn" id="set-rules">📖 游戏规则</button>
             <button class="btn" id="set-changelog">✨ 更新日志</button>
             <button class="btn" id="set-privacy">🛡️ 隐私说明</button>`}
+            <button class="btn" id="set-records">🏆 成就与记录${window.StatsSystem && StatsSystem.pendingCount() ? ` (${StatsSystem.pendingCount()})` : ''}</button>
             <button class="btn" id="set-menu">🏠 主菜单</button>
             ${villageMode ? '' : cheatButton}
             <button class="btn btn-danger" id="set-delete" style="grid-column:1/-1">🗑️ 删除存档</button>
@@ -252,6 +253,7 @@
         picker.click()
       })
       bind('set-rules', () => { Dialog.close(); Dialog.showRules() })
+      bind('set-records', () => { Dialog.close(); AchievementsUI.open() })
       bind('set-changelog', () => { Dialog.close(); showChangelog() })
       bind('set-privacy', () => { Dialog.close(); showPrivacyNotice() })
       if (DEBUG_ENABLED) bind('set-cheat', () => { Dialog.close(); showCheatGate() })

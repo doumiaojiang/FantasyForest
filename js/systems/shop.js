@@ -352,6 +352,7 @@ window.ShopSystem = (function () {
           ? RestraintSystem.chargeNoticeText(deviceName, left, max)
           : `⚡ ${deviceName}消耗 1 点防护充能，剩余 ${left} 点。`
         if (notice) EventBus.emit('ui:log', { text: notice, type: left > 0 ? 'good' : 'dim' })
+        EventBus.emit('battle:insertionBlock', { part: slot, deviceId: entry && entry.def.id })
         return true
       }
       if (part === 'anal' || part === 'vagina') return consumeSlot(part)

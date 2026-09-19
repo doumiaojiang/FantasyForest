@@ -204,6 +204,7 @@ window.CampSystem = (function () {
           ${(state._pillorySettings || {}).enabled !== false ? '<button class="camp-opt camp-opt-pillory" data-opt="pillory"><i>🪵</i><span><b>城镇广场木枷</b><small>公开展示 · 自愿打工 · 契约抵债</small></span><em>可使用</em></button>' : ''}
           <button class="camp-opt camp-opt-deer" data-opt="deer"><i>🦌</i><span><b>篝火旁的鹿</b><small>旅人的初次见面礼</small></span><em>${deerStatus}</em></button>
           <button class="camp-opt camp-opt-teleport" data-opt="teleport"><i>🌀</i><span><b>传送阵</b><small>点亮过的传送阵可互相传送</small></span><em>${(state._teleports || []).length}/${TELEPORTS.length}</em></button>
+          <button class="camp-opt" data-opt="records"><i>🏆</i><span><b>成就与记录</b><small>任务次数 · 时长 · 战斗档案</small></span><em>${window.StatsSystem ? StatsSystem.pendingCount() : 0} 待领</em></button>
         </div>
         ${gloryGearBlocked ? `<div class="work-rule">🔒 你仍欠荣耀洞 <b>${Math.max(0, state._gloryDebt || 0)}G</b>${state._gloryFreeService ? '，还有一单免费服务未完成' : ''}。当前妖缚装备阻止服务，可先在营地购买钥匙、驱咒符或找铁匠解锁；债务结清前仍不能出城。</div>` : ''}
         <p class="camp-footnote">营地不会消耗回合；离开后从当前格继续探索。</p>`,
@@ -222,6 +223,7 @@ window.CampSystem = (function () {
         else if (opt === 'pillory') squarePillory()
         else if (opt === 'deer') deer()
         else if (opt === 'teleport') campTeleport()
+        else if (opt === 'records' && window.AchievementsUI) AchievementsUI.open('overview', open)
         else if (opt === 'ddshop') ddShop()
       }
     })
@@ -325,6 +327,7 @@ window.CampSystem = (function () {
             showFailure: false,
             completeLabel: '✅ 确认展示完成',
             dialogClass: 'pillory-task-modal',
+            telemetry: { source: 'pillory', action: 'other', part: 'body', depth: 'none' },
           })
         }
         task.stage = task.event ? 'adult' : 'settle'
@@ -413,6 +416,7 @@ window.CampSystem = (function () {
         showFailure: false,
         completeLabel: '✅ 确认事件完成',
         dialogClass: 'pillory-task-modal',
+        telemetry: { source: 'pillory_service', action: event.part === 'spank' ? 'spanking' : event.part === 'oral' ? 'oral' : 'penetration', part: event.part === 'spank' ? 'body' : event.part, depth: event.part === 'spank' ? 'none' : 'medium' },
       })
     }
     // 公开成人服务视为无证经营风险；持证玩家不增加危险值。
@@ -475,6 +479,7 @@ window.CampSystem = (function () {
         ? `本轮触发了${task.event.part === 'spank' ? '公开打屁股' : '成人围观'}事件。`
         : '本轮触发了一项普通围观事件。'
     if (window.TownReputationSystem) TownReputationSystem.recordPillory()
+    EventBus.emit('town:pilloryComplete', { seconds: task.duration, source: task.source })
     state._pillory = null
     EventBus.emit('state:changed', state)
     State.save()
@@ -870,6 +875,7 @@ window.CampSystem = (function () {
       counters.guardChecks = (counters.guardChecks || 0) + 1
       if (counters.guardChecks % 3 === 0) TownReputationSystem.addScore(1, '多次配合城门例行检查')
     }
+    if (inspected) EventBus.emit('town:guardCheck', { direction })
     EventBus.emit('state:changed', state)
     if (direction === 'enter') {
       open()
@@ -1347,7 +1353,7 @@ window.CampSystem = (function () {
     })[z]
   }
 
-  function runServiceTimer (service, seconds) {
+  function runServiceTimer (service, seconds, telemetry = null) {
     return new Promise(resolve => {
       let timer = null
       let finishAt = 0
@@ -1380,7 +1386,10 @@ window.CampSystem = (function () {
         const actions = document.querySelector('#modal-layer .modal-actions')
         if (actions) {
           actions.innerHTML = '<button class="btn btn-success" id="camp-task-complete">✓ 撑过来了，收钱！</button>'
-          document.getElementById('camp-task-complete').onclick = () => { Dialog.close(); resolve(true) }
+          document.getElementById('camp-task-complete').onclick = () => {
+            if (telemetry) EventBus.emit('task:complete', { ...telemetry, seconds, bpm: Number(service.bpm) || 0, completed: true, damage: 0 })
+            Dialog.close(); resolve(true)
+          }
         }
       }
     })
@@ -1417,7 +1426,7 @@ window.CampSystem = (function () {
       : rollSpecialEvent()
     let completed
     do {
-      completed = await runServiceTimer(service, SERVICE_SECONDS + (event.extraSeconds || 0))
+      completed = await runServiceTimer(service, SERVICE_SECONDS + (event.extraSeconds || 0), { source: 'glory', action: hole === 'oral' ? 'oral' : 'penetration', part: hole, depth: 'medium' })
       if (completed !== 'refuse') break
     } while (!(await confirmGloryRefusal(service.name)))
     if (completed === 'refuse') {
@@ -1540,6 +1549,7 @@ window.CampSystem = (function () {
             dmg: 0,
             noDamage: true,
             refuseLabel: '🙅 拒绝接待',
+            telemetry: { source: 'glory', action: 'handjob', part: 'foot', depth: 'none' },
           })
         : (confirm('足交服务：完成代表伺候完了。') ? false : true)
       if (result !== 'refuse') break

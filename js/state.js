@@ -152,6 +152,7 @@ window.State = (function () {
         gainRate: 1,
         detailedNotice: true,
       },
+      _profile: null,                    // 任务记录、战斗统计与成就领奖状态（由 StatsSystem 初始化）
       _freeMeatBrand: false,            // 大腿上"免费肉便器"烙印（铁匠解锁后永久）
       _blacksmithContract: false,       // 与铁匠签的契约：每次进铺子要先服务
       _gloryDiscovered: false,          // 是否已发现荣耀洞（调查隔间后）
@@ -213,6 +214,7 @@ window.State = (function () {
 
   function init (difficulty) {
     _state = createDefault(difficulty)
+    EventBus.emit('game:init', { difficulty, state: _state })
     EventBus.emit('state:changed', _state)
     return _state
   }
