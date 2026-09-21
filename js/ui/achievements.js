@@ -57,15 +57,15 @@ window.AchievementsUI = (function () {
     Dialog.show({
       title: '🏆 成就与记录', className: 'records-modal',
       body: `<nav class="record-tabs" aria-label="记录分类">${tabs.map(([id, label]) => `<button class="${active === id ? 'is-active' : ''}" data-record-tab="${id}">${label}</button>`).join('')}</nav><div class="record-content">${content}</div>`,
-      actions: [{ label: onClose ? '返回营地' : '关闭', handler: () => { Dialog.close(); if (onClose) onClose() } }],
+      actions: [{ kind: 'navigation', label: onClose ? '返回营地' : '关闭', handler: () => { Dialog.close(); if (onClose) onClose() } }],
     })
-    setTimeout(bind, 0)
+    Dialog.onMount(bind)
   }
 
-  function bind () {
-    document.querySelectorAll('[data-record-tab]').forEach(btn => { btn.onclick = () => { active = btn.dataset.recordTab; render() } })
-    document.querySelectorAll('[data-achievement-claim]').forEach(btn => { btn.onclick = () => { StatsSystem.claim(btn.dataset.achievementClaim); render() } })
-    const all = document.querySelector('[data-claim-all]')
+  function bind (root) {
+    root.querySelectorAll('[data-record-tab]').forEach(btn => { btn.onclick = () => { active = btn.dataset.recordTab; render() } })
+    root.querySelectorAll('[data-achievement-claim]').forEach(btn => { btn.onclick = () => { StatsSystem.claim(btn.dataset.achievementClaim); render() } })
+    const all = root.querySelector('[data-claim-all]')
     if (all) all.onclick = () => { StatsSystem.claimAll(); render() }
   }
 

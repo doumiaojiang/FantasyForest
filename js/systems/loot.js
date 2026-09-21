@@ -32,7 +32,7 @@ window.LootSystem = (function () {
 
     // 精英怪：基础金币提高 50%。精英状态保存在当前战斗中，读档后仍可恢复。
     const elite = state._battle && state._battle.enemyState && state._battle.enemyState.elite
-    if (elite) result.gold = Math.ceil(result.gold * (CONFIG.battle.eliteGoldMult || 1.5))
+    if (elite && !enemy.props?.storyEncounter) result.gold = Math.ceil(result.gold * (CONFIG.battle.eliteGoldMult || 1.5))
 
     // 贪婪恶魔翻倍
     if (StatusSystem.has('greed_demon')) result.gold *= 2
@@ -103,7 +103,7 @@ window.LootSystem = (function () {
     }
 
     // 精英怪必定掉落一枚异变结晶；与普通掷骰掉落并存。
-    if (elite) {
+    if (elite && !enemy.props?.storyEncounter) {
       state.inventory.consumables.mutant_crystal = (state.inventory.consumables.mutant_crystal || 0) + 1
       result.drops.push({ itemId: 'mutant_crystal', elite: true })
     }

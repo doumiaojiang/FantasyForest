@@ -97,11 +97,10 @@ window.NodeEvents = {
           className: 'boss-gate-modal',
           body: `<div class="boss-gate">
               <span class="boss-gate-crown">♛</span>
-              <div><small>THE LAST VILLAGE</small><b>森林的意志正在前方等待</b></div>
+              <div><small>最后一层雾正在散开</small><b>森林的意志正在前方等待</b></div>
             </div>
-            <p>穿过最后一道迷雾，村庄安静得反常。道路尽头，一个女孩正注视着你。</p>
-            <div class="boss-save-notice"><span>💾</span><div><b>专用战前存档</b><small>挑战时自动建立，战斗中的普通存档不会覆盖它。</small></div></div>
-            <p class="boss-gate-warning">落败后可读取战前存档重新挑战，或返回检查点并损失一半金币。</p>`,
+            <p>穿过最后一道迷雾，村庄安静得反常。道路尽头，一个女孩正注视着你，脚边的树根像呼吸一样起伏。</p>
+            <details class="boss-save-details"><summary>确认挑战前的退路</summary><div class="boss-save-notice"><span>💾</span><div><b>这里会留下战前存档</b><small>落败后可以重新挑战，或退回检查点并损失一半金币。</small></div></div></details>`,
           actions: [
             { label: '⚔️ 挑战森林之灵', cls: 'btn-danger', handler: () => {
               Dialog.close()
@@ -125,6 +124,14 @@ window.NodeEvents = {
           CampSystem.open({ gateEntry: true })
         } else {
           EventBus.emit('ui:log', { text: '⛺ 营地暂时无人。', type: 'dim' })
+          GameFlow.afterEvent()
+        }
+        return
+
+      case TILE.BRIDGE:
+        if (typeof CommissionSystem !== 'undefined' && CommissionSystem.visitBridge) {
+          CommissionSystem.visitBridge()
+        } else {
           GameFlow.afterEvent()
         }
         return
@@ -452,8 +459,8 @@ window.AmbushSystem = {
           actions: [{ label: '← 返回', handler: showChoice }],
         })
 
-        setTimeout(() => {
-          document.querySelectorAll('.ambush-item-use').forEach(btn => {
+        Dialog.onMount(root => {
+          root.querySelectorAll('.ambush-item-use').forEach(btn => {
             btn.onclick = () => {
               const result = ShopSystem.useConsumable(btn.dataset.item)
               if (!result.ok) {
@@ -466,7 +473,7 @@ window.AmbushSystem = {
               resolve({ used: true, item: result.item })
             }
           })
-        }, 0)
+        })
       }
 
       showChoice()

@@ -70,6 +70,11 @@ window.ITEMS = {
       effect: { special: 'elite_material' },
     },
     {
+      id: 'raven_latch', name: 'P 印货牌', type: 'consumable', price: 0,
+      desc: '旧桥许可上系着的黄铜货牌，背面刻着 P；证明约束器具由雾灯镇正式放行。',
+      effect: { special: 'quest_material' },
+    },
+    {
       id: 'twig', name: '坚韧树枝', type: 'consumable', price: 0,
       desc: '森灵小鹿送的临时武器，可在 4 场战斗中作为武器使用（2 点伤害），战败则断裂',
       effect: { special: 'twig' },

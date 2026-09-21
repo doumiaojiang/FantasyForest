@@ -26,14 +26,9 @@ window.STATUS_EFFECTS = {
     onTick (state, effect) {
       effect.turnsLeft--
     },
-    onAttack (state, effect, { roll, dmg }) {
-      // 50% 概率打自己
-      const hitSelf = roll <= 3
-      if (hitSelf) {
-        if (!state._godMode) state.hp -= dmg
-        return { roll, dmg, hitSelf: true }
-      }
-      return { roll, dmg, hitSelf: false }
+    onAttack (state, effect, attack) {
+      // 独立判定，避免与攻击骰的未命中区间重叠而出现“触发了但 0 伤害”。
+      return { ...attack, hitSelf: Math.random() < 0.5 }
     },
     onRemove (state, effect) {},
   },
@@ -167,8 +162,8 @@ window.STATUS_EFFECTS = {
     desc: '攻击伤害减半，可用清醒药剂治愈',
     onApply (state, effect) {},
     onTick (state, effect) { effect.turnsLeft-- },
-    onAttack (state, effect, { roll, dmg }) {
-      return { roll, dmg: Math.floor(dmg / 2), halved: true }
+    onAttack (state, effect, attack) {
+      return { ...attack, dmg: Math.floor(attack.dmg / 2), halved: true }
     },
     onRemove (state, effect) {},
   },
@@ -180,8 +175,8 @@ window.STATUS_EFFECTS = {
     desc: '无法攻击/防御/逃跑/使用物品',
     onApply (state, effect) {},
     onTick (state, effect) { effect.turnsLeft-- },
-    onAttack (state, effect, { roll, dmg }) {
-      return { roll, dmg: 0, stunned: true }   // 不能攻击
+    onAttack (state, effect, attack) {
+      return { ...attack, dmg: 0, stunned: true }   // 不能攻击
     },
     onRemove (state, effect) {},
   },
@@ -225,8 +220,8 @@ window.STATUS_EFFECTS = {
       effect.level = effect.level || 1
     },
     onTick (state, effect) { effect.turnsLeft-- },
-    onAttack (state, effect, { roll, dmg }) {
-      return { roll, dmg: Math.floor(dmg / 2), halved: true }
+    onAttack (state, effect, attack) {
+      return { ...attack, dmg: Math.floor(attack.dmg / 2), halved: true }
     },
     onMove (state, effect, moveData) {
       // 30% 概率走错方向：移动步数减半（醉得连路都走不稳）

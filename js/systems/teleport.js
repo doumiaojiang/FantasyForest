@@ -49,15 +49,16 @@ window.TeleportSystem = (function () {
       ? `<div class="teleport-list">${options.map(t => `
           <button class="teleport-opt" data-tp="${t.id}"><i>✨</i><span><b>${t.name}</b><small>${t.isCamp ? '城镇 · 雾灯镇营地' : '森林深处'}</small></span><em>传送</em></button>
         `).join('')}</div>`
-      : '<p class="camp-muted">还没有激活其他传送阵——去森林里找到它们，路过即可点亮。</p>'
+      : '<p class="teleport-empty">雾光没有回应。森林里应该还有尚未触碰过的石阵。</p>'
 
     Dialog.show({
       title: '🌀 传送阵',
       className: 'teleport-modal',
-      body: `<div class="teleport-hero"><i>🌀</i><div><small>TELEPORT ARRAY · 空间魔法回路</small><h3>${currentName} 的光芒笼罩着你。</h3><p>回路已点亮 ${all().filter(t => isActivated(t.id)).length}/${all().length} 处。选择一处传送，HP 回满，不消耗回合。</p></div></div>
+      body: `<div class="teleport-hero"><i>🌀</i><div><small>已回应 ${all().filter(t => isActivated(t.id)).length}/${all().length} 座石阵</small><h3>${currentName} 的雾光在脚下旋转。</h3><p>几缕光线向你曾经触碰过的地方延伸。</p></div></div>
         ${currentHtml}
-        ${listHtml}`,
-      actions: [{ label: '💤 留在原地', handler: () => { Dialog.close(); afterDone() } }],
+        ${listHtml}
+        <p class="teleport-whisper">穿过石阵后，旅途的疲惫会被雾光洗去。</p>`,
+      actions: [{ kind: 'navigation', label: '留在原地', handler: () => { Dialog.close(); afterDone() } }],
     })
 
     document.querySelectorAll('[data-tp]').forEach(btn => {

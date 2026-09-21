@@ -153,8 +153,12 @@ window.EnemyAbilitySystem = (function () {
     if (es.chargeStrike) {
       const before = Math.max(0, Number(next.dmg) || 0)
       next.dmg = Math.max(2, Math.ceil(before * (cfg.charge?.multiplier || 1.75)))
-      next.name = `蓄力 · ${next.name}`
-      next.desc = `${next.desc}（蓄力重击：伤害 ${before} → ${next.dmg}）`
+      if (!next.keepChargeName) {
+        next.name = `蓄力 · ${next.name}`
+        next.desc = `${next.desc}（蓄力重击：伤害 ${before} → ${next.dmg}）`
+      } else {
+        next.desc = `${next.desc}（处刑伤害 ${before} → ${next.dmg}）`
+      }
       next.chargedStrike = true
       es.chargeStrike = false
     }

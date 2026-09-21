@@ -21,7 +21,6 @@ const accessoryEl = document.getElementById('hud-accessory')
 const playerNameEl = document.getElementById('hud-player-name')
 const diffEl = document.getElementById('hud-diff')
 const statusEl = document.getElementById('hud-status')
-const itemsListEl = document.getElementById('hud-items-list')
 const mercenaryEl = document.getElementById('hud-mercenary')
 const enemyContainer = document.getElementById('hud-enemy')
 const enemyTargets = document.getElementById('hud-enemy-targets')
@@ -79,24 +78,6 @@ function render (state) {
     const accNames = accs.map(id => (ItemLib.accessory(id)?.name || id))
     accessoryEl.textContent = accNames.length ? accNames.join('、') : '无'
 
-    // 物品框（消耗品 + 妓院许可证）
-    const consumables = Object.entries(state.inventory.consumables || {}).filter(([, n]) => n > 0)
-    if (itemsListEl) {
-      let chips = ''
-      if (state._prostituteLicensed) {
-        chips += `<span class="item-chip item-chip-license" title="妓院许可证">📜 妓院许可证</span>`
-      }
-      if (consumables.length === 0) {
-        itemsListEl.innerHTML = chips || '<span class="hud-items-empty">空</span>'
-      } else {
-        itemsListEl.innerHTML = chips + consumables.map(([id, count]) => {
-          const item = ItemLib.get(id)
-          const name = item ? item.name : id
-          return `<span class="item-chip">${name}<span class="count">×${count}</span></span>`
-        }).join('')
-      }
-    }
-
     // 状态效果（通缉犯在最前）
     const wantedChip = state._wanted
       ? '<span class="status-chip active" title="通缉：越狱在逃，出城会被卫兵查，找队长会被抓">⚠️ 通缉</span>'
@@ -104,13 +85,19 @@ function render (state) {
     // 妖缚装置入口
     // 妖缚装置入口（常驻，点了开装备栏/设置）
     const restrChip = (typeof RestraintSystem !== 'undefined')
-      ? `<span class="status-chip restr-chip active" title="妖缚装置：点击打开装备栏与设置" id="hud-restr">⛓️ 妖缚 ${RestraintSystem.countWorn()}</span>`
+      ? `<button class="status-chip hud-menu-chip active" title="妖缚装置：点击打开装备栏与设置" id="hud-restr">⛓️ 妖缚 ${RestraintSystem.countWorn()}</button>`
       : ''
     // 装备栏入口（常驻：武器 + 饰品）
     const eqChip = (typeof EquipmentSystem !== 'undefined')
-      ? `<span class="status-chip restr-chip active" title="装备栏：武器与饰品" id="hud-eq">🛡️ 装备 ${EquipmentSystem.wornCount()}/${EquipmentSystem.totalCount()}</span>`
+      ? `<button class="status-chip hud-menu-chip active" title="装备栏：武器与饰品" id="hud-eq">🛡️ 装备 ${EquipmentSystem.wornCount()}/${EquipmentSystem.totalCount()}</button>`
       : ''
-    statusEl.innerHTML = wantedChip + eqChip + restrChip + state.statuses.map(s => {
+    const questChip = (typeof AdventureMenu !== 'undefined')
+      ? `<button class="status-chip hud-menu-chip active" title="打开任务札记" id="hud-quests">📜 任务 ${AdventureMenu.activeTaskCount()}</button>`
+      : ''
+    const backpackChip = (typeof AdventureMenu !== 'undefined')
+      ? '<button class="status-chip hud-menu-chip active" title="打开背包" id="hud-backpack">🎒 背包</button>'
+      : ''
+    statusEl.innerHTML = wantedChip + backpackChip + questChip + eqChip + restrChip + state.statuses.map(s => {
       const def = STATUS_EFFECTS[s.id]
       const icon = def ? def.icon : '❓'
       const name = def ? def.name : s.id
@@ -126,6 +113,10 @@ function render (state) {
     // 装备栏入口点击
     const eqEl = document.getElementById('hud-eq')
     if (eqEl) eqEl.onclick = () => EquipmentSystem.openEquipment()
+    const questEl = document.getElementById('hud-quests')
+    if (questEl) questEl.onclick = () => AdventureMenu.openTasks()
+    const backpackEl = document.getElementById('hud-backpack')
+    if (backpackEl) backpackEl.onclick = () => AdventureMenu.openInventory()
 
     // 佣兵（主角下方）
     if (mercenaryEl) {
@@ -135,7 +126,7 @@ function render (state) {
       } else if (state._mercenary.dead) {
         mercenaryEl.classList.remove('hud-hidden')
         const debt = state._mercenaryContract ? state._mercenaryContract.debt || 0 : 0
-        mercenaryEl.innerHTML = `<span class="mercenary-avatar" style="opacity:.45">${state._mercenary.icon}</span><span class="mercenary-meta"><small>MERCENARY</small><b style="color:var(--danger)">${state._mercenary.name}（已阵亡）</b><em style="color:var(--danger)">💔 可到商店复活</em></span>${debt ? `<button class="mercenary-debt-chip" id="btn-merc-contract">💸 ${debt}G</button>` : ''}`
+        mercenaryEl.innerHTML = `<span class="mercenary-avatar is-dead">${state._mercenary.icon}</span><span class="mercenary-meta is-dead"><small>同行佣兵</small><b>${state._mercenary.name}（已阵亡）</b><em>💔 可到商店复活</em></span>${debt ? `<button class="mercenary-debt-chip" id="btn-merc-contract">💸 ${debt}G</button>` : ''}`
       } else {
         mercenaryEl.classList.remove('hud-hidden')
         const lust = state._mercenary.lust || 0
@@ -148,7 +139,7 @@ function render (state) {
           : `<button class="mercenary-debt-chip is-free" id="btn-merc-contract" title="打开芙蕾雅佣兵契约">✓ 自由</button>`
         const lustBar = `<span class="mercenary-lust-bar"><i style="width:${Math.min(100, lust)}%" class="${lustFull ? 'is-full' : ''}"></i></span><em class="${lustFull ? 'mercenary-lust-full' : ''}">${lustFull ? '💢 ' : '🔥 '}${lustLabel}</em>`
         mercenaryEl.innerHTML = `<span class="mercenary-avatar">${state._mercenary.icon}</span>
-          <span class="mercenary-meta"><small>MERCENARY</small><b>${state._mercenary.name}</b><em>⚔️ 帮你攻击 ${state._mercenary.dmg} 伤害</em></span>
+          <span class="mercenary-meta"><small>同行佣兵</small><b>${state._mercenary.name}</b><em>⚔️ 帮你攻击 ${state._mercenary.dmg} 伤害</em></span>
           ${debtChip}
           <span class="mercenary-lust">${lustBar}</span>
           <button class="btn btn-danger mercenary-serve-btn" id="btn-serve-merc" title="服务佣兵降低性欲">💋 服务</button>`
@@ -160,7 +151,7 @@ function render (state) {
       enemyContainer.classList.add('show')
       enemyContainer.classList.remove('hud-hidden')
       const enemy = DATA.monster(state._battle.enemyId)
-      const dildo = enemy ? DildoSystem.effective(enemy.id) : null
+      const dildo = enemy && !enemy.props?.storyEncounter ? DildoSystem.effective(enemy.id) : null
       const dildoText = dildo ? dildo.name : ''
       const abilityChips = enemy && typeof EnemyAbilitySystem !== 'undefined'
         ? EnemyAbilitySystem.statusChips(enemy, state._battle)
@@ -168,8 +159,9 @@ function render (state) {
       enemyTargets.innerHTML = state._battle.targets.map(t => {
         const pct2 = Math.max(0, (t.hp / t.maxHp) * 100)
         const targetIcon = t.type === 'goblin' ? '👺'
+          : t.type === 'bandit' ? '🗡️'
           : (t.type === 'minion' || t.type === 'boss-minion') ? '✦'
-            : ({ tentacle: '🦑', orc: '👹', sorceress: '🔮', succubus: '💋', goblins: '👺', werewolf: '🐺', spirit_of_forest: '🌲' }[enemy && enemy.id] || '◆')
+            : ({ tentacle: '🦑', orc: '👹', sorceress: '🔮', succubus: '💋', goblins: '👺', p_caravan_guard: '🗡️', p_bandit_leader: '☠️', werewolf: '🐺', spirit_of_forest: '🌲' }[enemy && enemy.id] || '◆')
         return `<div class="enemy-row">
           <span class="enemy-avatar" aria-hidden="true">${targetIcon}</span>
           <span class="enemy-vitals">

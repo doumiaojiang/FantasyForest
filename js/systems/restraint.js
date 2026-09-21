@@ -1214,15 +1214,15 @@ window.RestraintSystem = (function () {
         openSettings()
       }
     })
-    setTimeout(() => {
-      document.querySelectorAll('[data-act="strip"]').forEach(btn => {
+    Dialog.onMount(root => {
+      root.querySelectorAll('[data-act="strip"]').forEach(btn => {
         btn.onclick = () => {
           removeAllUnlocked()
           Dialog.close()
           openSettings()
         }
       })
-    }, 0)
+    })
   }
 
   function openManage () {
@@ -1249,8 +1249,7 @@ window.RestraintSystem = (function () {
           }).join('')
           return `<div class="restr-card restr-empty has-owned"><i>${SLOT_ICONS[slot]}</i><span><b>${SLOT_NAMES[slot]}</b><small>${blockedHint ? `${blockedHint} · ` : ''}已拥有 ${ownedHere.map(id => defOf(id).name).join('、')}</small></span><div class="restr-actions">${wearBtns}</div></div>`
         }
-        const emptyHint = slot === 'vagina' && state.gender === 'male' ? '男性不可用' : slot === 'vagina' && hasWaistChastity() ? '被贞操带阻挡' : '空'
-        return `<div class="restr-card restr-empty"><i>${SLOT_ICONS[slot]}</i><span><b>${SLOT_NAMES[slot]}</b><small>${emptyHint}</small></span></div>`
+        return ''
       }
       const lockTag = d.locked
         ? `<em class="restr-lock${isContractLock(slot) ? ' is-contract' : ''}">${d.jammed ? '⛓️ 卡死' : isCursed(slot) ? '🧿 诅咒锁' : isStory(slot) ? '📜 剧情锁' : isContractLock(slot) ? '📜 契约锁' : '🔒 上锁'}${d.timer ? ` · ⏲️${d.timer}` : ''}</em>`
@@ -1289,23 +1288,32 @@ window.RestraintSystem = (function () {
         : ''
       const serviceHtml = !def.insert ? serviceDetailsHtml(def) : ''
       const tone = def.insert ? 'insert' : gearTone(def)
-      return `<div class="restr-card rpg-equipped-card rpg-gear-${tone}"><i>${SLOT_ICONS[slot]}</i><span><b class="rpg-gear-name">${def.name}${countLabel}</b>${def.insert ? chargeHtml : serviceHtml}</span>${lockTag}${actionsHtml}</div>`
+      const quickState = charge
+        ? `⚡ 防护 ${charge.current}/${charge.max}${d.locked ? ' · 已上锁' : ''}`
+        : `${SLOT_NAMES[slot]} · ${d.locked ? '无法自行脱下' : '可以随时取下'}`
+      return `<div class="restr-card rpg-equipped-card rpg-gear-${tone}"><i>${SLOT_ICONS[slot]}</i><span class="restr-card-main"><b class="rpg-gear-name">${def.name}${countLabel}</b><small class="restr-quick-state">${quickState}</small><details class="gear-card-details"><summary>查看装备效果</summary>${def.insert ? chargeHtml : serviceHtml}</details></span>${lockTag}${actionsHtml}</div>`
     }).join('')
 
     Dialog.show({
-      title: '⛓️ 妖缚装置',
+      title: '⛓️ 妖缚整理',
       className: 'inventory-modal restraint-modal',
-      body: `<div class="restr-top"><span>已佩戴 <b>${countWorn()}</b> 件 · 上锁 <b>${countLocked()}</b> 件</span><em>战斗金币 +${bonus}%</em></div>
-        ${bodyDiagram()}
-        <div class="restr-grid">${cards}</div>
-        <p class="camp-footnote">怪物攻击被占用的部位时，每点充能会完全抵挡一次攻击（0伤害、0效果）；充能耗尽且未上锁会被拔掉并继续原攻击，已上锁则改攻其他部位。全部部位不可用时怪物会改打屁股。充能跨战斗与存档保留，可找附魔师或使用灵魂石补充。</p>`,
+      body: `<section class="gear-manage-hero restraint-hero">
+          <i aria-hidden="true">⛓️</i>
+          <div><small>身上的束缚</small><h3>${countWorn() ? `佩戴 ${countWorn()} 件${countLocked() ? `，其中 ${countLocked()} 件已锁` : ''}` : '现在行动自如'}</h3><p>${countLocked() ? '锁具会改变脱身方式，也可能影响战斗与城镇服务。' : countWorn() ? '未上锁的装备可以随时调整或脱下。' : '获得的妖缚装备会在这里等待穿戴。'}</p></div>
+          <em>金币 +${bonus}%</em>
+        </section>
+        <details class="gear-body-details"><summary><span>查看全身部位</span><em>${countWorn()}/${SLOT_ORDER.length}</em></summary>${bodyDiagram()}</details>
+        <div class="gear-section-heading"><b>${countWorn() ? '当前装备' : '可穿戴装备'}</b><span>${countWorn() ? '操作就在装备下方' : '空部位不会占据列表'}</span></div>
+        <div class="restr-grid">${cards || '<div class="gear-empty-state"><i>◇</i><b>没有可整理的妖缚装备</b><span>在梦幻商店或冒险事件中获得后会出现在这里。</span></div>'}</div>
+        <details class="scene-notes gear-rule-notes"><summary>妖缚与战斗如何联动</summary><p>插入装备的每点充能可以完全挡住一次对应部位的攻击。充能耗尽后，未上锁的装备可能被怪物拔掉；已上锁时，怪物会寻找其他可用部位。充能会跨战斗与存档保留，可找附魔师或使用灵魂石补充。</p></details>`,
       actions: [
+        { kind: 'navigation', label: '关闭', handler: () => Dialog.close() },
+        { label: '🛡️ 普通装备', handler: () => { Dialog.close(); EquipmentSystem.openEquipment() } },
         { label: '⚙️ 设置', handler: () => { Dialog.close(); openSettings() } },
-        { label: '关闭', handler: () => Dialog.close() },
       ],
     })
-    setTimeout(() => {
-      document.querySelectorAll('[data-act]').forEach(btn => {
+    Dialog.onMount(root => {
+      root.querySelectorAll('[data-act]').forEach(btn => {
         btn.onclick = () => {
           const slot = btn.dataset.slot
           const act = btn.dataset.act
@@ -1329,7 +1337,7 @@ window.RestraintSystem = (function () {
           openManage()
         }
       })
-    }, 0)
+    })
   }
 
   return {

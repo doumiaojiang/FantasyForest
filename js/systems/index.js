@@ -5,27 +5,6 @@
  * 提供陷阱与宝藏结算；移动和伏击流程位于 movement.js。
  */
 
-window.GameFlow = {
-  /**
-   * 进入格子后继续流程：
-   * 1. 触发事件（NodeEvents.trigger）
-   * 2. 事件如果是战斗/商店/弹窗，它们接管流程
-   * 3. 事件结束后回到移动模式
-   */
-  afterArrive (tile, x, y) {
-    if (tile) {
-      NodeEvents.trigger(tile, x, y)
-    } else {
-      this.afterEvent()
-    }
-  },
-
-  /** 事件结束后（非战斗/商店等），回到移动等待 */
-  afterEvent () {
-    EventBus.emit('game:readyToMove', {})
-  },
-}
-
 /**
  * 陷阱系统（网格版，完整 6 项）
  */
@@ -415,8 +394,8 @@ window.TreasureSystem = {
       })
 
       let chosen = false
-      setTimeout(() => {
-        document.querySelectorAll('.treasure-choice-card').forEach(btn => {
+      Dialog.onMount(root => {
+        root.querySelectorAll('.treasure-choice-card').forEach(btn => {
           btn.onclick = () => {
             if (chosen) return
             const treasure = TREASURES.find(t => t.id === btn.dataset.treasure)
@@ -426,7 +405,7 @@ window.TreasureSystem = {
             resolve(treasure)
           }
         })
-      }, 0)
+      })
     })
   },
 

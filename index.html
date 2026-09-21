@@ -15,7 +15,7 @@
   <link rel="icon" href="favicon.svg" type="image/svg+xml" />
   <link rel="manifest" href="manifest.webmanifest" />
   <title>妖林绮梦：异世界淫林战斗</title>
-  <link rel="stylesheet" href="style.css?v=0.4.57" />
+  <link rel="stylesheet" href="style.css?v=0.4.29" />
 </head>
 <body>
   <section id="age-gate" class="age-gate" role="dialog" aria-modal="true" aria-labelledby="age-gate-title">
@@ -106,7 +106,7 @@
           <div class="hud-player">
             <div class="hud-player-sigil" aria-hidden="true">✦</div>
             <div class="hud-name">
-              <small>FOREST TRAVELER</small>
+              <small>妖林旅人</small>
               <b id="hud-player-name">妖林勇者</b>
               <span class="hud-difficulty" id="hud-diff">普通</span>
             </div>
@@ -130,10 +130,6 @@
             <span>📿</span>
             <b id="hud-accessory">无</b>
           </div>
-          <div class="hud-strip-item hud-strip-items" title="物品">
-            <span>🎒</span>
-            <span id="hud-items-list" class="hud-items-list"></span>
-          </div>
         </div>
         <div id="hud-status" class="hud-status"></div>
         <div id="hud-mercenary" class="hud-mercenary hud-hidden"></div>
@@ -145,7 +141,7 @@
           <div class="map-heading">
             <div>
               <h2 class="panel-title">妖林地图</h2>
-              <small>ENCHANTED FOREST</small>
+              <small>雾中路径</small>
             </div>
             <span id="map-current-label" class="map-current-label">定位中…</span>
           </div>
@@ -163,7 +159,7 @@
         <!-- 右侧：战斗区（敌人框 + 日志） -->
         <div class="battle-area">
           <div id="hud-enemy" class="hud-hidden game-card">
-            <div class="hud-enemy-header"><span>⚔️ 敌对目标</span><small>ENCOUNTER</small></div>
+            <div class="hud-enemy-header"><span>⚔️ 敌对目标</span><small>交战中</small></div>
             <div id="hud-enemy-targets"></div>
           </div>
 
@@ -172,7 +168,7 @@
             <div class="battle-log-title">
               <div>
                 <h2 class="panel-title">旅途记录</h2>
-                <small>ADVENTURE CHRONICLE</small>
+                <small>旅途手记</small>
               </div>
               <span class="log-live"><i></i><b id="log-count">0</b> 条事件</span>
             </div>
@@ -195,8 +191,10 @@
       <span class="topbar-title">🌲 妖林绮梦</span>
       <div class="topbar-right">
         <span id="topbar-save-hint" class="topbar-save-hint"></span>
-        <button id="btn-topbar-save" class="btn btn-sm">💾<span class="btn-text">存档</span></button>
-        <button id="btn-topbar-settings" class="btn btn-sm">⚙️<span class="btn-text">设置</span></button>
+        <button id="btn-topbar-quests" class="btn btn-sm" aria-label="任务">📜<span class="btn-text">任务</span></button>
+        <button id="btn-topbar-inventory" class="btn btn-sm" aria-label="背包">🎒<span class="btn-text">背包</span></button>
+        <button id="btn-topbar-save" class="btn btn-sm" aria-label="存档">💾<span class="btn-text">存档</span></button>
+        <button id="btn-topbar-settings" class="btn btn-sm" aria-label="设置">⚙️<span class="btn-text">设置</span></button>
       </div>
     </div>
   </header>
@@ -212,41 +210,59 @@
     <div id="dice-display"></div>
   </div>
 
-  <script src="js/config.js?v=0.4.14"></script>
-  <script src="js/eventbus.js?v=0.3.110"></script>
-  <script src="js/state.js?v=0.4.57"></script>
-  <script src="js/systems/town-reputation.js?v=0.4.55"></script>
-  <script src="js/data/monsters.js?v=0.4.56"></script>
-  <script src="js/data/achievements.js?v=0.4.14"></script>
-  <script src="js/data/items.js?v=0.4.56"></script>
-  <script src="js/data/status.js?v=0.4.17"></script>
-  <script src="js/data/restraints.js?v=0.4.49"></script>
-  <script src="js/data/map.js?v=0.4.8"></script>
-  <script src="js/data/index.js?v=0.3.110"></script>
-  <script src="js/systems/stats.js?v=0.4.14"></script>
-  <script src="js/systems/enemy-abilities.js?v=0.4.57"></script>
-  <script src="js/systems/battle.js?v=0.4.57"></script>
-  <script src="js/systems/movement.js?v=0.4.57"></script>
-  <script src="js/systems/shop.js?v=0.4.57"></script>
-  <script src="js/systems/status.js?v=0.3.110"></script>
-  <script src="js/systems/chastity.js?v=0.4.17"></script>
-  <script src="js/systems/teleport.js?v=0.3.122"></script>
-  <script src="js/systems/restraint.js?v=0.4.54"></script>
-  <script src="js/systems/restraint-contract.js?v=0.4.54"></script>
-  <script src="js/systems/mercenary-contract.js?v=0.4.50"></script>
-  <script src="js/systems/equipment.js?v=0.4.17"></script>
-  <script src="js/systems/loot.js?v=0.4.56"></script>
-  <script src="js/systems/dildo.js?v=0.3.110"></script>
-  <script src="js/systems/camp.js?v=0.4.57"></script>
-  <script src="js/systems/index.js?v=0.4.21"></script>
-  <script src="js/ui/dialog.js?v=0.4.56"></script>
-  <script src="js/ui/hud.js?v=0.4.56"></script>
-  <script src="js/ui/map.js?v=0.4.8"></script>
-  <script src="js/ui/battle.js?v=0.4.58"></script>
-  <script src="js/ui/log.js?v=0.3.110"></script>
-  <script src="js/ui/changelog.js?v=0.4.57"></script>
-  <script src="js/ui/achievements.js?v=0.4.14"></script>
-  <script src="js/ui/index.js?v=0.3.110"></script>
-  <script src="js/main.js?v=0.4.57"></script>
+  <script src="js/config.js?v=0.4.29"></script>
+  <script src="js/eventbus.js?v=0.4.29"></script>
+  <script src="js/state-schema.js?v=0.4.29"></script>
+  <script src="js/state-migrations.js?v=0.4.29"></script>
+  <script src="js/state.js?v=0.4.29"></script>
+  <script src="js/systems/town-reputation.js?v=0.4.29"></script>
+  <script src="js/data/monsters.js?v=0.4.29"></script>
+  <script src="js/data/achievements.js?v=0.4.29"></script>
+  <script src="js/data/items.js?v=0.4.29"></script>
+  <script src="js/data/status.js?v=0.4.29"></script>
+  <script src="js/data/restraints.js?v=0.4.29"></script>
+  <script src="js/data/map.js?v=0.4.29"></script>
+  <script src="js/data/index.js?v=0.4.29"></script>
+  <script src="js/systems/stats.js?v=0.4.29"></script>
+  <script src="js/systems/enemy-abilities.js?v=0.4.29"></script>
+  <script src="js/systems/battle.js?v=0.4.29"></script>
+  <script src="js/systems/movement.js?v=0.4.29"></script>
+  <script src="js/systems/shop.js?v=0.4.29"></script>
+  <script src="js/systems/status.js?v=0.4.29"></script>
+  <script src="js/systems/chastity.js?v=0.4.29"></script>
+  <script src="js/systems/teleport.js?v=0.4.29"></script>
+  <script src="js/systems/restraint.js?v=0.4.29"></script>
+  <script src="js/systems/restraint-contract.js?v=0.4.29"></script>
+  <script src="js/systems/mercenary-contract.js?v=0.4.29"></script>
+  <script src="js/systems/equipment.js?v=0.4.29"></script>
+  <script src="js/systems/loot.js?v=0.4.29"></script>
+  <script src="js/systems/dildo.js?v=0.4.29"></script>
+  <script src="js/systems/camp.js?v=0.4.29"></script>
+  <script src="js/systems/camp-p-story.js?v=0.4.29"></script>
+  <script src="js/systems/camp-pillory.js?v=0.4.29"></script>
+  <script src="js/systems/camp-prison.js?v=0.4.29"></script>
+  <script src="js/systems/camp-gate.js?v=0.4.29"></script>
+  <script src="js/systems/camp-glory.js?v=0.4.29"></script>
+  <script src="js/systems/camp-shops.js?v=0.4.29"></script>
+  <script src="js/systems/camp-tavern.js?v=0.4.29"></script>
+  <script src="js/systems/camp-tavern-captain.js?v=0.4.29"></script>
+  <script src="js/systems/camp-tavern-patrons.js?v=0.4.29"></script>
+  <script src="js/systems/camp-tavern-work.js?v=0.4.29"></script>
+  <script src="js/systems/commission.js?v=0.4.29"></script>
+  <script src="js/game-flow.js?v=0.4.29"></script>
+  <script src="js/systems/index.js?v=0.4.29"></script>
+  <script src="js/ui/dialog.js?v=0.4.29"></script>
+  <script src="js/ui/journal.js?v=0.4.29"></script>
+  <script src="js/ui/hud.js?v=0.4.29"></script>
+  <script src="js/ui/map.js?v=0.4.29"></script>
+  <script src="js/ui/battle.js?v=0.4.29"></script>
+  <script src="js/ui/log.js?v=0.4.29"></script>
+  <script src="js/ui/changelog.js?v=0.4.29"></script>
+  <script src="js/ui/achievements.js?v=0.4.29"></script>
+  <script src="js/ui/index.js?v=0.4.29"></script>
+  <script src="js/main-settings.js?v=0.4.29"></script>
+  <script src="js/main-recovery.js?v=0.4.29"></script>
+  <script src="js/main-movement.js?v=0.4.29"></script>
+  <script src="js/main.js?v=0.4.29"></script>
 </body>
 </html>

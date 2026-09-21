@@ -42,7 +42,7 @@ window.ChastitySystem = (function () {
    */
   function resolveAttack (attack) {
     const worn = isWorn()
-    let part = /菊穴/.test(attack.desc) ? 'anal' : /小穴/.test(attack.desc) ? 'vagina' : null
+    let part = attack.part || (/菊穴/.test(attack.desc) ? 'anal' : /小穴/.test(attack.desc) ? 'vagina' : null)
     let eff = attack
     if (worn) {
       let desc = attack.desc || ''
@@ -52,7 +52,7 @@ window.ChastitySystem = (function () {
       } else if (attack.special === 'heal_self' || attack.name === '让你干她') {
         desc = '她把你按趴在床沿，用假阴茎狠狠操进你的菊穴，以 150 BPM 持续 1 分钟。她 +2 HP'
         part = 'anal'
-      } else if (/小穴/.test(desc)) {
+      } else if (part === 'vagina' || /小穴/.test(desc)) {
         desc = desc.replace(/小穴/g, '菊穴')
         part = 'anal'
       }

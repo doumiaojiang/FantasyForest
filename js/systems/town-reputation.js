@@ -199,21 +199,20 @@ window.TownReputationSystem = (function () {
     const titles = specialTitles()
     const history = rep.history.length
       ? rep.history.slice(0, 5).map(entry => `<li class="town-rep-history-${entry.kind}${entry.amount < 0 ? ' town-rep-history-negative' : ''}"><span>${entry.kind === 'score' ? '🏰' : '📣'} ${escapeHtml(entry.reason)}</span><b>${entry.amount > 0 ? '+' : ''}${entry.amount}</b></li>`).join('')
-      : '<li class="is-empty"><span>还没有城镇记录</span></li>'
+      : '<li class="is-empty"><span>告示簿上还没有与你有关的新记录。</span></li>'
     const price = Math.round(Math.abs(current.price) * 100)
     const economyText = !enabled() || settings().economy === false ? '未启用' : current.price < 0 ? `购买价格 -${price}%` : current.price > 0 ? `购买价格 +${price}%` : '商店原价'
     const guardText = !enabled() || settings().guardEffects === false ? '未启用' : current.guard < 1 ? `普通检查率 ×${Math.round(current.guard * 100)}%` : current.guard > 1 ? `普通检查率 ×${Math.round(current.guard * 100)}%` : '普通检查率不变'
     Dialog.show({
       title: '🏰 雾灯镇声望',
       className: 'inventory-modal town-reputation-modal',
-      body: `<section class="town-rep-hero town-rep-${current.tone}"><i>${current.icon}</i><div><small>MISTLAMP REPUTATION</small><h3>${current.name}</h3><p>${guardGreeting().replace(/[“”]/g, '')}</p></div><strong>${rep.score > 0 ? '+' : ''}${rep.score}</strong></section>
-        <div class="town-rep-meter"><div><span>敌视</span><b>城镇评价</b><span>崇敬</span></div><em><i style="width:${scorePercent}%"></i></em></div>
-        <div class="town-rep-overview"><span><i>🏰</i><b>${rep.score}</b><small>声望</small></span><span><i>📣</i><b>${rep.fame}</b><small>${fameLabel()}</small></span><span><i>🏷️</i><b>${titles.length}</b><small>特殊称号</small></span></div>
-        <div class="town-rep-effects"><span><b>🛒 商店</b><small>${economyText}</small></span><span><b>🛡️ 卫兵</b><small>${guardText}</small></span></div>
-        <section class="town-rep-section"><h4>人物履历</h4><div class="town-rep-tags">${titles.length ? titles.map(title => `<span>${escapeHtml(title)}</span>`).join('') : '<span class="is-empty">尚无特殊称号</span>'}</div></section>
-        <section class="town-rep-section"><h4>最近变化</h4><ul class="town-rep-history">${history}</ul></section>
-        <p class="camp-footnote">危险值与通缉仍是独立的执法状态；高声望不能免除越狱通缉或无证营业处罚。</p>`,
-      actions: [{ label: '返回城镇', cls: 'btn-primary', handler: () => { Dialog.close(); if (onClose) onClose() } }],
+      body: `<section class="town-rep-hero town-rep-${current.tone}"><i>${current.icon}</i><div><small>镇民私下称你为</small><h3>${current.name}</h3><p>${guardGreeting()}</p></div><strong>${rep.score > 0 ? '+' : ''}${rep.score}</strong></section>
+        <div class="town-rep-meter"><div><span>敌视</span><b>${fameLabel(rep.fame)} · 📣 ${rep.fame}</b><span>崇敬</span></div><em><i style="width:${scorePercent}%"></i></em></div>
+        <div class="town-rep-effects"><span><b>🛒 镇上商铺</b><small>${economyText}</small></span><span><b>🛡️ 城门卫兵</b><small>${guardText}</small></span></div>
+        <details class="town-rep-ledger"><summary>翻看镇民给你的称呼 <em>${titles.length}</em></summary><div class="town-rep-tags">${titles.length ? titles.map(title => `<span>${escapeHtml(title)}</span>`).join('') : '<span class="is-empty">目前还只是个普通旅人</span>'}</div></details>
+        <details class="town-rep-ledger"><summary>翻看最近的城镇传闻 <em>${Math.min(5, rep.history.length)}</em></summary><ul class="town-rep-history">${history}</ul></details>
+        <p class="camp-footnote">好名声会让商人和卫兵更客气，但通缉令不会因此消失。</p>`,
+      actions: [{ kind: 'navigation', label: '返回城镇', handler: () => { Dialog.close(); if (onClose) onClose() } }],
     })
   }
 

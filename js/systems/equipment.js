@@ -30,6 +30,7 @@ window.EquipmentSystem = (function () {
   function openEquipment () {
     const stt = st()
     const ownedWeapons = (owned() || []).filter(id => { const it = ItemLib.get(id); return it && it.type === 'weapon' })
+    const currentWeapon = ItemLib.get(weapon())
     const weaponHtml = ownedWeapons.length
       ? ownedWeapons.map(id => {
           const it = ItemLib.get(id)
@@ -37,7 +38,7 @@ window.EquipmentSystem = (function () {
           return `<button class="eq-item${isCur ? ' is-equipped' : ''}" data-eq="weapon" data-id="${id}" ${isCur ? 'disabled' : ''}>
             <span class="eq-item-icon">${it.icon || '⚔️'}</span>
             <span class="eq-item-info"><b>${it.name}</b><small>${it.desc}</small></span>
-            <span class="eq-item-state">${isCur ? '✓ 使用中' : '⚔️ 装备'}</span>
+            <span class="eq-item-state">${isCur ? '✓ 握持中' : '换上'}</span>
           </button>`
         }).join('')
       : '<p class="camp-muted">还没有武器——去铁匠铺买一把。</p>'
@@ -50,24 +51,30 @@ window.EquipmentSystem = (function () {
         <i>${s.icon}</i>
         <span><b>${s.name}</b><small>${worn ? item.name : hasIt ? `${item.name}（未穿戴）` : '空'}</small></span>
         ${worn
-          ? `<button class="btn restr-btn" data-eq="unequip" data-id="${s.itemId}">✋ 取下</button>`
+          ? `<button class="btn restr-btn" data-eq="unequip" data-id="${s.itemId}">取下</button>`
           : hasIt
-            ? `<button class="btn restr-btn" data-eq="equip" data-id="${s.itemId}">📿 穿戴</button>`
-            : `<em class="eq-empty">未拥有</em>`}
+            ? `<button class="btn restr-btn" data-eq="equip" data-id="${s.itemId}">佩戴</button>`
+            : `<em class="eq-empty">尚未获得</em>`}
       </div>`
     }).join('')
 
     Dialog.show({
-      title: '🛡️ 装备栏',
+      title: '🛡️ 行囊整备',
       className: 'inventory-modal equipment-modal',
-      body: `<div class="restr-top"><span>武器 + 饰品</span><em>已装备 ${wornCount()}/${totalCount()}</em></div>
-        <div class="eq-section"><b class="eq-label">⚔️ 武器（点击切换）</b><div class="eq-weapon-list">${weaponHtml}</div></div>
-        <div class="eq-section"><b class="eq-label">📿 饰品（每类一件）</b><div class="eq-grid">${accessoryCards}</div></div>
-        <p class="camp-footnote">贞操带与贞操锁属于妖缚系统，请从 ⛓️ 妖缚 进入查看。</p>`,
-      actions: [{ label: '关闭', handler: () => Dialog.close() }],
+      body: `<section class="gear-manage-hero equipment-hero">
+          <i aria-hidden="true">${currentWeapon?.icon || '✊'}</i>
+          <div><small>当前整备</small><h3>${currentWeapon?.name || '赤手空拳'}</h3><p>${currentWeapon?.desc || '没有武器，也能继续踏进妖林。'}</p></div>
+          <em>已装备 ${wornCount()}/${totalCount()}</em>
+        </section>
+        <div class="eq-section"><b class="eq-label">手中武器</b><div class="eq-weapon-list">${weaponHtml}</div></div>
+        <div class="eq-section"><b class="eq-label">护身饰物</b><div class="eq-grid">${accessoryCards}</div></div>`,
+      actions: [
+        { kind: 'navigation', label: '关闭', handler: () => Dialog.close() },
+        { label: '⛓️ 妖缚', handler: () => { Dialog.close(); RestraintSystem.openManage() } },
+      ],
     })
-    setTimeout(() => {
-      document.querySelectorAll('[data-eq]').forEach(btn => {
+    Dialog.onMount(root => {
+      root.querySelectorAll('[data-eq]').forEach(btn => {
         btn.onclick = () => {
           const act = btn.dataset.eq
           const id = btn.dataset.id
@@ -77,7 +84,7 @@ window.EquipmentSystem = (function () {
           openEquipment()
         }
       })
-    }, 0)
+    })
   }
 
   return { SLOTS, weapon, owned, isWorn, wornCount, totalCount, openEquipment }

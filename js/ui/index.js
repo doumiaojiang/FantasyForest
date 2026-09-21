@@ -6,6 +6,7 @@
 
 window.UI = {
   init () {
+    if (typeof AdventureMenu !== 'undefined') AdventureMenu.bind()
     HUD.init()
     MapUI.init()
     BattleUI.init()

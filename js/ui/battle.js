@@ -32,6 +32,16 @@ window.BattleUI = (function () {
       }, 500)
       return
     }
+    const battle = State.get() && State.get()._battle
+    if (battle && battle.banditAmbushPending) {
+      const hint = document.getElementById('action-hint')
+      hint.textContent = '☠️ 哨探从斜坡阴影里先按住了你！'
+      EventBus.emit('ui:log', { text: '☠️ 哨探没有喊人。他先捂住你的嘴，把你按进货箱后面。', type: 'danger' })
+      setTimeout(() => {
+        doBanditAmbush()
+      }, 400)
+      return
+    }
     showPlayerTurn()
   }
 
@@ -85,6 +95,7 @@ window.BattleUI = (function () {
       document.getElementById('btn-skip').onclick = () => {
         // 跳过同样消耗 1 回合，眩晕倒计时递减
         if (typeof RestraintSystem !== 'undefined') RestraintSystem.tickTimers()
+        if (typeof BattleSystem.tickCaravanBindings === 'function' && !BattleSystem.tickCaravanBindings()) return
         StatusSystem.tickInBattle()
         // 状态伤害（中毒/再生反转）可能致死，统一走死亡流程
         if (State.get().hp <= 0) {
@@ -97,13 +108,16 @@ window.BattleUI = (function () {
       return
     }
 
+    const caravanPending = typeof BattleSystem.caravanPendingBindings === 'function' ? BattleSystem.caravanPendingBindings() : []
+    const nearestCaravanLock = caravanPending.length ? Math.min(...caravanPending.map(binding => binding.remaining)) : 0
     btns.innerHTML = `
       <button class="btn btn-primary" id="btn-attack">🎲 攻击</button>
       <button class="btn" id="btn-defend">🛡️ 防御</button>
       <button class="btn" id="btn-skip">⏭ 跳过</button>
       ${_enemy && _enemy.surrender ? '<button class="btn" id="btn-flee">🏳️ 投降</button>' : ''}
       <button class="btn" id="btn-item">🧪 物品</button>
-      ${(typeof RestraintSystem !== 'undefined' && RestraintSystem.lockedSlots().some(slot => !RestraintSystem.isContractLock(slot))) ? '<button class="btn" id="btn-struggle">⛓️ 挣脱</button>' : ''}
+      ${caravanPending.length ? `<button class="btn btn-danger" id="btn-caravan-struggle">⏳ 挣开车队束缚 (${nearestCaravanLock}回合)</button>` : ''}
+      ${(typeof RestraintSystem !== 'undefined' && RestraintSystem.lockedSlots().some(slot => !RestraintSystem.isContractLock(slot) && RestraintSystem.get(slot)?.source !== 'p_caravan_guard')) ? '<button class="btn" id="btn-struggle">⛓️ 挣脱</button>' : ''}
     `
 
     document.getElementById('btn-attack').onclick = () => { playerAttack() }
@@ -112,6 +126,8 @@ window.BattleUI = (function () {
     const fleeBtn = document.getElementById('btn-flee')
     if (fleeBtn) fleeBtn.onclick = () => { doSurrender() }
     document.getElementById('btn-item').onclick = () => { showItemMenu() }
+    const caravanStruggleBtn = document.getElementById('btn-caravan-struggle')
+    if (caravanStruggleBtn) caravanStruggleBtn.onclick = () => { doCaravanStruggle() }
     const struggleBtn = document.getElementById('btn-struggle')
     if (struggleBtn) struggleBtn.onclick = () => { doBattleStruggle() }
   }
@@ -136,7 +152,7 @@ window.BattleUI = (function () {
   /** 战斗中挣脱：消耗本回合攻击机会，尝试挣脱一件上锁妖缚装置 */
   function doBattleStruggle () {
     if (typeof RestraintSystem === 'undefined') { showPlayerTurn(); return }
-    const slots = RestraintSystem.lockedSlots().filter(slot => !RestraintSystem.isContractLock(slot))
+    const slots = RestraintSystem.lockedSlots().filter(slot => !RestraintSystem.isContractLock(slot) && RestraintSystem.get(slot)?.source !== 'p_caravan_guard')
     if (!slots.length) { showPlayerTurn(); return }
     const html = slots.map(slot => {
       const d = RestraintSystem.get(slot)
@@ -149,8 +165,8 @@ window.BattleUI = (function () {
       body: `<div class="restr-struggle-pick">${html}</div><p class="camp-footnote">挣脱会消耗本回合攻击机会；诅咒锁挣脱无效，定时锁可等它到点自动开。</p>`,
       actions: [{ label: '取消', handler: () => { Dialog.close(); showPlayerTurn() } }],
     })
-    setTimeout(() => {
-      document.querySelectorAll('.restr-struggle-opt').forEach(btn => {
+    Dialog.onMount(root => {
+      root.querySelectorAll('.restr-struggle-opt').forEach(btn => {
         btn.onclick = () => {
           const slot = btn.dataset.slot
           Dialog.close()
@@ -161,13 +177,40 @@ window.BattleUI = (function () {
           doEnemyTurn()
         }
       })
-    }, 0)
+    })
+  }
+
+  /** 车队束缚在上锁前有独立的两回合挣脱窗口。 */
+  function doCaravanStruggle () {
+    const pending = typeof BattleSystem.caravanPendingBindings === 'function' ? BattleSystem.caravanPendingBindings() : []
+    if (!pending.length) { showPlayerTurn(); return }
+    const html = pending.map(binding => {
+      const target = Math.min(6, 3 + Number(binding.stage || 0))
+      return `<button class="restr-struggle-opt" data-caravan-slot="${binding.slot}"><i>${binding.icon || '⛓️'}</i><span><b>${binding.label}</b><small>还有 ${binding.remaining} 回合 · 掷出 ${target}~6 挣开</small></span></button>`
+    }).join('')
+    Dialog.show({
+      title: '⏳ 锁扣尚未咬死',
+      className: 'inventory-modal restraint-modal',
+      body: `<div class="restr-struggle-pick">${html}</div><p class="camp-footnote">挣脱会消耗本回合。失败后倒计时继续；第四件锁死时会直接被车队俘获。</p>`,
+      actions: [{ label: '取消', handler: () => { Dialog.close(); showPlayerTurn() } }],
+    })
+    Dialog.onMount(root => {
+      root.querySelectorAll('[data-caravan-slot]').forEach(btn => {
+        btn.onclick = () => {
+          Dialog.close()
+          BattleSystem.struggleCaravanBinding(btn.dataset.caravanSlot)
+          if (!tickPlayerTurn()) return
+          doEnemyTurn()
+        }
+      })
+    })
   }
 
   /** 攻击、防御和跳过都会消耗一个玩家回合并推进状态。 */
   function tickPlayerTurn () {
     // 定时锁：战斗回合同样递减
     if (typeof RestraintSystem !== 'undefined') RestraintSystem.tickTimers()
+    if (typeof BattleSystem.tickCaravanBindings === 'function' && !BattleSystem.tickCaravanBindings()) return false
     StatusSystem.tickInBattle()
     if (State.get().hp <= 0) {
       BattleSystem.end(false)
@@ -195,30 +238,31 @@ window.BattleUI = (function () {
     const humCost = hum.dmg ? `（损失 ${hum.dmg} HP${hum.status ? ' + 状态' : ''}）` : ''
 
     const tributeBtn = hasGold
-      ? `<button class="btn btn-primary sur-tribute" style="width:100%;text-align:left;margin-bottom:8px">
+      ? `<button class="battle-choice sur-tribute">
            <b>💰 上贡 ${tribute} 金</b>
-           <span style="display:block;font-size:.78rem;color:var(--text-dim);margin-top:2px">付钱让 ${enemy.name} 放你走</span>
+           <span>付钱让 ${enemy.name} 放你走</span>
          </button>`
-      : `<div style="color:var(--danger);font-size:.8rem;margin-bottom:8px">💰 金币不足（需要 ${tribute} 金）</div>`
+      : `<p class="battle-choice-unavailable">💰 金币不足（需要 ${tribute} 金）</p>`
 
     Dialog.show({
       title: '🏳️ 投降',
+      className: 'battle-choice-modal',
       body: `
-        <p>向 ${enemy.name} 投降，二选一：</p>
-        <div style="margin-top:12px">
+        <section class="scene-dialogue"><i>🏳️</i><div><h3>你放低武器，等待 ${enemy.name} 回应。</h3><p>它给了你两条活着离开的路。</p></div></section>
+        <div class="battle-choice-list">
           ${tributeBtn}
-          <button class="btn sur-humiliate" style="width:100%;text-align:left">
+          <button class="battle-choice sur-humiliate">
             <b>🥵 接受羞辱任务</b>
-            <span style="display:block;font-size:.78rem;color:var(--text-dim);margin-top:2px">${hum.desc || '承受羞辱'}</span>
-            <span style="display:block;font-size:.72rem;color:var(--danger);margin-top:2px">${humCost}</span>
+            <span>${hum.desc || '承受羞辱'}</span>
+            <em>${humCost}</em>
           </button>
         </div>
       `,
-      actions: [{ label: '❌ 算了，继续战斗', handler: () => Dialog.close() }],
+      actions: [{ kind: 'navigation', label: '继续战斗', handler: () => Dialog.close() }],
     })
 
-    setTimeout(() => {
-      const tBtn = document.querySelector('.sur-tribute')
+    Dialog.onMount(root => {
+      const tBtn = root.querySelector('.sur-tribute')
       if (tBtn) tBtn.onclick = () => {
         const s = State.get()
         s.gold -= tribute
@@ -227,7 +271,7 @@ window.BattleUI = (function () {
         Dialog.close()
         doSurrenderEnd()
       }
-      const hBtn = document.querySelector('.sur-humiliate')
+      const hBtn = root.querySelector('.sur-humiliate')
       if (hBtn) hBtn.onclick = () => {
         Dialog.close()
         // 羞辱任务：惩罚伤害 + 状态
@@ -250,7 +294,7 @@ window.BattleUI = (function () {
         }
         doSurrenderEnd()
       }
-    }, 50)
+    })
   }
 
   /** 投降结束战斗（强制成功，类似逃跑成功，退回来源格） */
@@ -295,6 +339,7 @@ window.BattleUI = (function () {
 
     // 攻击同样消耗 1 回合：定时锁 + 状态计时递减
     if (typeof RestraintSystem !== 'undefined') RestraintSystem.tickTimers()
+    if (typeof BattleSystem.tickCaravanBindings === 'function' && !BattleSystem.tickCaravanBindings()) return
     StatusSystem.tickInBattle()
 
     // 状态伤害（中毒/再生反转）可能让玩家死亡，先检查
@@ -336,7 +381,7 @@ window.BattleUI = (function () {
     else if (result.crit) msg = `🔥 暴击！${result.target?.name || '敌人'} 受到 ${result.dmg} 点伤害！`
     else msg = `⚔️ 命中！${result.target?.name || '敌人'} 受到 ${result.dmg} 点伤害`
 
-    EventBus.emit('ui:log', { text: `[玩家] ${msg}`, type: result.crit ? 'good' : result.miss ? 'dim' : '' })
+    EventBus.emit('ui:log', { text: `[玩家] ${msg}`, type: result.hitSelf ? 'danger' : result.crit ? 'good' : result.miss ? 'dim' : '' })
 
     if (State.get().phase === 'idle') return
 
@@ -356,6 +401,17 @@ window.BattleUI = (function () {
 
   /* ============ 敌人任务系统（计时器 + 节拍器） ============ */
 
+  async function doBanditAmbush () {
+    const battle = State.get() && State.get()._battle
+    if (!battle || !_enemy) {
+      showPlayerTurn()
+      return
+    }
+    battle.banditAmbushPending = false
+    battle.banditAmbushStrike = true
+    await doEnemyTurn()
+  }
+
   async function doEnemyTurn () {
     const hint = document.getElementById('action-hint')
     const btns = document.getElementById('action-buttons')
@@ -369,14 +425,18 @@ window.BattleUI = (function () {
       _battle.itemUsedThisTurn = false
     }
 
-    const abilityTurn = EnemyAbilitySystem.beginEnemyTurn(_enemy, _battle)
-    if (abilityTurn.action === 'escaped') return
-    if (abilityTurn.action === 'wait') {
-      hint.textContent = abilityTurn.hint
-      setTimeout(() => {
-        if (State.get().phase === 'battle') showPlayerTurn()
-      }, 450)
-      return
+    const ambushStrike = !!(_battle && _battle.banditAmbushStrike)
+    if (ambushStrike) _battle.banditAmbushStrike = false
+    if (!ambushStrike) {
+      const abilityTurn = EnemyAbilitySystem.beginEnemyTurn(_enemy, _battle)
+      if (abilityTurn.action === 'escaped') return
+      if (abilityTurn.action === 'wait') {
+        hint.textContent = abilityTurn.hint
+        setTimeout(() => {
+          if (State.get().phase === 'battle') showPlayerTurn()
+        }, 450)
+        return
+      }
     }
 
     // BOSS战：森林之灵召唤敌人攻击
@@ -385,15 +445,75 @@ window.BattleUI = (function () {
       return
     }
 
-    const roll = Dice.rollEnemy()
-    await Dialog.showDice(roll, 'Z')
+    const roll = ambushStrike ? 1 : Dice.rollEnemy()
+    if (!ambushStrike) await Dialog.showDice(roll, 'Z')
 
     const enemy = DATA.monster(_enemy.id)
     let attack = enemy.attacks.find(a => a.roll === roll) || { name: '普通攻击', desc: '攻击了你', dmg: 0 }
+    if (_battle?.story === 'commission-provoked' && attack.provoked) attack = { ...attack, ...attack.provoked }
+    // 强盗头目蓄力完成后固定使用标志性处刑；对应喽啰倒下后，群体招式会切成头目单人版本。
+    if (_battle?.enemyState?.chargeStrike && enemy.props?.chargedAttack) {
+      attack = { ...enemy.props.chargedAttack }
+    } else if (attack.special === 'bandit_rotate' && attack.rotate) {
+      const living = 1 + (_battle.targets || []).filter(target => target.type === 'bandit').length
+      const rotated = attack.rotate[Math.max(1, Math.min(3, living))] || attack.rotate[1] || attack.solo
+      if (rotated) attack = { ...rotated, roll: attack.roll, special: attack.special }
+    } else if (attack.requiresCrew) {
+      const crewAlive = attack.requiresCrew === true
+        ? _battle.targets.some(target => target.type === 'bandit')
+        : _battle.targets.some(target => target.id === attack.requiresCrew)
+      if (!crewAlive && attack.solo) attack = { ...attack.solo, roll: attack.roll }
+    }
+    // 扒手第一次搜赃会真正剥走衣服；之后改用不重复脱衣的搜赃文案。
+    if (enemy.id === 'p_bandit_leader' && attack.special === 'steal') {
+      if (StatusSystem.has('naked') && attack.repeat) {
+        attack = { ...attack, ...attack.repeat }
+      } else if (!StatusSystem.has('naked')) {
+        StatusSystem.apply('naked', 99999, { source: 'p_bandit_cutpurse' })
+        _battle.banditClothesTaken = true
+        EventBus.emit('ui:log', { text: '👙 翻箱扒手割断衣带，将衣物扔进桥洞的赃物堆。', type: 'danger' })
+        State.save()
+      }
+    }
+    // 车队编号示众：第一次收走衣物并施加持续全裸；同一战斗再次触发时改用二次验货动作。
+    if (enemy.id === 'p_caravan_guard' && roll === 5) {
+      const alreadyDisplayed = Number(_battle?.caravanDisplayCount || 0) > 0
+      const alreadyNaked = StatusSystem.has('naked')
+      if ((alreadyDisplayed || alreadyNaked) && attack.repeat) {
+        attack = { ...attack, ...attack.repeat }
+      } else if (!alreadyNaked) {
+        StatusSystem.apply('naked', 99999, { source: 'p_caravan_guard' })
+        _battle.caravanClothesTaken = true
+        State.get()._pCaravanClothesAwaitingRecovery = true
+        EventBus.emit('ui:log', { text: '👙 车队看守收走了你的全部衣物；击败他后才能在桥边找回。', type: 'danger' })
+      }
+      if (_battle) _battle.caravanDisplayCount = Number(_battle.caravanDisplayCount || 0) + 1
+      State.save()
+    }
+    // P 车队看守的两个专属机制不走通用 BPM 任务流程。
+    if (enemy.id === 'p_caravan_guard' && attack.special === 'caravan_search') {
+      _lastEnemyAttack = { attack, roll, part: 'inventory', actor: _enemy.name }
+      EventBus.emit('ui:log', { text: `[${_enemy.name}] ${attack.desc}`, type: 'danger' })
+      await resolveCaravanSearch(attack)
+      applyEnemyDamage(false)
+      return
+    }
+    if (enemy.id === 'p_caravan_guard' && attack.special === 'caravan_restraint') {
+      _lastEnemyAttack = { attack, roll, part: 'body', actor: _enemy.name }
+      EventBus.emit('ui:log', { text: `[${_enemy.name}] ${attack.desc}`, type: 'danger' })
+      const result = BattleSystem.applyCaravanBinding()
+      if (State.get().phase !== 'battle' || !State.get()._battle) return
+      await showCaravanBinding(result)
+      applyEnemyDamage(false)
+      return
+    }
     // 贞操装置：小穴/撸管/寸止任务强制改为肛交；否则女性角色 Z4-6 操菊穴改为操小穴
+    if (attack.genderedPart && State.get().gender !== 'male' && attack.part === 'anal' && !ChastitySystem.isWorn()) {
+      attack = { ...attack, part: 'vagina', desc: (attack.desc || '').replace(/菊穴/g, '小穴') }
+    }
     const chRes = ChastitySystem.resolveAttack(attack)
     let effAttack = chRes.attack
-    let attackPart = chRes.part
+    let attackPart = attack.part || chRes.part
     if (!chRes.chastity && State.get().gender !== 'male' && attackPart === 'anal' && roll >= 4) {
       effAttack = { ...attack, desc: attack.desc.replace(/菊穴/g, '小穴'), name: attack.name }
       attackPart = 'vagina'
@@ -419,6 +539,8 @@ window.BattleUI = (function () {
           special: null,
           taskBpm: originalTiming.bpm,
           taskSeconds: originalTiming.seconds,
+          taskSequence: null,
+          secondaryPart: null,
         }
         attackPart = targetResult.part
       } else if (targetResult.mode === 'spank') {
@@ -432,17 +554,31 @@ window.BattleUI = (function () {
           level: 0,
           taskBpm: originalTiming.bpm,
           taskSeconds: originalTiming.seconds,
+          taskSequence: null,
+          secondaryPart: null,
         }
         attackPart = 'body'
+      }
+      attack = effAttack
+    }
+    // 双部位招式的口部被封口装备挡住时，只保留插入部分，不生成不可能完成的深喉任务。
+    if (effAttack.secondaryPart === 'oral' && typeof RestraintSystem !== 'undefined' && RestraintSystem.hasGag()) {
+      effAttack = {
+        ...effAttack,
+        secondaryPart: null,
+        name: `${effAttack.name} · 口部受阻`,
+        desc: `${effAttack.desc} 口塞封住嘴，正面的深喉被取消，只结算插入动作。`,
+        taskSteps: (effAttack.taskSteps || []).map(step => ({ ...step, text: String(step.text || '').replace(/同时进行深喉|正面深喉|口部用具/g, '保持插入动作') })),
       }
       attack = effAttack
     }
     // 即使攻击被充能装备挡住，也要消耗已经完成的蓄力，避免重击延续到下一回合。
     effAttack = EnemyAbilitySystem.modifyEnemyAttack(enemy, _battle, effAttack)
     attack = effAttack
-    _lastEnemyAttack = { attack: effAttack, roll, part: attackPart }
+    const actingEnemyName = effAttack.actor || _enemy.name
+    _lastEnemyAttack = { attack: effAttack, roll, part: attackPart, actor: actingEnemyName }
 
-    EventBus.emit('ui:log', { text: `[${_enemy.name}] ${effAttack.desc}`, type: 'danger' })
+    EventBus.emit('ui:log', { text: `[${actingEnemyName}] ${effAttack.desc}`, type: 'danger' })
 
     if (chargedBlocked) {
       applyEnemyDamage(false, { chargeBlocked: true })
@@ -450,7 +586,7 @@ window.BattleUI = (function () {
     }
 
     // 口塞：口交/深喉类攻击做不了，硬挨一记（单倍伤害，不翻倍）
-    if (typeof RestraintSystem !== 'undefined' && RestraintSystem.hasGag() && /口交|深喉|吞吐|口穴|嘴穴/.test(effAttack.desc)) {
+    if (typeof RestraintSystem !== 'undefined' && RestraintSystem.hasGag() && attackPart === 'oral') {
       EventBus.emit('ui:log', { text: '🤐 口塞堵着嘴，你没法完成口交任务，硬挨了一记（单倍伤害）。', type: 'danger' })
       applyEnemyDamage(false)
       return
@@ -573,9 +709,35 @@ window.BattleUI = (function () {
       return
     }
 
+    // 复合任务按顺序执行，但只在整招结束后结算一次伤害与特殊效果。
+    if (Array.isArray(attack.taskSequence) && attack.taskSequence.length) {
+      let sequenceFailed = false
+      for (let i = 0; i < attack.taskSequence.length; i++) {
+        const step = attack.taskSequence[i]
+        const failedStep = await showTaskDialog({
+          enemyName: `${actingEnemyName}（${i + 1}/${attack.taskSequence.length}）`,
+          attackName: step.name || attack.name,
+          desc: step.desc || attack.desc,
+          bpm: Number(step.bpm) || 0,
+          seconds: Number(step.seconds) || 0,
+          taskCount: Number(step.count) || 0,
+          taskTool: step.tool || '',
+          dmg: 0,
+          noDamage: true,
+          allowSkip: false,
+          showFailure: true,
+          completeLabel: '✅ 完成这一段',
+          dialogTitle: `⚔️ 敌方行动：${attack.name}`,
+        })
+        if (failedStep) { sequenceFailed = true; break }
+      }
+      applyEnemyDamage(sequenceFailed)
+      return
+    }
+
     // 显示任务弹窗
     const failed = await showTaskDialog({
-      enemyName: _enemy.name,
+      enemyName: actingEnemyName,
       attackName: attack.name,
       desc: effDesc,
       bpm,
@@ -583,8 +745,15 @@ window.BattleUI = (function () {
       dmg: attack.dmg,
       status: attack.status,
       statusTurns: attack.turns,
-      dildoName: DildoSystem.describe(_enemy.id),
-      telemetry: StatsSystem.taskMeta(_enemy.id, roll, _lastEnemyAttack.part),
+      taskSteps: attack.taskSteps,
+      taskCount: attack.taskCount,
+      taskTool: attack.taskTool,
+      dildoName: _enemy.props?.storyEncounter ? '' : DildoSystem.describe(_enemy.id),
+      allowSkip: !_enemy.props?.storyEncounter,
+      showFailure: !_enemy.props?.storyEncounter || !!_enemy.props?.adultCombatTasks,
+      completeLabel: _enemy.props?.adultCombatTasks ? '✅ 完成动作' : _enemy.props?.storyEncounter ? '继续战斗' : '✅ 完成任务',
+      dialogTitle: _enemy.props?.storyEncounter ? `⚔️ 敌方行动：${attack.name}` : '',
+      telemetry: _enemy.props?.storyEncounter && !_enemy.props?.adultCombatTasks ? null : StatsSystem.taskMeta(_enemy.id, roll, _lastEnemyAttack.part),
     })
 
     // 断触手：敌人实际插入（有操弄动作的任务）时替换掉假阴茎
@@ -609,6 +778,109 @@ window.BattleUI = (function () {
     applyEnemyDamage(failed)
   }
 
+  /** 强制搜身先按妖缚状态处理检查部位，再在物品、金币和车队欠条之间结算。 */
+  async function resolveCaravanSearch (attack) {
+    const state = State.get()
+    let inspectionPart = attack.inspectionPart || 'anal'
+    if (typeof RestraintSystem !== 'undefined') {
+      const target = RestraintSystem.resolveMonsterOrifice(inspectionPart)
+      target.events.forEach(text => EventBus.emit('ui:log', { text, type: text.startsWith('💥') ? 'danger' : 'good' }))
+      if (target.mode === 'blocked') {
+        await showCaravanSearchNotice(attack, '🛡️', '检查被挡下', '妖缚装置仍有防护余量，看守没能完成腔道检查，只能继续翻查你的行囊。')
+      } else if (target.mode === 'spank') {
+        await showTaskDialog({
+          enemyName: _enemy.name,
+          attackName: `${attack.name} · 强制服从`,
+          desc: '可检查的部位都被锁住，看守把你按在货箱边，改用手掌重重责打臀部十下后继续搜查。',
+          bpm: 0, seconds: 0, taskCount: 10, taskTool: '手掌', dmg: 0, noDamage: true, showFailure: false,
+        })
+      } else {
+        inspectionPart = target.part || inspectionPart
+        const partName = { oral: '嘴穴', anal: '菊穴', vagina: '小穴' }[inspectionPart] || '身体'
+        await showTaskDialog({
+          enemyName: _enemy.name,
+          attackName: `${attack.name} · 腔道验货`,
+          desc: `看守戴上检查手套，把你按在货箱边检查${partName}，确认你没有藏匿车队物品后才开始翻查行囊。`,
+          bpm: 80, seconds: 15, dmg: 0, noDamage: true, showFailure: false,
+        })
+      }
+    }
+    const inventory = state.inventory.consumables || {}
+    const ordinaryItems = Object.keys(inventory).filter(id => {
+      if (inventory[id] <= 0) return false
+      const item = DATA.item(id)
+      return item && item.type === 'consumable' && !(item.effect && item.effect.special)
+    })
+    const tier = Math.max(1, Number(attack.searchTier) || 1)
+    const choices = ordinaryItems.length ? ['item', 'gold', 'debt'] : ['gold', 'debt']
+    let kind = choices[Math.floor(Math.random() * choices.length)]
+    if (kind === 'gold' && state.gold <= 0) kind = 'debt'
+
+    let icon = '🧾'
+    let title = '车队欠条'
+    let detail = ''
+    if (kind === 'item') {
+      const id = ordinaryItems[Math.floor(Math.random() * ordinaryItems.length)]
+      const item = DATA.item(id)
+      inventory[id]--
+      if (inventory[id] <= 0) delete inventory[id]
+      icon = '🎒'
+      title = `${item.name}被扣下`
+      detail = `看守把${item.name}塞进自己的腰包，宣称这是“车队遗失物”。`
+    } else if (kind === 'gold') {
+      const wanted = tier > 1 ? 15 + Math.floor(Math.random() * 11) : 5 + Math.floor(Math.random() * 11)
+      const taken = Math.min(state.gold, wanted)
+      state.gold -= taken
+      icon = '🪙'
+      title = `${taken}G 被没收`
+      detail = '看守把钱袋在手里掂了掂，只留下一句“搜查费”。'
+    } else {
+      const debt = tier > 1 ? 40 : 20
+      state._pCaravanDebt = Math.max(0, Number(state._pCaravanDebt) || 0) + debt
+      title = `被记下 ${debt}G 车队债务`
+      detail = `看守在货单背面写下你的名字。车队现在声称你共欠 ${state._pCaravanDebt}G。`
+    }
+    EventBus.emit('ui:log', { text: `${icon} ${title}。`, type: 'danger' })
+    EventBus.emit('state:changed', state)
+    State.save()
+
+    return new Promise(resolve => {
+      Dialog.show({
+        title: `🔎 ${attack.name}`,
+        className: 'battle-choice-modal',
+        body: `<section class="scene-dialogue"><i>${icon}</i><div><h3>${title}</h3><p>${detail}</p></div></section>`,
+        actions: [{ label: '继续战斗', cls: 'btn-primary', handler: () => { Dialog.close(); resolve() } }],
+      })
+    })
+  }
+
+  function showCaravanSearchNotice (attack, icon, title, detail) {
+    return new Promise(resolve => {
+      Dialog.show({
+        title: `🔎 ${attack.name}`,
+        className: 'battle-choice-modal',
+        body: `<section class="scene-dialogue"><i>${icon}</i><div><h3>${title}</h3><p>${detail}</p></div></section>`,
+        actions: [{ label: '继续搜查', cls: 'btn-primary', handler: () => { Dialog.close(); resolve() } }],
+      })
+    })
+  }
+
+  function showCaravanBinding (result) {
+    if (!result || !result.ok || !result.binding) return Promise.resolve()
+    const binding = result.binding
+    const battle = State.get()._battle
+    const locked = battle && Array.isArray(battle.caravanBindings) ? battle.caravanBindings.filter(entry => entry.locked).length : 0
+    return new Promise(resolve => {
+      Dialog.show({
+        title: `${binding.icon || '⛓️'} ${binding.label}`,
+        className: 'battle-choice-modal',
+        body: `<section class="scene-dialogue"><i>⏳</i><div><h3>锁扣开始收紧</h3><p>再消耗 2 个行动回合，${binding.label}就会彻底上锁。下个玩家回合会出现“挣开车队束缚”。</p></div></section>
+          <div class="wrong-letter-evidence"><span>车队束缚</span><p>已锁 ${locked}/4 · 第 4 件上锁时自动战败并被押走。</p></div>`,
+        actions: [{ label: '继续战斗', cls: 'btn-danger', handler: () => { Dialog.close(); resolve() } }],
+      })
+    })
+  }
+
   /** 纯状态攻击确认框（如再生之吻，无动作直接确认） */
   function showStatusConfirm (attack) {
     return new Promise(resolve => {
@@ -619,12 +891,10 @@ window.BattleUI = (function () {
       const turns = attack.turns ? ` ${attack.turns} 回合` : ''
       Dialog.show({
         title: `${stIcon} ${attack.name}`,
+        className: 'battle-status-modal',
         body: `
-          <p style="color:var(--text-dim)">${_enemy.name} ${attack.desc}</p>
-          <div style="margin-top:10px;padding:10px 12px;background:var(--panel-2);border:1px solid var(--accent);border-radius:8px">
-            <div style="font-weight:700;color:var(--accent-bright)">${stIcon} 你被施加了「${stName}」${turns}！</div>
-            <div style="font-size:.8rem;color:var(--text-dim);margin-top:2px">${stDesc}</div>
-          </div>
+          <section class="scene-dialogue"><i>${stIcon}</i><div><h3>${_enemy.name} ${attack.desc}</h3><p>你被施加了「${stName}」${turns}。</p></div></section>
+          <div class="battle-status-result"><b>${stIcon} ${stName}${turns}</b><span>${stDesc}</span></div>
         `,
         actions: [
           { label: '确认', cls: 'btn-primary', handler: () => { Dialog.close(); resolve() } },
@@ -638,7 +908,8 @@ window.BattleUI = (function () {
     return new Promise(resolve => {
       Dialog.show({
         title: '🫁 锁喉！',
-        body: '<p style="color:var(--text-dim)">兽人一边深插一边掐住你的喉咙。<br><b>你憋住气了吗？</b></p><p style="color:var(--danger);font-size:.85rem;margin-top:6px">没憋住：伤害双倍，困倦 5 回合</p>',
+        className: 'battle-choice-modal',
+        body: '<section class="scene-dialogue"><i>🫁</i><div><h3>兽人一边深插，一边掐住你的喉咙。</h3><p>胸口的空气正在迅速耗尽。</p></div></section><p class="battle-danger-note">没憋住：伤害双倍，并陷入困倦 5 回合。</p>',
         actions: [
           { label: '✅ 憋住了', cls: 'btn-success', handler: () => { Dialog.close(); resolve(true) } },
           { label: '❌ 没憋住', cls: 'btn-danger', handler: () => { Dialog.close(); resolve(false) } },
@@ -680,12 +951,17 @@ window.BattleUI = (function () {
    *  allowSkip=false 时隐藏"跳过计时器"；showFailure=false 时隐藏"没完成"；
    *  completeLabel 自定义完成按钮文字；dialogClass 附加弹窗样式类；
    *  refuseLabel 提供"拒绝服务"按钮（点击 resolve 'refuse'） */
-  function showTaskDialog ({ enemyName, attackName, desc, bpm, seconds, dmg, status, statusTurns, dildoName, noDamage, allowSkip = true, showFailure = true, completeLabel = '✅ 完成任务', dialogClass = '', refuseLabel = '', telemetry = null }) {
+  function showTaskDialog ({ enemyName, attackName, desc, bpm, seconds, dmg, status, statusTurns, taskSteps = [], taskCount = 0, taskTool = '', dildoName, noDamage, allowSkip = true, showFailure = true, completeLabel = '✅ 完成任务', dialogTitle = '', dialogClass = '', refuseLabel = '', telemetry = null }) {
     // 同一时间只允许一个任务计时器；新任务会先彻底清掉可能残留的旧任务。
     if (_activeTaskCleanup) _activeTaskCleanup()
     return new Promise(resolve => {
       const hasTimer = seconds > 0
       const hasBpm = bpm > 0
+      const requiredCount = Math.max(0, Math.floor(Number(taskCount) || 0))
+      let completedCount = 0
+      const phases = Array.isArray(taskSteps)
+        ? taskSteps.filter(step => step && Number.isFinite(Number(step.at))).map(step => ({ ...step, at: Math.max(0, Number(step.at)) })).sort((a, b) => a.at - b.at)
+        : []
 
       // 构建 debuff 提示
       let statusHtml = ''
@@ -730,6 +1006,7 @@ window.BattleUI = (function () {
             ...telemetry,
             bpm: Math.max(0, Number(bpm) || 0),
             seconds: Math.max(0, Number(seconds) || 0),
+            count: requiredCount,
             damage: Math.max(0, Number(dmg) || 0),
             completed: failed === false,
           })
@@ -741,6 +1018,8 @@ window.BattleUI = (function () {
         <div class="task-container">
           ${attackName && attackName !== desc ? `<p style="margin-bottom:4px"><b>${enemyName}</b> 使用「${attackName}」</p>` : `<p style="margin-bottom:4px"><b>${enemyName}</b></p>`}
           <p style="color:var(--text-dim);font-size:.9rem;margin-bottom:10px">${desc}</p>
+          ${phases.length ? `<div class="task-phase" id="task-phase"><small>${phases[0].label || '当前命令'}</small><b>${phases[0].text || ''}</b></div>` : ''}
+          ${requiredCount ? `<div class="task-count-card"><span>已完成 / 规定次数</span><strong><b id="task-count-current">0</b><small> / ${requiredCount} 下</small></strong>${taskTool ? `<p>可用：${taskTool}</p>` : ''}<div class="task-count-controls"><button type="button" class="btn" id="task-count-minus" disabled>−1</button><button type="button" class="btn btn-danger" id="task-count-add-one">+1 下</button><button type="button" class="btn btn-danger" id="task-count-add-five">+5 下</button></div><em>按实际完成数量记录；达到规定次数后才能结算</em></div>` : ''}
           ${dildoName ? `<p style="font-size:.85rem;color:var(--gold);margin-bottom:8px">🍆 当前假阴茎：${dildoName}</p>` : ''}
           ${hasBpm ? `
             <div class="metronome-area">
@@ -767,7 +1046,11 @@ window.BattleUI = (function () {
         {
           label: completeLabel,
           cls: 'btn-success',
-          handler: () => { Dialog.close(); finish(false) },
+          disabled: requiredCount > 0,
+          handler: () => {
+            if (requiredCount && completedCount < requiredCount) return
+            Dialog.close(); finish(false)
+          },
         },
         ...(showFailure ? [{
           label: '❌ 没完成',
@@ -792,11 +1075,32 @@ window.BattleUI = (function () {
       ]
 
       Dialog.show({
-        title: attackName && attackName !== desc ? `🎯 任务：${attackName}` : '🎯 任务',
+        title: dialogTitle || (attackName && attackName !== desc ? `🎯 任务：${attackName}` : '🎯 任务'),
         body: bodyHtml,
         actions,
         className: dialogClass || undefined,
       })
+
+      if (requiredCount && !hasTimer && !hasBpm) {
+        Dialog.onMount(root => {
+          const current = root.querySelector('#task-count-current')
+          const addOne = root.querySelector('#task-count-add-one')
+          const addFive = root.querySelector('#task-count-add-five')
+          const minus = root.querySelector('#task-count-minus')
+          const complete = root.querySelector('.modal-actions [data-action="0"]')
+          const renderCount = () => {
+            if (current) current.textContent = String(completedCount)
+            if (minus) minus.disabled = completedCount <= 0
+            if (addOne) addOne.disabled = completedCount >= requiredCount
+            if (addFive) addFive.disabled = completedCount >= requiredCount
+            if (complete) complete.disabled = completedCount < requiredCount
+          }
+          if (addOne) addOne.addEventListener('click', () => { completedCount = Math.min(requiredCount, completedCount + 1); renderCount() })
+          if (addFive) addFive.addEventListener('click', () => { completedCount = Math.min(requiredCount, completedCount + 5); renderCount() })
+          if (minus) minus.addEventListener('click', () => { completedCount = Math.max(0, completedCount - 1); renderCount() })
+          renderCount()
+        })
+      }
 
       function beginTask () {
         if (running) return
@@ -845,6 +1149,24 @@ window.BattleUI = (function () {
         const fill = document.getElementById('timer-fill')
         if (el) el.textContent = formatTime(Math.max(0, timerValue))
         if (fill && seconds > 0) fill.style.width = ((timerValue / seconds) * 100) + '%'
+        updateTaskPhase()
+      }
+
+      function updateTaskPhase () {
+        if (!phases.length) return
+        const elapsed = Math.max(0, seconds - timerValue)
+        let active = phases[0]
+        for (const phase of phases) {
+          if (phase.at <= elapsed) active = phase
+          else break
+        }
+        const phaseEl = document.getElementById('task-phase')
+        if (!phaseEl || phaseEl.dataset.at === String(active.at)) return
+        phaseEl.dataset.at = String(active.at)
+        phaseEl.classList.remove('is-changing')
+        void phaseEl.offsetWidth
+        phaseEl.innerHTML = `<small>${active.label || '当前命令'}</small><b>${active.text || ''}</b>`
+        phaseEl.classList.add('is-changing')
       }
 
       function tickMetronome () {
@@ -1299,9 +1621,12 @@ window.BattleUI = (function () {
 
     EventBus.emit('state:changed', state)
 
-    let msg = failed
-      ? `❌ 没完成任务！伤害翻倍！受到 ${dmg} 点伤害`
-      : `✅ 完成任务！受到 ${dmg} 点伤害`
+    const storyEnemyLabel = _enemy?.id === 'p_caravan_guard' ? '看守' : _enemy?.id === 'p_bandit_leader' ? '强盗' : '敌人'
+    let msg = _enemy?.props?.storyEncounter
+      ? (dmg > 0 ? `⚔️ ${storyEnemyLabel}的攻势造成 ${dmg} 点伤害。` : attack.special === 'caravan_search' || attack.special === 'caravan_restraint' ? `⚔️ ${attack.name}没有造成直接伤害。` : `⚔️ 你避开了${storyEnemyLabel}的攻势。`)
+      : failed
+        ? `❌ 没完成任务！伤害翻倍！受到 ${dmg} 点伤害`
+        : `✅ 完成任务！受到 ${dmg} 点伤害`
     if (blocked) msg = opts.chargeBlocked ? '⚡ 防护充能完全抵挡：0 伤害、0 效果！' : '🛡️ 被插入装备挡住了！'
     EventBus.emit('ui:log', { text: msg, type: failed ? 'danger' : 'dim' })
 
@@ -1346,11 +1671,14 @@ window.BattleUI = (function () {
         break
       case 'summon_goblin':
         const gobCount = battle.targets.filter(t => t.type === 'goblin').length
-        const maxPack = DATA.monster(battle.enemyId)?.props?.maxPack || 5
+        const goblinDef = DATA.monster('goblins')
+        const maxPack = goblinDef?.props?.maxPack || 5
         if (gobCount < maxPack) {
           const letters = ['A', 'B', 'C', 'D', 'E']
           const label = letters[gobCount] || (gobCount + 1)
-          battle.targets.push({ id: 'goblin-' + Date.now(), name: '哥布林 ' + label, hp: 5, maxHp: 5, type: 'goblin', dmgPerTurn: 0 })
+          const hpMap = goblinDef?.props?.hpByDifficulty
+          const unitHp = (hpMap && hpMap[State.get().difficulty || 'normal']) || goblinDef?.maxHp || 5
+          battle.targets.push({ id: 'goblin-' + Date.now(), name: '哥布林 ' + label, hp: unitHp, maxHp: unitHp, type: 'goblin', dmgPerTurn: 0 })
           EventBus.emit('ui:log', { text: `👺 哥布林叫来了哥布林 ${label}！(现共 ${gobCount + 1} 只)`, type: 'danger' })
         } else {
           EventBus.emit('ui:log', { text: '👺 哥布林想叫帮手，但已经满了（最多 5 只）！', type: 'dim' })
@@ -1358,8 +1686,10 @@ window.BattleUI = (function () {
         break
       case 'steal':
         const gold = attack.gold || 0
-        State.get().gold = Math.max(0, State.get().gold - gold)
-        EventBus.emit('ui:log', { text: `💰 被偷了 ${gold} 金币！`, type: 'danger' })
+        const stolen = Math.min(State.get().gold, gold)
+        State.get().gold = Math.max(0, State.get().gold - stolen)
+        if (battle.enemyId === 'p_bandit_leader') battle.banditGoldStolen = (battle.banditGoldStolen || 0) + stolen
+        EventBus.emit('ui:log', { text: `💰 被偷了 ${stolen} 金币！`, type: 'danger' })
         break
       case 'heal_self':
         if (!failed && battle.targets[0]) {
@@ -1403,23 +1733,24 @@ window.BattleUI = (function () {
     let html = usableItems.map(([id, count]) => {
       const item = ItemLib.get(id)
       const desc = item && item.desc ? item.desc : ''
-      return `<button class="btn item-use-btn" data-item="${id}" style="display:block;width:100%;text-align:left;margin:6px 0">
-        <div style="display:flex;justify-content:space-between;align-items:center">
+      return `<button class="item-use-btn" data-item="${id}">
+        <div>
           <b>${item?.name || id}</b>
-          <span style="color:var(--gold)">×${count}</span>
+          <span>×${count}</span>
         </div>
-        <div style="font-size:.78rem;color:var(--text-dim);margin-top:3px">${desc}</div>
+        <small>${desc}</small>
       </button>`
     }).join('')
 
     Dialog.show({
       title: '🎒 选择物品',
-      body: html,
-      actions: [{ label: '取消', handler: () => Dialog.close() }],
+      className: 'battle-item-modal',
+      body: `<div class="battle-item-list">${html}</div>`,
+      actions: [{ kind: 'navigation', label: '继续战斗', handler: () => Dialog.close() }],
     })
 
-    setTimeout(() => {
-      document.querySelectorAll('[data-item]').forEach(btn => {
+    Dialog.onMount(root => {
+      root.querySelectorAll('[data-item]').forEach(btn => {
         btn.onclick = () => {
           const id = btn.dataset.item
           if (ShopSystem.isSoulGem(id)) {
@@ -1439,10 +1770,15 @@ window.BattleUI = (function () {
           }
         }
       })
-    }, 50)
+    })
   }
 
   /* ============ 战斗结束 ============ */
+
+  function continueAfterBattle (data) {
+    if (GameFlow.handleBattleVictory(data)) return
+    GameFlow.afterEvent()
+  }
 
   function onEnd (data) {
     const hint = document.getElementById('action-hint')
@@ -1470,6 +1806,12 @@ window.BattleUI = (function () {
         Dialog.close()
         GameFlow.afterEvent()
       }
+    } else if (data.storyDefeat && GameFlow.handleBattleDefeat(data)) {
+      hint.textContent = data.hallAssault
+        ? '⛓️ 会馆袭击失败，你被拖回登记长桌。'
+        : data.banditHideout
+          ? '🗡️ 你被赶出强盗据点，证人仍等待救援。'
+          : '⛓️ 你被车队押回了雾灯镇。'
     } else if (data.victory) {
       if (data.fled) {
         if (data.surrendered) {
@@ -1526,14 +1868,14 @@ window.BattleUI = (function () {
               Dialog.close()
               // 特殊掉落事件：从持久化的 _pendingLootEvent 判断（刷新后仍可恢复）
               if (processPendingLootEvent()) return
-              GameFlow.afterEvent()
+              continueAfterBattle(data)
             } }],
           })
           return
         }
         // 特殊掉落事件：从持久化的 _pendingLootEvent 判断（刷新后仍可恢复）
         if (processPendingLootEvent()) return
-        GameFlow.afterEvent()
+        continueAfterBattle(data)
       }
     } else {
       hint.textContent = '💀 你被击败了……'

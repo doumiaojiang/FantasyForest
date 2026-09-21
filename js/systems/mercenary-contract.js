@@ -179,7 +179,7 @@ window.MercenaryContractSystem = (function () {
     if (!hasMercenary() || data().introSeen) { if (onClose) onClose(); return }
     Dialog.show({
       title: '⚔️ 芙蕾雅的佣兵契约', className: 'merc-contract-modal',
-      body: `<section class="merc-contract-intro"><i>⚔️</i><div><small>FREYA · MERCENARY BOND</small><h3>一次性雇佣费已经付清</h3><p>芙蕾雅不会收日薪。只有在你主动借款、请求代付或违反契约时，才会产生佣兵债务。</p></div></section><div class="merc-rule-list"><span>✓ 借款与代付均需确认</span><span>✓ 可以直接还钱</span><span>✓ 也能完成契约抵债</span><span>✓ 债务清零后可以解雇</span></div>`,
+      body: `<section class="merc-contract-intro"><i>⚔️</i><div><small>芙蕾雅把契约推到你面前</small><h3>“雇佣费已经付清。之后的账，我们一笔一笔算。”</h3><p>她不会索取日薪；只有你向她借钱、请她代付或违反约定时，纸上的数字才会增加。</p></div></section><details class="merc-terms"><summary>翻看契约细则</summary><div class="merc-rule-list"><span>借款与代付都要由你确认</span><span>欠款可以直接偿还</span><span>也可以接受任务抵债</span><span>账目清零后可以解雇</span></div></details>`,
       actions: [
         { label: '启用债务契约', cls: 'btn-primary', handler: () => { data().introSeen = true; settings().enabled = true; emit(); Dialog.close(); if (onClose) onClose() } },
         { label: '暂时不用', handler: () => { data().introSeen = true; settings().enabled = false; emit(); Dialog.close(); if (onClose) onClose() } },
@@ -333,14 +333,14 @@ window.MercenaryContractSystem = (function () {
     const name = st()._mercenary.name || '芙蕾雅'
     Dialog.show({
       title: '👋 解除佣兵契约？', className: 'merc-contract-modal',
-      body: `<section class="merc-contract-intro"><i>⚔️</i><div><small>END MERCENARY BOND</small><h3>${escapeHtml(name)}将离开队伍</h3><p>解除后她会回到雾灯酒馆。战斗支援和佣兵服务立即停止，以后可以重新支付雇佣费招募。</p></div></section>`,
+      body: `<section class="merc-contract-intro"><i>⚔️</i><div><small>${escapeHtml(name)}收起了武器</small><h3>“账已经清了。你真的要我走？”</h3><p>解除契约后，她会回到雾灯酒馆；战斗支援立即停止，以后仍可重新招募。</p></div></section>`,
       actions: [
         { label: '确认解除雇佣', cls: 'btn-danger', handler: () => {
           Dialog.close()
           const result = dismissMercenary()
           if (result.ok && st().phase === 'camp' && window.CampSystem && CampSystem.tavern) CampSystem.tavern()
         } },
-        { label: '继续同行', handler: () => { Dialog.close(); openPanel() } },
+        { kind: 'navigation', label: '继续同行', handler: () => { Dialog.close(); openPanel() } },
       ],
     })
   }
@@ -354,7 +354,7 @@ window.MercenaryContractSystem = (function () {
     Dialog.show({
       title: '📜 芙蕾雅的抵债契约', className: 'merc-contract-modal',
       body: `<div class="merc-offer-list">${offers.map((offer, index) => `<button class="merc-offer" data-merc-offer="${index}"><i>${offer.type === 'battle' ? '⛓️' : offer.type === 'income' ? '💰' : offer.type === 'mercenary' ? '💋' : '🍺'}</i><span><small>${offer.difficulty === 'hard' ? '困难' : offer.difficulty === 'normal' ? '普通' : '简单'}契约</small><b>${escapeHtml(offer.name)}</b><em>${escapeHtml(offer.desc)}</em></span><strong>${offer.relief ? `-${offer.relief}G` : '托管'}</strong></button>`).join('')}</div>`,
-      actions: [{ label: '返回债务面板', handler: () => { Dialog.close(); openPanel() } }],
+      actions: [{ kind: 'navigation', label: '返回契约账页', handler: () => { Dialog.close(); openPanel() } }],
     })
     document.querySelectorAll('[data-merc-offer]').forEach(btn => {
       btn.onclick = () => {
@@ -374,7 +374,7 @@ window.MercenaryContractSystem = (function () {
     const pct = Math.min(100, Math.round((debt() / Math.max(1, limit())) * 100))
     Dialog.show({
       title: `⚔️ 佣兵契约 · ${escapeHtml(merc.name)}`, className: 'merc-contract-modal',
-      body: `<section class="merc-profile"><i>${merc.icon}</i><div><small>MERCENARY BOND</small><h3>${escapeHtml(merc.name)}</h3><p>攻击 ${merc.dmg} · 性欲 ${merc.lust || 0}%${merc.dead ? ' · 已阵亡' : ''}</p></div><strong class="is-${t.key}">${t.icon} ${t.label}</strong></section>
+      body: `<section class="merc-profile"><i>${merc.icon}</i><div><small>同行契约</small><h3>${escapeHtml(merc.name)}</h3><p>攻击 ${merc.dmg} · 性欲 ${merc.lust || 0}%${merc.dead ? ' · 已阵亡' : ''}</p></div><strong class="is-${t.key}">${t.icon} ${t.label}</strong></section>
         <section class="merc-debt-card"><div><small>当前债务</small><b>${debt()}G</b><em>上限 ${limit()}G · 收入自动还款 ${Math.round((active && active.type === 'income' ? 0.60 : t.rate) * 100)}%</em></div><span><i style="width:${pct}%"></i></span></section>
         ${active ? `<section class="merc-active-contract"><small>进行中的契约</small><h3>📜 ${escapeHtml(active.name)}</h3><p>${active.type === 'battle' ? `普通战斗 ${active.progress}/${active.required}` : active.type === 'income' ? `已托管 ${active.progress}/${active.required}G` : `任务进度 ${active.progress}/${active.required}`}</p><div class="merc-contract-progress"><i style="width:${Math.min(100, active.progress / active.required * 100)}%"></i></div></section>` : '<p class="merc-empty">当前没有进行中的抵债契约。</p>'}
         <div class="merc-repay-grid"><button data-merc-pay="10" ${!debt() || st().gold < 10 ? 'disabled' : ''}>偿还 10G</button><button data-merc-pay="50" ${!debt() || st().gold < 1 ? 'disabled' : ''}>偿还最多 50G</button><button data-merc-pay="half" ${!debt() || st().gold < 1 ? 'disabled' : ''}>偿还一半</button><button data-merc-pay="all" ${!debt() || st().gold < 1 ? 'disabled' : ''}>尽量还清</button></div>
@@ -384,7 +384,7 @@ window.MercenaryContractSystem = (function () {
         ...(debt() && !active ? [{ label: '查看抵债契约', cls: 'btn-primary', handler: () => { Dialog.close(); showOffers() } }] : []),
         ...(active ? [{ label: '放弃当前契约', cls: 'btn-danger', handler: () => { abandon(false); Dialog.close(); openPanel() } }] : []),
         { label: debt() || active ? '解除雇佣（尚未满足条件）' : '解除雇佣关系', cls: debt() || active ? '' : 'btn-danger', handler: requestDismiss },
-        { label: '关闭', handler: () => Dialog.close() },
+        { kind: 'navigation', label: '收起契约', handler: () => Dialog.close() },
       ],
     })
     document.querySelectorAll('[data-merc-pay]').forEach(btn => {

@@ -21,6 +21,10 @@ window.Dialog = (function () {
   /** 打开通用弹窗 */
   function show (options) {
     const { title, body, actions = [], className = '' } = options
+    const indexedActions = actions.map((action, index) => ({ ...action, index }))
+    const navigation = indexedActions.filter(action => action.kind === 'navigation')
+    const commands = indexedActions.filter(action => action.kind !== 'navigation')
+    const footerActions = [...navigation, ...commands]
     currentDialog = options
     if (layer.classList.contains('modal-hidden')) previousFocus = document.activeElement
     const titleId = `dialog-title-${++dialogId}`
@@ -28,11 +32,11 @@ window.Dialog = (function () {
       <div class="modal-box ${className}" role="dialog" aria-modal="true" ${title ? `aria-labelledby="${titleId}"` : 'aria-label="游戏提示"'}>
         ${title ? `<h3 class="modal-title" id="${titleId}">${title}</h3>` : ''}
         <div class="modal-body">${body}</div>
-        <div class="modal-actions">
-          ${actions.map((a, i) =>
-            `<button class="btn ${a.cls || ''}" ${a.disabled ? 'disabled' : ''} data-action="${i}">${a.label}</button>`
+        ${footerActions.length ? `<div class="modal-actions${navigation.length ? ' action-bar has-navigation' : ''}">
+          ${footerActions.map(a =>
+            `<button class="btn ${a.kind === 'navigation' ? 'btn-navigation' : (a.cls || '')}" ${a.disabled ? 'disabled' : ''} data-action="${a.index}">${a.kind === 'navigation' ? '<span aria-hidden="true">↩</span> ' : ''}${a.label}</button>`
           ).join('')}
-        </div>
+        </div>` : ''}
       </div>`
     layer.classList.remove('modal-hidden')
     layer.querySelectorAll('[data-action]').forEach(btn => {
@@ -61,6 +65,18 @@ window.Dialog = (function () {
   /** 返回当前弹窗配置，供临时设置菜单关闭后安全恢复流程。 */
   function getCurrent () {
     return currentDialog
+  }
+
+  /**
+   * Run DOM wiring synchronously against the currently mounted dialog.
+   * The scoped root prevents handlers from attaching to stale/background nodes.
+   */
+  function onMount (handler) {
+    if (typeof handler !== 'function' || layer.classList.contains('modal-hidden')) return false
+    const root = layer.querySelector('.modal-box')
+    if (!root) return false
+    handler(root, currentDialog)
+    return true
   }
 
   layer.addEventListener('keydown', event => {
@@ -92,6 +108,20 @@ window.Dialog = (function () {
     })
   }
 
+  function enemyEncounterIcon (enemyId) {
+    return ({
+      tentacle: '🦑',
+      orc: '👹',
+      sorceress: '🧙‍♀️',
+      succubus: '😈',
+      goblins: '👺',
+      p_caravan_guard: '🗡️',
+      p_bandit_leader: '☠️',
+      werewolf: '🐺',
+      spirit_of_forest: '♛',
+    })[enemyId] || '☠️'
+  }
+
   /** 分阶段展开的战斗弹窗 */
   function battleIntro (enemy, opts = {}) {
     if (enemy.props && enemy.props.isBoss) {
@@ -111,15 +141,14 @@ window.Dialog = (function () {
         <section class="boss-intro">
           <div class="boss-intro-hero">
             <span class="boss-sigil" aria-hidden="true">♛</span>
-            <div><small>FINAL ENCOUNTER</small><h4>${enemy.name}</h4><p>${enemy.tagline}</p></div>
+            <div><small>森林尽头的主人</small><h4>${enemy.name}</h4><p>${enemy.tagline}</p></div>
             <b class="boss-hp-badge">HP ${enemy.maxHp}</b>
           </div>
           <div class="boss-story">${intro.map((line, i) => `<p class="${i > 0 ? 'boss-quote' : ''}">${line}</p>`).join('')}</div>
-          <div class="boss-flow" aria-label="BOSS 回合流程">
-            <span><i>Y</i><b>召唤敌人</b></span><em>→</em><span><i>Z</i><b>决定攻击</b></span><em>→</em><span><i>×2</i><b>强化结算</b></span>
-          </div>
-          <div class="boss-rule-grid">${rules}</div>
           <div class="boss-objective"><span>唯一目标</span><b>击败森林之灵本体；无需清除仍存活的小兵</b></div>
+          <details class="battle-rule-details"><summary>观察森林之灵的战斗规律 <em>${(enemy.bossRules || []).length}</em></summary><div class="boss-flow" aria-label="BOSS 回合流程">
+            <span><i>Y</i><b>召唤敌人</b></span><em>→</em><span><i>Z</i><b>决定攻击</b></span><em>→</em><span><i>×2</i><b>强化结算</b></span>
+          </div><div class="boss-rule-grid">${rules}</div></details>
         </section>`
 
       Dialog.show({
@@ -134,10 +163,8 @@ window.Dialog = (function () {
     }
 
     const lines = [...enemy.intro]
-    if (enemy.tagline) lines.push(`<em>${enemy.tagline}</em>`)
-    if (opts.goblinCount) lines.unshift(`<b style="color:var(--danger)">👺 掷 Z → ${opts.goblinCount} 只哥布林扑了上来！</b>`)
 
-    const dildo = DildoSystem.effective(enemy.id)
+    const dildo = enemy.props?.storyEncounter ? null : DildoSystem.effective(enemy.id)
     const dildoText = dildo ? dildo.name : ''
     const enemyName = typeof EnemyAbilitySystem !== 'undefined'
       ? EnemyAbilitySystem.displayName(enemy, opts.battle)
@@ -145,34 +172,39 @@ window.Dialog = (function () {
     const traits = typeof EnemyAbilitySystem !== 'undefined'
       ? EnemyAbilitySystem.traitsFor(enemy, opts.battle)
       : []
+    const isElite = traits.some(trait => trait.elite)
     const traitHtml = traits.length
-      ? `<section class="enemy-trait-list" aria-label="敌人特性">${traits.map(trait => `
+      ? `<details class="battle-rule-details enemy-trait-details"><summary>侦察敌人 <em>${traits.length} 条线索</em></summary><section class="enemy-trait-list" aria-label="敌人特性">${traits.map(trait => `
           <article class="enemy-trait-card${trait.elite ? ' is-elite' : ''}">
             <span aria-hidden="true">${trait.icon || '◆'}</span>
             <div><b>${trait.name}</b><p>${trait.desc}</p></div>
-          </article>`).join('')}</section>`
+          </article>`).join('')}</section></details>`
       : ''
 
-    const body = lines.map(l => `<p>${l}</p>`).join('') +
-      `<div style="margin-top:10px;display:flex;align-items:center;gap:10px">
-        <div style="flex:1">
-          <div style="display:flex;justify-content:space-between;font-size:.85rem;color:var(--text);margin-bottom:4px">
-            <span>${enemyName}${opts.goblinCount ? ` ×${opts.goblinCount}` : ''} HP</span>
-            <span>${opts.battle?.targets?.[0]?.maxHp || enemy.maxHp}/${opts.battle?.targets?.[0]?.maxHp || enemy.maxHp}</span>
-          </div>
-          <div style="height:14px;background:var(--hp-bg);border-radius:8px;overflow:hidden">
-            <div style="height:100%;width:100%;background:linear-gradient(90deg,var(--danger),#ff8a8a);border-radius:8px"></div>
-          </div>
+    const maxHp = opts.battle?.targets?.[0]?.maxHp || enemy.maxHp
+    const encounterName = `${enemyName}${opts.goblinCount ? ` ×${opts.goblinCount}` : ''}`
+    const body = `<section class="enemy-encounter-card${isElite ? ' is-elite' : ''}">
+        <div class="enemy-encounter-portrait" aria-hidden="true"><span>${enemyEncounterIcon(enemy.id)}</span></div>
+        <div class="enemy-encounter-identity">
+          <small>${isElite ? '危险的精英气息' : '雾中出现敌意'}</small>
+          <h4>${encounterName}</h4>
+          ${enemy.tagline ? `<p>${enemy.tagline}</p>` : ''}
         </div>
-      </div>
+        <div class="enemy-encounter-hp"><small>生命</small><b>${maxHp}</b></div>
+        <i class="enemy-encounter-health"><em></em></i>
+      </section>
+      ${opts.goblinCount ? `<p class="encounter-warning">👺 骰声落定，${opts.goblinCount} 只哥布林同时围了上来。</p>` : ''}
+      ${enemy.props?.banditCrew ? `<p class="encounter-warning">☠️ 哨探会先从斜坡按住你。留着喽啰才能看到夹击与轮用；集中击倒头目，剩余强盗会丢下账册逃走。</p>` : ''}
+      <section class="enemy-encounter-scene">${lines.map(l => `<p>${l}</p>`).join('')}</section>
       ${traitHtml}
-      ${dildoText ? `<p style="margin-top:8px;color:var(--text-dim);font-size:.85rem">🍆 你需要使用：${dildoText}</p>` : ''}`
+      ${dildoText ? `<p class="enemy-battle-requirement"><span aria-hidden="true">🍆</span><span>迎战装备</span><b>${dildoText}</b></p>` : ''}`
 
     Dialog.show({
-      title: `⚔️ ${enemyName}`,
+      title: '⚔️ 遭遇',
       body,
+      className: `battle-intro-modal${isElite ? ' is-elite' : ''}`,
       actions: [
-        { label: '⚔️ 战斗开始！', cls: 'btn-primary', handler: () => { Dialog.close(); EventBus.emit('battle:ui:ready', {}) } },
+        { label: '⚔️ 迎战', cls: 'btn-primary', handler: () => { Dialog.close(); EventBus.emit('battle:ui:ready', {}) } },
       ],
     })
   }
@@ -319,9 +351,9 @@ window.Dialog = (function () {
       ],
     })
 
-    // 绑定买回衣服按钮
-    setTimeout(() => {
-      const btnClothes = document.getElementById('btn-buy-clothes')
+    // DOM 已同步挂载，立即在当前弹窗范围内绑定。
+    onMount(root => {
+      const btnClothes = root.querySelector('#btn-buy-clothes')
       if (btnClothes) {
         btnClothes.addEventListener('click', () => {
           const result = ShopSystem.buyClothes()
@@ -332,7 +364,7 @@ window.Dialog = (function () {
           }
         })
       }
-      const btnCrystal = document.getElementById('btn-exchange-crystal')
+      const btnCrystal = root.querySelector('#btn-exchange-crystal')
       if (btnCrystal) {
         btnCrystal.addEventListener('click', () => {
           const result = ShopSystem.exchangeMutantCrystals()
@@ -340,7 +372,7 @@ window.Dialog = (function () {
           else alert(result.msg)
         })
       }
-      const btnRevive = document.getElementById('btn-revive-merc')
+      const btnRevive = root.querySelector('#btn-revive-merc')
       if (btnRevive) {
         btnRevive.addEventListener('click', () => {
           const result = ShopSystem.reviveMercenary()
@@ -351,7 +383,7 @@ window.Dialog = (function () {
           }
         })
       }
-      const btnReviveDebt = document.getElementById('btn-revive-merc-debt')
+      const btnReviveDebt = root.querySelector('#btn-revive-merc-debt')
       if (btnReviveDebt) {
         btnReviveDebt.addEventListener('click', () => {
           MercenaryContractSystem.offerAdvance(50, '复活佣兵', () => {
@@ -364,11 +396,11 @@ window.Dialog = (function () {
           })
         })
       }
-    }, 50)
+    })
 
     // 绑定购买按钮事件
-    setTimeout(() => {
-      layer.querySelectorAll('.btn-buy').forEach(btn => {
+    onMount(root => {
+      root.querySelectorAll('.btn-buy').forEach(btn => {
         btn.addEventListener('click', () => {
           const id = btn.dataset.id
           const result = ShopSystem.buy(id)
@@ -380,7 +412,7 @@ window.Dialog = (function () {
         })
       })
       // 绑定重新装备按钮事件
-      layer.querySelectorAll('.btn-equip').forEach(btn => {
+      root.querySelectorAll('.btn-equip').forEach(btn => {
         btn.addEventListener('click', () => {
           const id = btn.dataset.id
           const result = ShopSystem.equip(id)
@@ -392,7 +424,7 @@ window.Dialog = (function () {
         })
       })
       // 绑定取下饰品按钮事件
-      layer.querySelectorAll('.btn-unequip').forEach(btn => {
+      root.querySelectorAll('.btn-unequip').forEach(btn => {
         btn.addEventListener('click', () => {
           const id = btn.dataset.id
           const result = ShopSystem.unequip(id)
@@ -403,7 +435,7 @@ window.Dialog = (function () {
           }
         })
       })
-    }, 50)
+    })
   }
 
   /** 显示游戏规则 */
@@ -521,7 +553,7 @@ window.Dialog = (function () {
     renderBookPage()
   }
 
-  return { show, close, getCurrent, showDice, battleIntro, shop, showRules }
+  return { show, close, getCurrent, onMount, showDice, battleIntro, shop, showRules }
 })()
 
 // 监听商店打开事件
