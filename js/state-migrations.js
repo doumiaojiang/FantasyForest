@@ -199,7 +199,18 @@ window.StateMigrations = (function () {
       state._pGateChoices = []
       state._pDayaOutcome = null
     }
-    state._pStoryRevision = 2
+    // v3 暂停在城门身份选择：旧版已经进入第一章或 S 路线的存档，
+    // 回到城门重新选择目前开放的 M / 自由身路线。已按新规则完成选择的存档保持不动。
+    const enteredUnreleasedChapter = state._pMainlineStage > 2 || state._pRole === 'slaver' || (state._pMainlineStage === 2 && !state._pChapterOneLocked)
+    if (previousPStoryRevision < 3 && enteredUnreleasedChapter && state._wrongCommissionStage >= 10) {
+      state._pMainlineStage = 1
+      state._pRole = null
+      state._pChapterOneLocked = false
+      state._pRouteLocked = false
+      state._pGateChoices = []
+      state._pDayaOutcome = null
+    }
+    state._pStoryRevision = 3
     state._gloryDebt = Math.max(0, Math.min(9999, Math.floor(finite(state._gloryDebt, 0))))
     state._gloryFreeService = !!state._gloryFreeService
     state._gloryByGuard = !!state._gloryByGuard

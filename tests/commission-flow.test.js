@@ -48,6 +48,8 @@ if (!/_pChapterOneLocked = true/.test(pStory)) throw new Error('Role selection m
 if (!/state\._pBridgePermitAcquired \? '沿桥墩下去' : '返回旧桥'/.test(journal)) throw new Error('Victory and capture must have different bridge directions')
 if (!/_pDefeatDispatchPending/.test(read('js/systems/commission.js'))) throw new Error('Ordinary caravan defeat dispatch must persist across reloads')
 if (!/_pBanditDefeatCount/.test(read('js/systems/commission.js'))) throw new Error('Bandit defeat count must persist across retries')
+if (!/StatusSystem\.has\('naked'\) \|\| state\._pBanditClothesLocked/.test(read('js/systems/commission.js'))) throw new Error('Bandit victory must recover locked original clothes even after buying replacements')
+if (!/_pBanditMarkChoice === 'scrubbed'/.test(read('js/systems/commission.js'))) throw new Error('Revenge witness dialogue must remember whether the body writing was scrubbed')
 if (!/settleBanditRansomDebt/.test(read('js/systems/commission.js'))) throw new Error('Bandit ransom debt must have a payoff route')
 if (!/resetPostPrologueState\(state\)[\s\S]{0,180}state\._wrongCommissionStage = 5/.test(read('js/systems/commission.js'))) throw new Error('Caravan guard defeat must clear stale post-prologue state before returning to stage 5')
 if (!/startStep: result\.punishmentStep/.test(read('js/systems/commission.js')) || !/startStep: state\._pDefeatPunishmentStep/.test(read('js/systems/commission.js'))) throw new Error('Both caravan defeat routes must resume from the last completed punishment step')

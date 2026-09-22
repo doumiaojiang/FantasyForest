@@ -175,7 +175,7 @@ window.StateSchema = (function () {
       banditBridgeToll: false,
       banditRansomDebt: 0,
       townInquiry: { guard: false, merchant: false, citizen: false },
-      revision: 2,
+      revision: 3,
       bridgeResult: null,
       bridgePermitAcquired: false,
       bridgeAftermath: null,

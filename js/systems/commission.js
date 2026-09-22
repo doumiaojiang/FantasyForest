@@ -378,7 +378,9 @@ window.CommissionSystem = (function () {
 
   function continueBanditVictory () {
     const state = State.get()
-    if (StatusSystem.has('naked')) {
+    // 输过后即使已经在镇里买了替换装，原衣仍锁在头目的箱子里。
+    // 胜利时必须给玩家取回原衣的选择，不能因为当前并非全裸就静默销毁锁箱状态。
+    if (StatusSystem.has('naked') || state._pBanditClothesLocked) {
       state._pBanditAftermath = 'clothes'
       EventBus.emit('state:changed', state); State.save()
       recoverBanditClothes()
@@ -430,6 +432,9 @@ window.CommissionSystem = (function () {
 
   function rescueCaravanWitness (method = 'victory') {
     const state = State.get()
+    const revengeLine = state._pBanditMarkChoice === 'scrubbed'
+      ? '蕾娜看见你从浅滩回来，也看见头目已经死了。“他们把你扔出去，你却擦掉那些字，又回来把锁打开了。”她把半张名单递给你。'
+      : '蕾娜看见那些还留在身上的字，也看见头目已经死了。“他们把你当飞机杯扔出去，你却回来把锁打开了。”她把半张名单递给你。'
     state._wrongCommissionStage = 7
     state._wrongCommissionOutcome = 'permit'
     EventBus.emit('ui:log', { text: '🕯️ 你救出了车队记账员。她愿意带着名单去镇务厅作证。', type: 'good' })
@@ -438,7 +443,7 @@ window.CommissionSystem = (function () {
     Dialog.show({
       title: '🕯️ 旧桥下 · 活着的证人',
       className: 'commission-bridge-modal',
-      body: `<section class="scene-dialogue"><i aria-hidden="true">🕯️</i><div><h3>${method === 'bought' ? '头目收了钱，把木栅打开，把蕾娜推到你脚边。' : '你劈开木栅上的锁，女人却先扑向即将烧尽的文件。'}</h3><p>${method === 'bought' ? '“你买的是我的命，不是我的感谢。”蕾娜把半张名单藏进外套，催你立刻离开桥洞。' : method === 'revenge' ? '蕾娜看见那些还没擦掉的字，也看见头目已经死了。“他们把你当飞机杯扔出去，你却回来把锁打开了。”她把半张名单递给你。' : '她叫蕾娜，是车队的记账员。派克的货只是诱饵；真正重要的是镇务厅签署的合作名单。'}</p></div></section>
+      body: `<section class="scene-dialogue"><i aria-hidden="true">🕯️</i><div><h3>${method === 'bought' ? '头目收了钱，把木栅打开，把蕾娜推到你脚边。' : '你劈开木栅上的锁，女人却先扑向即将烧尽的文件。'}</h3><p>${method === 'bought' ? '“你买的是我的命，不是我的感谢。”蕾娜把半张名单藏进外套，催你立刻离开桥洞。' : method === 'revenge' ? revengeLine : '她叫蕾娜，是车队的记账员。派克的货只是诱饵；真正重要的是镇务厅签署的合作名单。'}</p></div></section>
         <div class="wrong-letter-evidence is-found"><span>半张收货名单</span><p>酒馆、铁匠铺、城门卫队都在名单上。最后一栏的签署人属于镇务厅。</p></div>
         <p class="wrong-letter-after">${method === 'bought' ? '蕾娜记得自己是被钱换出来的。' : '头目已经死了。'}她要你先护送她回雾灯镇。</p>`,
       actions: [{ label: '护送蕾娜返回镇务厅', cls: 'btn-primary', handler: () => { Dialog.close(); GameFlow.openCamp() } }],
@@ -576,22 +581,26 @@ window.CommissionSystem = (function () {
   }
 
   function recoverBanditClothes () {
+    const alreadyDressed = !StatusSystem.has('naked')
     Dialog.show({
       title: '👕 桥洞 · 衣服',
       className: 'commission-bridge-modal caravan-clothes-modal',
-      body: '<section class="scene-dialogue"><i aria-hidden="true">👕</i><div><h3>头目倒下后，你的衣服就在旁边。</h3><p>可以穿上，也可以继续光着去救人。</p></div></section>',
+      body: `<section class="scene-dialogue"><i aria-hidden="true">👕</i><div><h3>${State.get()._pBanditClothesLocked ? '你用头目掉下的钥匙打开铁箱，原衣还在里面。' : '头目倒下后，你的衣服就在旁边。'}</h3><p>${alreadyDressed ? '可以换回原衣，也可以保留后来买到的替换装。' : '可以穿上，也可以继续光着去救人。'}</p></div></section>`,
       actions: [
-        { label: '穿上', cls: 'btn-primary', handler: () => finishBanditClothes(true) },
-        { label: '先不穿', handler: () => finishBanditClothes(false) },
+        { label: alreadyDressed ? '换回原衣' : '穿上', cls: 'btn-primary', handler: () => finishBanditClothes(true, alreadyDressed) },
+        { label: alreadyDressed ? '保留替换装' : '先不穿', handler: () => finishBanditClothes(false, alreadyDressed) },
       ],
     })
   }
 
-  function finishBanditClothes (wear) {
+  function finishBanditClothes (wear, alreadyDressed = false) {
     const state = State.get()
     if (wear && StatusSystem.has('naked')) StatusSystem.remove('naked')
     state._pBanditClothesLocked = false
-    EventBus.emit('ui:log', { text: wear ? '👕 你把衣服穿上了。' : '👙 你决定先不穿。', type: wear ? 'good' : 'warning' })
+    const text = wear
+      ? (alreadyDressed ? '👕 你收起替换装，换回了自己的原衣。' : '👕 你把衣服穿上了。')
+      : (alreadyDressed ? '👕 你保留身上的替换装，把原衣留在箱边。' : '👙 你决定先不穿。')
+    EventBus.emit('ui:log', { text, type: wear ? 'good' : 'warning' })
     EventBus.emit('state:changed', state); State.save(); Dialog.close()
     if ((state._pBanditDefeatCount || 0) > 0) showBanditVictoryMark()
     else finishBanditVictory()
