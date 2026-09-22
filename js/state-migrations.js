@@ -184,10 +184,38 @@ window.StateMigrations = (function () {
     state._pMainlineStage = Math.max(0, Math.min(6, Math.floor(finite(state._pMainlineStage, 0))))
     if (!['slaver', 'free', 'slave'].includes(state._pRole)) state._pRole = null
     state._pChapterOneLocked = !!state._pChapterOneLocked
+    state._pMChapterStage = [0, 500, 1000, 1500, 2000, 2500, 3000, 3500, 4000, 9500, 10000].includes(Math.floor(finite(state._pMChapterStage, 0))) ? Math.floor(finite(state._pMChapterStage, 0)) : 0
+    state._pMChapterStep = Math.max(0, Math.min(8, Math.floor(finite(state._pMChapterStep, 0))))
+    if (!['novice', 'experienced', 'surrender'].includes(state._pMChapterBranch)) state._pMChapterBranch = null
+    if (state._pMChapterAttitude === 'quiet') state._pMChapterAttitude = 'spank'
+    else if (state._pMChapterAttitude === 'resist') state._pMChapterAttitude = 'spank'
+    else if (state._pMChapterAttitude === 'observe') state._pMChapterAttitude = 'spread'
+    if (!['spank', 'oral', 'spread'].includes(state._pMChapterAttitude)) state._pMChapterAttitude = null
+    state._pMWakeResist = Math.max(0, Math.min(3, Math.floor(finite(state._pMWakeResist, 0))))
+    state._pMSpankStack = Math.max(1, Math.floor(finite(state._pMSpankStack, 1)))
+    if (!state._pMWakeGearEscrow || typeof state._pMWakeGearEscrow !== 'object' || Array.isArray(state._pMWakeGearEscrow)) state._pMWakeGearEscrow = null
+    state._pMChapterFailures = Math.max(0, Math.min(99, Math.floor(finite(state._pMChapterFailures, 0))))
+    if (state._pMChapterEscrow && typeof state._pMChapterEscrow === 'object' && !Array.isArray(state._pMChapterEscrow)) {
+      state._pMChapterEscrow = {
+        weapon: state._pMChapterEscrow.weapon ? String(state._pMChapterEscrow.weapon).slice(0, 60) : null,
+        accessories: Array.isArray(state._pMChapterEscrow.accessories) ? state._pMChapterEscrow.accessories.map(String).slice(0, 8) : [],
+      }
+    } else state._pMChapterEscrow = null
+    state._pMConfiscated = !!state._pMConfiscated
+    if (!state._pMConfiscationEscrow || typeof state._pMConfiscationEscrow !== 'object' || Array.isArray(state._pMConfiscationEscrow)) state._pMConfiscationEscrow = null
+    state._pMChapterRestraintEscrow = state._pMChapterRestraintEscrow && typeof state._pMChapterRestraintEscrow === 'object' && !Array.isArray(state._pMChapterRestraintEscrow)
+      ? state._pMChapterRestraintEscrow
+      : null
+    state._pMGroomed = !!state._pMGroomed
+    state._pMBranded = !!state._pMBranded
+    state._pMSisterBond = !!state._pMSisterBond
+    if (!['endure', 'shield', 'defy'].includes(state._pMMarketResponse)) state._pMMarketResponse = null
+    if (!['protect', 'self', 'obey'].includes(state._pMDayaChoice)) state._pMDayaChoice = null
+    state._pMChapterCompleted = !!state._pMChapterCompleted
     state._pGateChoices = Array.isArray(state._pGateChoices)
       ? [...new Set(state._pGateChoices.filter(choice => ['work', 'question', 'refuse', 'cautious', 'defiant', 'slave', 'free'].includes(choice)))].slice(0, 6)
       : []
-    if (!['registered', 'helped', 'refused', 'assault_win', 'assault_loss', 'slaver_training', 'free_observer', 'slave_training'].includes(state._pDayaOutcome)) state._pDayaOutcome = null
+    if (!['registered', 'helped', 'refused', 'assault_win', 'assault_loss', 'slaver_training', 'free_observer', 'slave_training', 'm_intake_complete'].includes(state._pDayaOutcome)) state._pDayaOutcome = null
     state._pRouteLocked = !!state._pRouteLocked || state._pMainlineStage >= 6
     // 旧版把“发现许可”后到初见派克的整段内容压缩掉了。未锁定路线的旧档回退到
     // 车队残骸阶段，避免刷新后继续进入已经废弃的登记页四选一。
@@ -295,7 +323,8 @@ window.StateMigrations = (function () {
       }
       state._ownedRestraints = state._ownedRestraints.filter(id => id !== incompatibleChastityId)
       const waistDef = valid.waist && RESTRAINTS.find(x => x.id === valid.waist.id)
-      if (waistDef && waistDef.effect === 'chastity' && valid.vagina) {
+      const storyInsertionUnderChastity = valid.vagina && valid.vagina.lockType === 'story' && valid.vagina.source === 'p_m_intake'
+      if (waistDef && waistDef.effect === 'chastity' && valid.vagina && !storyInsertionUnderChastity) {
         state._ownedRestraints = Array.isArray(state._ownedRestraints) ? state._ownedRestraints : []
         if (!state._ownedRestraints.includes(valid.vagina.id)) state._ownedRestraints.push(valid.vagina.id)
         delete valid.vagina

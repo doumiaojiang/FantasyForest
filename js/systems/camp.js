@@ -182,7 +182,7 @@ window.CampSystem = (function () {
         <div class="camp-grid">
           ${state._wrongCommissionStage >= 7 && state._wrongCommissionStage <= 9 ? `<button class="camp-opt camp-opt-clue" data-opt="p-townhall"><i>⚖️</i><span><b>镇务厅</b><small>${state._wrongCommissionStage === 7 ? '带蕾娜与名单前去作证' : state._wrongCommissionStage === 8 ? '镇长正在等待更多口供' : '带齐证词向镇长复命'}</small></span><em>主线</em></button>` : ''}
           ${state._wrongCommissionStage === 8 ? '<button class="camp-opt camp-opt-clue" data-opt="p-guard"><i>🛡️</i><span><b>城门值守</b><small>核对车队入城记录</small></span><em>调查</em></button><button class="camp-opt camp-opt-clue" data-opt="p-merchant"><i>📦</i><span><b>商会柜台</b><small>追查器具订单与付款人</small></span><em>调查</em></button><button class="camp-opt camp-opt-clue" data-opt="p-citizen"><i>👥</i><span><b>街口人群</b><small>确认新制度的传闻</small></span><em>调查</em></button>' : ''}
-          ${state._pMainlineStage === 2 && state._pChapterOneLocked ? '<button class="camp-opt" disabled><i>🏛️</i><span><b>商团会馆</b><small>第一章尚在制作中</small></span><em>未开放</em></button>' : [2, 4].includes(state._pMainlineStage) ? `<button class="camp-opt camp-opt-clue p-hall-entry" data-opt="p-hall"><i>🏛️</i><span><b>商团会馆</b><small>${state._pMainlineStage === 2 ? '派克正在长厅等你' : '把戴蒙德带回派克面前'}</small></span><em>主线</em></button>` : ''}
+          ${state._pMainlineStage === 2 && state._pChapterOneLocked ? (state._pRole === 'slave' ? `<button class="camp-opt camp-opt-clue" data-opt="p-m-chapter"><i>⛓️</i><span><b>奴役线第一章 · 入库</b><small>${(state._pMChapterStage || 0) === 0 ? '从城门登记后的失去意识开始' : (state._pMChapterStage || 0) === 3000 && (state._pMChapterStep || 0) >= 3 ? '当前开放至初见派克' : '继续未完成的入库流程'}</small></span><em>${(state._pMChapterStage || 0) === 3000 && (state._pMChapterStep || 0) >= 3 ? '已完成' : '主线'}</em></button>` : '<button class="camp-opt" disabled><i>🏛️</i><span><b>自由身第一章</b><small>后续章节尚在制作中</small></span><em>未开放</em></button>') : [2, 4].includes(state._pMainlineStage) ? `<button class="camp-opt camp-opt-clue p-hall-entry" data-opt="p-hall"><i>🏛️</i><span><b>商团会馆</b><small>${state._pMainlineStage === 2 ? '派克正在长厅等你' : '把戴蒙德带回派克面前'}</small></span><em>主线</em></button>` : ''}
           ${state._pMainlineStage === 3 ? '<button class="camp-opt camp-opt-clue" data-opt="p-gate-return"><i>⛓️</i><span><b>城门外岗哨</b><small>按派克的命令去找贝拉米与戴蒙德</small></span><em>主线</em></button>' : ''}
           <button class="camp-opt camp-opt-tavern${state._wrongCommissionStage === 3 && !wrongCommissionLeads.barkeep ? ' camp-opt-clue' : ''}" data-opt="tavern"><i>🍺</i><span><b>雾灯酒馆</b><small>${state._wrongCommissionStage === 3 && !wrongCommissionLeads.barkeep ? '桥边麦秸指向酒馆后门' : '摇骰子、买酒'}</small></span><em>${state._wrongCommissionStage === 3 && !wrongCommissionLeads.barkeep ? '有线索' : '营业中'}</em></button>
           <button class="camp-opt camp-opt-blacksmith${state._wrongCommissionStage === 3 && !wrongCommissionLeads.blacksmith ? ' camp-opt-clue' : ''}" data-opt="blacksmith"><i>🔨</i><span><b>铁匠铺</b><small>${state._wrongCommissionStage === 3 && !wrongCommissionLeads.blacksmith ? '桥边锁环带着新锉痕' : '武器与饰品'}</small></span><em>${state._wrongCommissionStage === 3 && !wrongCommissionLeads.blacksmith ? '有线索' : '营业中'}</em></button>
@@ -203,6 +203,8 @@ window.CampSystem = (function () {
         const opt = btn.dataset.opt
         if (opt === 'potion') {
           TownShopSystem.openPotionShop()
+        } else if (opt === 'p-m-chapter') {
+          PMEnslavementSystem.open()
         } else if (opt === 'p-hall') {
           PTownSystem.enterPHall()
         } else if (opt === 'p-townhall') {

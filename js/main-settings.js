@@ -208,7 +208,7 @@ window.AppSettings = (function () {
         ${sect('🧭 基础资源', cheatBtn('cheat-hp', '❤️ 回满 HP') + cheatBtn('cheat-gold', '💰 金币 +500') + cheatBtn('cheat-supply', '🎒 全补给 ×5') + cheatBtn('cheat-clear-status', '✨ 清除状态'))}
         ${sect('⚔️ 战斗', cheatBtn('cheat-kill', '💀 击杀当前敌人') + cheatBtn('cheat-win', '🏆 直接通关') + cheatBtn('cheat-god', '🛡️ 无敌模式', 'btn-cheat') + cheatBtn('cheat-orb', '🔮 力量宝珠') )}
         ${sect('🧰 装备', cheatBtn('cheat-weapons', '⚔️ 全部武器') + cheatBtn('cheat-accessories', '📿 全部饰品') + cheatBtn('cheat-items', '🧪 全部消耗品') + cheatBtn('cheat-material', '🔧 升级材料 ×3'))}
-        ${sect('🔧 调试', cheatBtn('cheat-goto', '📍 移动到坐标') + cheatBtn('cheat-mob', '👺 遭遇怪物') + cheatBtn('cheat-boss', '👑 遭遇 BOSS') + cheatBtn('cheat-bandit-victory', '☠️ 桥洞胜利预览', 'btn-cheat') + cheatBtn('cheat-position', '📌 查看坐标') + cheatBtn('cheat-merc-debt', '💸 佣兵债务 +100') + cheatBtn('cheat-merc-clear', '✓ 清除佣兵债务'))}
+        ${sect('🔧 调试', cheatBtn('cheat-goto', '📍 移动到坐标') + cheatBtn('cheat-mob', '👺 遭遇怪物') + cheatBtn('cheat-boss', '👑 遭遇 BOSS') + cheatBtn('cheat-bandit-victory', '☠️ 桥洞胜利预览', 'btn-cheat') + cheatBtn('cheat-m-intake', '⛓️ 入库开场预览', 'btn-cheat') + cheatBtn('cheat-position', '📌 查看坐标') + cheatBtn('cheat-merc-debt', '💸 佣兵债务 +100') + cheatBtn('cheat-merc-clear', '✓ 清除佣兵债务'))}
       `,
       actions: [{ label: '关闭', handler: () => Dialog.close() }],
     })
@@ -222,6 +222,7 @@ window.AppSettings = (function () {
           if (id === 'cheat-mob') { cheatEncounter(); return }
           if (id === 'cheat-boss') { cheatBoss(); return }
           if (id === 'cheat-bandit-victory') { cheatBanditVictory(); return }
+          if (id === 'cheat-m-intake') { cheatMIntake(); return }
           if (id === 'cheat-position') { cheatPosition(); return }
           const msg = runCheat(id)
           if (msg) EventBus.emit('ui:log', { text: msg, type: 'good' })
@@ -260,6 +261,43 @@ window.AppSettings = (function () {
     EventBus.emit('state:changed', state)
     State.save()
     CommissionSystem.resumePending()
+  }
+
+  function cheatMIntake () {
+    const state = State.get()
+    if (!state || !window.PMEnslavementSystem) return
+    Dialog.close()
+    state._battle = null
+    state._ambush = null
+    state.phase = 'camp'
+    state.position = { x: 13, y: 9 }
+    state._wrongCommissionStage = Math.max(10, state._wrongCommissionStage || 0)
+    state._pRole = 'slave'
+    state._pMainlineStage = 2
+    state._pChapterOneLocked = true
+    state._pRouteLocked = false
+    state._pDayaOutcome = null
+    state._pMChapterStage = 0
+    state._pMChapterStep = 0
+    state._pMChapterBranch = null
+    state._pMChapterAttitude = null
+    state._pMWakeResist = 0
+    state._pMSpankStack = 1
+    state._pMChapterFailures = 0
+    state._pMChapterEscrow = null
+    state._pMConfiscated = false
+    state._pMConfiscationEscrow = null
+    state._pMChapterRestraintEscrow = null
+    state._pMGroomed = false
+    state._pMBranded = false
+    state._pMSisterBond = false
+    state._pMMarketResponse = null
+    state._pMDayaChoice = null
+    state._pMChapterCompleted = false
+    EventBus.emit('ui:log', { text: '⛓️ 调试：已进入 M 路线被打晕后的入库开场。', type: 'danger' })
+    EventBus.emit('state:changed', state)
+    State.save()
+    PMEnslavementSystem.open()
   }
 
   /** 执行作弊指令，返回日志消息 */

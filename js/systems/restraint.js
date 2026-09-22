@@ -302,7 +302,7 @@ window.RestraintSystem = (function () {
   function isStory (slot) {
     const d = get(slot)
     const def = d && defOf(d.id)
-    return !!(def && def.story)
+    return !!(d && (d.source === 'p_m_intake' || d.source === 'p_m_wake' || (def && def.story)))
   }
 
   /* ---------- 解除方式 ---------- */

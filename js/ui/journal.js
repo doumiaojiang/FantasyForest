@@ -65,7 +65,13 @@ window.AdventureMenu = (function () {
 
     const pRole = state._pRole
     if (pStage === 2 && state._pChapterOneLocked) {
-      tasks.push({ icon: pRole === 'slave' ? '⛓️' : '◇', group: prologueGroup, name: pRole === 'slave' ? 'M 路线已登记' : '自由身路线已登记', detail: '《欲缚镇 · 序章》已经完成。第一章尚在制作中，后续主线暂不开放。', status: '等待后续版本', tone: 'complete', progress: 10, required: 10 })
+      if (pRole === 'slave') {
+        const mStage = state._pMChapterStage || 0
+        const labels = { 0: '前往入库', 500: '醒来验号', 1000: '指定监管者', 1500: '初次服从测试', 2000: '口部验收', 2500: '完成最后一轮验收', 3000: (state._pMChapterStep || 0) >= 3 ? '当前开放内容完成' : '前往会馆见派克' }
+        tasks.push({ icon: '⛓️', group: '欲缚镇 · 奴役线第一章', name: '入库', detail: (mStage === 3000 && (state._pMChapterStep || 0) >= 3) ? '你已经完成派克的第一次验收。当前版本的奴役线开放到 Stage 3000。' : '完成商团的正式入库程序。基础奴隶训练尚未开始；本章将先完成贝拉米接管与派克验收。', status: labels[mStage] || '继续入库', tone: 'danger', progress: Math.min(7, [0, 500, 1000, 1500, 2000, 2500, 3000].indexOf(mStage) + 1), required: 7 })
+      } else {
+        tasks.push({ icon: '◇', group: prologueGroup, name: '自由身路线已登记', detail: '《欲缚镇 · 序章》已经完成。自由身第一章尚在制作中。', status: '等待后续版本', tone: 'complete', progress: 10, required: 10 })
+      }
     } else if (pStage === 2) {
       const detail = pRole === 'slaver'
         ? '贝拉米给了你派克的黄铜牌。带着完整调查结果去商团会馆接受考核。'
@@ -74,28 +80,31 @@ window.AdventureMenu = (function () {
           : '你仍保留自由身份。派克愿意当面解释，也可能向你提出交易。'
       tasks.push({ icon: pRole === 'slaver' ? '◆' : pRole === 'slave' ? '⛓️' : '◇', group: '主线第一章', name: '第一次见派克', detail, status: '前往商团会馆', tone: pRole === 'slave' ? 'danger' : 'main', progress: 1, required: 4 })
     } else if (pStage === 3) {
-      tasks.push({ icon: '⛓️', group: '主线第一章', name: '把戴蒙德带来', detail: '派克命你返回城门找贝拉米，把受训多年的戴蒙德带到会馆。', status: '前往城门岗哨', tone: 'danger', progress: 2, required: 4 })
+      tasks.push({ icon: '⛓️', group: pRole === 'slave' ? '欲缚镇 · 奴役线第一章' : '主线第一章', name: pRole === 'slave' ? '入库' : '把戴蒙德带来', detail: pRole === 'slave' ? '派克的第一次验收已结束。回城门向贝拉米报到，他会把你与戴蒙德编入同一支押送队。' : '派克命你返回城门找贝拉米，把受训多年的戴蒙德带到会馆。', status: '前往城门岗哨', tone: 'danger', progress: 6, required: 8 })
     } else if (pStage === 4 || pStage === 5) {
+      const mEscortStatus = { 0: '戴上姐妹链', 1: '穿过城门', 2: '面对市场围观', 3: '完成市场纪律', 4: '接受纹身与烙印', 5: '同链穿过市场' }
       const detail = pRole === 'slaver'
         ? '贝拉米把戴蒙德的押送链交给了你。按派克的命令把她带回会馆。'
         : pRole === 'slave'
           ? '你与戴蒙德被编入同一支押送队，卫兵正把你们送回派克面前。'
           : '你迫使贝拉米执行会馆命令。护送戴蒙德去见派克，完成这次权力试验。'
-      tasks.push({ icon: '🏛️', group: '主线第一章', name: '第二次见派克', detail, status: pStage === 5 ? '听取派克的决定' : '返回商团会馆', tone: pRole === 'slave' ? 'danger' : 'main', progress: pStage === 5 ? 4 : 3, required: 4 })
+      tasks.push({ icon: '🏛️', group: pRole === 'slave' ? '欲缚镇 · 奴役线第一章' : '主线第一章', name: pRole === 'slave' ? '入库' : '第二次见派克', detail, status: pStage === 5 ? '领取入库记录' : (pRole === 'slave' ? (mEscortStatus[state._pMChapterStep || 0] || '返回商团会馆') : '返回商团会馆'), tone: pRole === 'slave' ? 'danger' : 'main', progress: pRole === 'slave' ? (pStage === 5 ? 8 : 7) : (pStage === 5 ? 4 : 3), required: pRole === 'slave' ? 8 : 4 })
     } else if (pStage >= 6) {
       const outcome = state._pDayaOutcome
       const detail = outcome === 'slaver_training'
         ? '你通过派克的第一次考核，将向贝拉米学习基础执行人训练。'
         : outcome === 'free_observer'
           ? '你拒绝加入商团，暂时以受监视的自由人身份留在雾灯镇。'
-          : outcome === 'slave_training'
+            : outcome === 'm_intake_complete'
+              ? '你完成了商团入库并取得第一册记录。下一任务是寻找伊凡娜；基础奴隶训练尚未开始。'
+            : outcome === 'slave_training'
             ? '派克确认了你的奴隶身份，并把你送回贝拉米处接受第一阶段训练。'
             : outcome === 'assault_win'
             ? '你击倒会馆执法者并带黛雅逃走，正式成为派克的公开敌人。'
             : outcome === 'assault_loss'
               ? '会馆袭击失败，你与黛雅一同被强制登记。'
               : pRole === 'slave' ? '你拒绝服从，但作为俘虏仍被强制登记。' : '你当面拒绝了派克，名字被写进监督官的观察名单。'
-      tasks.push({ icon: pRole === 'slaver' ? '◆' : pRole === 'slave' ? '⛓️' : '◇', group: '主线第一章', name: '派克的第一次考核', detail, status: '第一章完成', tone: 'complete', progress: 4, required: 4 })
+      tasks.push({ icon: pRole === 'slaver' ? '◆' : pRole === 'slave' ? '⛓️' : '◇', group: pRole === 'slave' ? '欲缚镇 · 奴役线第一章' : '主线第一章', name: outcome === 'm_intake_complete' ? '入库' : '派克的第一次考核', detail, status: '第一章完成', tone: 'complete', progress: 4, required: 4 })
     }
 
     const restraint = state._restraintContract

@@ -89,4 +89,43 @@ assert.equal(preservedChoice._pMainlineStage, 2)
 assert.equal(preservedChoice._pRole, 'slave')
 assert.equal(preservedChoice._pChapterOneLocked, true)
 
+const malformedMChapter = JSON.parse(JSON.stringify(fresh))
+malformedMChapter.systems.pStory.mChapterStage = 777
+malformedMChapter.systems.pStory.mChapterStep = 99
+malformedMChapter.systems.pStory.mChapterBranch = 'unknown'
+malformedMChapter.systems.pStory.mChapterAttitude = 'unknown'
+malformedMChapter.systems.pStory.mChapterFailures = -8
+malformedMChapter.systems.pStory.mChapterEscrow = { weapon: 123, accessories: ['ring', 'seal'] }
+malformedMChapter.systems.pStory.mConfiscated = 1
+malformedMChapter.systems.pStory.mConfiscationEscrow = []
+malformedMChapter.systems.pStory.mChapterRestraintEscrow = []
+malformedMChapter.systems.pStory.mGroomed = 1
+malformedMChapter.systems.pStory.mBranded = 1
+malformedMChapter.systems.pStory.mSisterBond = 1
+malformedMChapter.systems.pStory.mMarketResponse = 'unknown'
+malformedMChapter.systems.pStory.mDayaChoice = 'unknown'
+const normalizedMChapter = State.migrate(malformedMChapter)
+assert.equal(normalizedMChapter._pMChapterStage, 0)
+assert.equal(normalizedMChapter._pMChapterStep, 8)
+assert.equal(normalizedMChapter._pMChapterBranch, null)
+assert.equal(normalizedMChapter._pMChapterAttitude, null)
+assert.equal(normalizedMChapter._pMChapterFailures, 0)
+assert.equal(normalizedMChapter._pMChapterEscrow.weapon, '123')
+assert.deepEqual(normalizedMChapter._pMChapterEscrow.accessories, ['ring', 'seal'])
+assert.equal(normalizedMChapter._pMConfiscated, true)
+assert.equal(normalizedMChapter._pMConfiscationEscrow, null)
+assert.equal(normalizedMChapter._pMChapterRestraintEscrow, null)
+assert.equal(normalizedMChapter._pMGroomed, true)
+assert.equal(normalizedMChapter._pMBranded, true)
+assert.equal(normalizedMChapter._pMSisterBond, true)
+assert.equal(normalizedMChapter._pMMarketResponse, null)
+assert.equal(normalizedMChapter._pMDayaChoice, null)
+
+const stage2500Save = JSON.parse(JSON.stringify(fresh))
+stage2500Save.systems.pStory.mChapterStage = 2500
+stage2500Save.systems.pStory.mChapterStep = 1
+const preserved2500 = State.migrate(stage2500Save)
+assert.equal(preserved2500._pMChapterStage, 2500, '2500 阶段读档不得回退到章节开头')
+assert.equal(preserved2500._pMChapterStep, 1)
+
 console.log('state-migrations-ok')

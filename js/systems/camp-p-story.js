@@ -352,27 +352,46 @@ window.PTownSystem = (function () {
     state._pRole = role
     state._pMainlineStage = 2
     state._pChapterOneLocked = true
+    if (role === 'slave') {
+      state._pMChapterStage = 0
+      state._pMChapterStep = 0
+      state._pMChapterBranch = null
+      state._pMChapterAttitude = null
+      state._pMWakeResist = 0
+      state._pMSpankStack = 1
+      state._pMChapterFailures = 0
+      state._pMChapterEscrow = null
+      state._pMConfiscated = false
+      state._pMConfiscationEscrow = null
+      state._pMChapterRestraintEscrow = null
+      state._pMGroomed = false
+      state._pMBranded = false
+      state._pMSisterBond = false
+      state._pMMarketResponse = null
+      state._pMDayaChoice = null
+      state._pMChapterCompleted = false
+    }
     EventBus.emit('state:changed', state)
     State.save()
 
     const isSlave = role === 'slave'
     const title = isSlave ? '墨菲在黑皮册里写下你的临时编号。' : '墨菲在你的名字旁标注“自由身观察”。'
-    const line = isSlave ? '“M 路线已经登记。后续训练将在下一章开放。”' : '“自由身路线已经登记。你暂时可以继续在镇内活动。”'
-    const after = '《欲缚镇 · 序章》到此结束。第一章尚在制作中，当前版本不会继续触发商团会馆主线。'
+    const line = isSlave ? '“M 路线已经登记。”墨菲收起笔，贝拉米则把手按到你的后颈。' : '“自由身路线已经登记。你暂时可以继续在镇内活动。”'
+    const after = isSlave ? '《欲缚镇 · 序章》到此结束。你的下一段记忆，从收容笼旁边醒来开始。' : '《欲缚镇 · 序章》到此结束。自由身第一章尚在制作中。'
 
-    EventBus.emit('ui:log', { text: isSlave ? '⛓️ 已选择 M 路线；后续章节暂未开放。' : '◇ 已选择自由身路线；后续章节暂未开放。', type: isSlave ? 'danger' : 'warning' })
+    EventBus.emit('ui:log', { text: isSlave ? '⛓️ 已选择 M 路线；奴役线第一章《入库》已开启。' : '◇ 已选择自由身路线；后续章节暂未开放。', type: isSlave ? 'danger' : 'warning' })
     campShow({
       title: '⚖️ 欲缚镇 · 序章完成',
       className: 'camp-tavern-modal wrong-letter-reaction-modal p-gate-modal',
       body: `<section class="scene-dialogue"><i aria-hidden="true">${isSlave ? '⛓️' : '◇'}</i><div><h3>${title}</h3><p>${line}</p></div></section>
         <p class="wrong-letter-after">${after}</p>`,
-      actions: [{ label: '返回欲缚镇', cls: 'btn-primary', handler: open }],
+      actions: [{ label: isSlave ? '进入奴役线第一章' : '返回欲缚镇', cls: isSlave ? 'btn-danger' : 'btn-primary', handler: () => isSlave && window.PMEnslavementSystem ? PMEnslavementSystem.open() : open() }],
     })
   }
 
   function enterPHall () {
     const state = State.get()
-    if (state._pChapterOneLocked) {
+    if (state._pChapterOneLocked && !(state._pRole === 'slave' && window.PMEnslavementSystem && !state._pMChapterCompleted)) {
       campShow({
         title: '🏛️ 商团会馆 · 尚未开放',
         className: 'camp-tavern-modal p-gate-modal',
@@ -389,38 +408,47 @@ window.PTownSystem = (function () {
       return
     }
     if (state._pMainlineStage === 4) {
-      state._pMainlineStage = 5
-      EventBus.emit('state:changed', state)
-      State.save()
-      showPikeSecondAudience()
+      if (state._pRole === 'slave' && window.PMEnslavementSystem) {
+        PMEnslavementSystem.returnToHall()
+      } else {
+        state._pMainlineStage = 5
+        EventBus.emit('state:changed', state)
+        State.save()
+        showPikeSecondAudience()
+      }
       return
     }
     open()
   }
 
-  function showPikeFirstAudience () {
+  function showPikeFirstAudience (options = {}) {
     const state = State.get()
-    if (state._pMainlineStage !== 3) { open(); return }
+    const stopAtStage3000 = options.stopAtStage3000 === true && state._pRole === 'slave' && state._pMChapterStage === 3000
+    if (!stopAtStage3000 && state._pMainlineStage !== 3) { open(); return }
     const role = state._pRole || 'free'
     const scene = role === 'slaver'
       ? { icon: '◆', title: '派克看完你带来的许可、残页与口供，没有立刻称赞。', text: '他问你是否明白，发现一条运输线与经营一座城完全不同。若真想替商团做事，就先证明贝拉米会服从你传达的命令。', after: '派克命你返回城门，把戴蒙德完整地带到会馆。这是你的第一项正式考核。' }
       : role === 'slave'
         ? { icon: '⛓️', title: '派克让书记官念出你的临时编号，像验收一件刚送到的货物。', text: '他没有立即安排训练，而是要你先回到贝拉米面前。戴蒙德将与你一同返回会馆；你必须亲眼看清商团如何处置一个受训奴隶。', after: '你仍是被押送者，却被临时赋予了一项任务：跟随戴蒙德回到派克面前。' }
         : { icon: '◇', title: '派克把镇长签署的名单压在手下，承认错投的货单确实来自自己。', text: '他对你的调查能力更感兴趣，也不介意你暂时拒绝加入。作为交换，他要你回城门带来戴蒙德，并观察贝拉米是否服从会馆命令。', after: '你仍是自由人，但派克已经把你拖进他的权力试验。' }
-    EventBus.emit('ui:log', { text: '🏛️派克命你返回城门，把戴蒙德带到会馆。', type: 'warning' })
+    EventBus.emit('ui:log', { text: stopAtStage3000 ? '🏛️ 你完成了派克的第一次验收；奴役线当前开放到 Stage 3000。' : '🏛️派克命你返回城门，把戴蒙德带到会馆。', type: 'warning' })
     campShow({
       title: '🏛️ 商团会馆 · 初见派克',
       className: 'camp-tavern-modal wrong-letter-reaction-modal p-hall-modal',
       body: `<section class="scene-dialogue"><i aria-hidden="true">${scene.icon}</i><div><h3>${scene.title}</h3><p>${scene.text}</p></div></section>
         <section class="p-hall-order"><span>派克</span><blockquote>“回城门找贝拉米。告诉他，我要戴蒙德现在就来会馆。然后把她带回来。”</blockquote></section>
-        <p class="wrong-letter-after">${scene.after}</p>`,
-      actions: [{ label: '离开会馆，返回城门', cls: 'btn-primary', handler: open }],
+        <p class="wrong-letter-after">${scene.after}${stopAtStage3000 ? ' 当前版本将在这里暂停，返回城门的任务暂未开放。' : ''}</p>`,
+      actions: [{ label: stopAtStage3000 ? '结束当前开放内容' : '离开会馆，返回城门', cls: 'btn-primary', handler: stopAtStage3000 && window.PMEnslavementSystem ? PMEnslavementSystem.open : open }],
     })
   }
 
   function returnToBellamy () {
     const state = State.get()
     if (state._pMainlineStage !== 3) { open(); return }
+    if (state._pRole === 'slave' && window.PMEnslavementSystem) {
+      PMEnslavementSystem.returnToBellamy()
+      return
+    }
     state._pMainlineStage = 4
     EventBus.emit('state:changed', state)
     State.save()
@@ -463,13 +491,13 @@ window.PTownSystem = (function () {
     const opening = role === 'slaver'
       ? { icon: '◆', title: '戴蒙德被带到长桌前，派克只检查了锁链和押送记录。', text: '贝拉米的刁难、路上的停顿和抵达时间都写在同一张考核纸上。派克宣布你通过了第一项测试。' }
       : role === 'slave'
-        ? { icon: '⛓️', title: '你与戴蒙德再次站到派克面前，这次黑皮册已经准备好正式编号。', text: '派克没有把你当作救回证人的调查者，而是把那段经历写成“判断力尚可”的财产评估。' }
+        ? { icon: '⛓️', title: '你与戴蒙德被同一条腰链带到派克面前，新的印记还没有冷透。', text: state._pMDayaChoice === 'protect' ? '戴蒙德主动替你报上了最后一段押送记录。派克看得出你在市场替她挡过处罚，便把“会保护同链者”写进评估。' : state._pMDayaChoice === 'obey' ? '贝拉米对你的服从没有异议，戴蒙德却始终没有看你。派克在评估上写下“服从快，不会照顾同链者”。' : '你与戴蒙德各自保全了自己，也把距离一直留到会馆。派克把这点记为“会判断，不会付出”。' }
         : { icon: '◇', title: '戴蒙德安全抵达，派克也确认贝拉米违抗命令的经过。', text: '他没有惩罚贝拉米，只把这当成一次筛选：看你会顺从、退缩，还是利用制度迫使对方让步。' }
 
     const actions = role === 'slaver'
       ? [{ label: '接受派克的基础执行人训练', cls: 'btn-primary', handler: () => finishPikeRoute('slaver', 'slaver_training', { icon: '◆', title: '派克把带缺口的铁印推到你面前。', text: '从现在起，你可以替商团接取任务，但还必须向贝拉米学习如何管理俘虏与执行命令。', after: '奴隶贩子路线开启：下一阶段是贝拉米的基础训练。' }) }]
       : role === 'slave'
-        ? [{ label: '被押回贝拉米处接受训练', cls: 'btn-danger', handler: () => finishPikeRoute('slave', 'slave_training', { icon: '⛓️', title: '派克在证书下方写下自己的名字。', text: '戴蒙德被送往会馆内侧，而你将返回城门，由贝拉米安排第一阶段训练。', after: '奴隶路线开启：失败和拒绝都已经成为后续人物记住的经历。' }) }]
+        ? [{ label: '完成入库，领取第一册记录', cls: 'btn-danger', handler: () => window.PMEnslavementSystem ? PMEnslavementSystem.completeChapter() : open() }]
         : [
             { label: '保持自由，只替派克调查必要的事情', cls: 'btn-primary', handler: () => finishPikeRoute('free', 'free_observer', { icon: '◇', title: '派克收回了准备好的铁印。', text: '他允许你作为受监视的自由人留在镇内，但每一次调查都会被贝拉米记录。', after: '自由人路线开启：你可以接近商团，也可以继续寻找反抗它的方法。' }) },
             { label: '接受执行人训练，借机进入商团内部', handler: () => finishPikeRoute('slaver', 'slaver_training', { icon: '◆', title: '你接过了派克的铁印。', text: '派克看得出你仍有保留，却并不在意。能完成命令的人，才有资格知道商团下一步要做什么。', after: '奴隶贩子路线开启：你将接受贝拉米的基础训练。' }) },
@@ -522,6 +550,7 @@ window.PTownSystem = (function () {
     investigatePTown,
     showPGateChapter,
     enterPHall,
+    showPikeFirstAudience,
     returnToBellamy,
     showPikeSecondAudience,
     resolvePHallBattle,

@@ -208,6 +208,8 @@ body {
 .btn-primary:hover { background: var(--accent); }
 .btn-danger { background: #6b2532; border-color: var(--red); }
 .btn-danger:hover { background: #8a3242; }
+.btn-submissive { background: #713f63; border-color: #d887bb; color: #fff0fa; }
+.btn-submissive:hover { background: #92557f; border-color: #f0a7d4; }
 .btn-success { background: #235c39; border-color: var(--green); }
 .btn-success:hover { background: #2f7a4c; }
 
@@ -1377,6 +1379,17 @@ body:has(.modal-box.boss-ending-modal) #topbar {
 .modal-title { font-size: 1.3rem; color: var(--accent-bright); margin-bottom: 12px; }
 .modal-body { margin-bottom: 16px; line-height: 1.7; font-size: .95rem; }
 .modal-actions { display: flex; gap: 10px; justify-content: flex-end; flex-wrap: wrap; }
+
+/* 奴役线剧情选项保持单列，避免分支在宽屏上横向跳位。 */
+.p-m-chapter-modal > .modal-actions {
+  flex-direction: column;
+  align-items: stretch;
+  flex-wrap: nowrap;
+}
+.p-m-chapter-modal > .modal-actions .btn {
+  width: 100%;
+  min-width: 0;
+}
 
 /* 森林之灵：最终战专属界面 */
 .modal-box.boss-gate-modal {

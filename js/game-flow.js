@@ -28,6 +28,14 @@ window.GameFlow = (function () {
   }
 
   function resumeStory () {
+    const state = typeof State !== 'undefined' && State.get ? State.get() : null
+    // 「入库」是由一连串弹窗组成的任务。存档的 phase 仍是 camp，因此必须在
+    // 普通营地恢复之前接回当前章节，否则“继续游戏”只会把玩家送回营地首页。
+    if (state && state._pRole === 'slave' && state._pMConfiscated && !state._pMChapterCompleted &&
+      typeof PMEnslavementSystem !== 'undefined' && PMEnslavementSystem.open) {
+      PMEnslavementSystem.open()
+      return true
+    }
     if (typeof CommissionSystem !== 'undefined' && CommissionSystem.resumePending) {
       return CommissionSystem.resumePending()
     }
