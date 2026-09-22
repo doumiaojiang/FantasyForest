@@ -70,8 +70,8 @@ window.ITEMS = {
       effect: { special: 'elite_material' },
     },
     {
-      id: 'raven_latch', name: 'P 印货牌', type: 'consumable', price: 0,
-      desc: '旧桥许可上系着的黄铜货牌，背面刻着 P；证明约束器具由雾灯镇正式放行。',
+      id: 'raven_latch', name: '派克印货牌', type: 'consumable', price: 0,
+      desc: '旧桥许可上系着的黄铜货牌，背面刻着派克；证明约束器具由雾灯镇正式放行。',
       effect: { special: 'quest_material' },
     },
     {

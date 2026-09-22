@@ -975,6 +975,7 @@ body:has(.modal-box.boss-ending-modal) #topbar {
 .tile-shop { background: #33291c; border-color: var(--gold); }
 .tile-camp { background: #3c2617; border-color: #ef9b45; box-shadow: inset 0 0 12px rgba(239, 139, 56, .12); }
 .tile-bridge { background: #28303b; border-color: #8d9bab; box-shadow: inset 0 0 12px rgba(154, 169, 186, .12); }
+.tile-bandit-camp { background: #3d2018; border-color: #c66b3d; box-shadow: inset 0 0 12px rgba(214, 92, 45, .18), 0 0 8px rgba(166, 55, 25, .12); }
 .tile-event { background: #33254a; border-color: var(--accent-dark); }
 
 .tile-visited {

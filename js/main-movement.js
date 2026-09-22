@@ -537,6 +537,15 @@ window.MovementController = (function () {
       return 'stopped'
     }
 
+    // 强盗营地是旧桥下方的固定地点，进入格子就停止自动行走并交给剧情系统。
+    if (tile.type === TILE.BANDIT_CAMP) {
+      hint.textContent = '🔥 进入桥下强盗营地……'
+      _isWalking = false
+      if (typeof CommissionSystem !== 'undefined' && CommissionSystem.visitBanditCamp) CommissionSystem.visitBanditCamp()
+      else GameFlow.afterEvent()
+      return 'stopped'
+    }
+
     // 旧桥是可重复进入的主线节点。掷骰步数尚未耗尽时也必须停下来询问，
     // 否则玩家会因自动行走直接越过桥洞重试入口。
     if (tile.type === TILE.BRIDGE && _stepsRemaining > 0) {
@@ -545,9 +554,9 @@ window.MovementController = (function () {
         Dialog.show({
           title: '🌉 路过旧桥',
           className: 'commission-bridge-modal',
-          body: `<section class="scene-dialogue"><i aria-hidden="true">🌉</i><div><h3>断栏与桥墩从雾里显出来，桥下的浅滩就在脚边。</h3><p>${(state._wrongCommissionStage || 0) === 6 ? '封死的泄洪洞里仍有营火。你可以现在下桥，继续处理强盗据点与被关着的证人。' : '你可以停下来查看旧桥，也可以保留剩余步数继续前进。'}</p></div></section>`,
+          body: `<section class="scene-dialogue"><i aria-hidden="true">🌉</i><div><h3>断栏与桥墩从雾里显出来，桥下的浅滩就在脚边。</h3><p>${(state._wrongCommissionStage || 0) === 6 ? '封死的泄洪洞里仍有营火。你可以现在下桥，继续处理强盗据点与被关着的证人。' : (state._wrongCommissionStage || 0) === 2 ? '派克的货单写着空车从这里返回。桥板上的新车辙还没被雾冲掉，可以现在核对，也可以留着步数先过去。' : '你可以停下来查看旧桥，也可以保留剩余步数继续前进。'}</p></div></section>`,
           actions: [
-            { label: (state._wrongCommissionStage || 0) === 6 ? '下桥进入据点' : '停下查看旧桥', cls: 'btn-primary', handler: () => {
+            { label: (state._wrongCommissionStage || 0) === 6 ? '下桥进入据点' : (state._wrongCommissionStage || 0) === 2 ? '核对桥上的车辙' : '停下查看旧桥', cls: 'btn-primary', handler: () => {
               Dialog.close()
               _isWalking = false
               if (typeof CommissionSystem !== 'undefined' && CommissionSystem.visitBridge) CommissionSystem.visitBridge()

@@ -490,7 +490,7 @@ window.BattleUI = (function () {
       if (_battle) _battle.caravanDisplayCount = Number(_battle.caravanDisplayCount || 0) + 1
       State.save()
     }
-    // P 车队看守的两个专属机制不走通用 BPM 任务流程。
+    //派克车队看守的两个专属机制不走通用 BPM 任务流程。
     if (enemy.id === 'p_caravan_guard' && attack.special === 'caravan_search') {
       _lastEnemyAttack = { attack, roll, part: 'inventory', actor: _enemy.name }
       EventBus.emit('ui:log', { text: `[${_enemy.name}] ${attack.desc}`, type: 'danger' })
@@ -501,6 +501,9 @@ window.BattleUI = (function () {
     if (enemy.id === 'p_caravan_guard' && attack.special === 'caravan_restraint') {
       _lastEnemyAttack = { attack, roll, part: 'body', actor: _enemy.name }
       EventBus.emit('ui:log', { text: `[${_enemy.name}] ${attack.desc}`, type: 'danger' })
+      const nextBinding = BattleSystem.peekCaravanBinding()
+      if (nextBinding) await showCaravanRestraintTask(nextBinding)
+      if (State.get().phase !== 'battle' || !State.get()._battle) return
       const result = BattleSystem.applyCaravanBinding()
       if (State.get().phase !== 'battle' || !State.get()._battle) return
       await showCaravanBinding(result)
@@ -786,22 +789,27 @@ window.BattleUI = (function () {
       const target = RestraintSystem.resolveMonsterOrifice(inspectionPart)
       target.events.forEach(text => EventBus.emit('ui:log', { text, type: text.startsWith('💥') ? 'danger' : 'good' }))
       if (target.mode === 'blocked') {
-        await showCaravanSearchNotice(attack, '🛡️', '检查被挡下', '妖缚装置仍有防护余量，看守没能完成腔道检查，只能继续翻查你的行囊。')
+        await showCaravanSearchNotice(attack, '🛡️', '穴被锁住', '妖缚装置挡住了腔道。看守骂了一句，改成把你按在栏杆上抽打，打完仍要翻你的东西。')
       } else if (target.mode === 'spank') {
         await showTaskDialog({
           enemyName: _enemy.name,
-          attackName: `${attack.name} · 强制服从`,
-          desc: '可检查的部位都被锁住，看守把你按在货箱边，改用手掌重重责打臀部十下后继续搜查。',
-          bpm: 0, seconds: 0, taskCount: 10, taskTool: '手掌', dmg: 0, noDamage: true, showFailure: false,
+          attackName: `${attack.name} · 打到开口`,
+          desc: '能插的地方都被锁死。看守把你按在断栏上，用手掌抽打臀部二十下。每一下都要报数，腰不许躲，打完把屁股继续翘着接受搜查。',
+          bpm: 0, seconds: 0, taskCount: 20, taskTool: '手掌', dmg: 0, noDamage: true, showFailure: false, allowSkip: false,
         })
       } else {
         inspectionPart = target.part || inspectionPart
         const partName = { oral: '嘴穴', anal: '菊穴', vagina: '小穴' }[inspectionPart] || '身体'
+        const two = (attack.searchTier || 1) > 1
         await showTaskDialog({
           enemyName: _enemy.name,
-          attackName: `${attack.name} · 腔道验货`,
-          desc: `看守戴上检查手套，把你按在货箱边检查${partName}，确认你没有藏匿车队物品后才开始翻查行囊。`,
-          bpm: 80, seconds: 15, dmg: 0, noDamage: true, showFailure: false,
+          attackName: `${attack.name} · 掰开受查`,
+          desc: two
+            ? `两人把你按在桥栏上。一个用手指撑开${partName}往里翻，另一个按着你的后颈不让你抬头。按 110 BPM 把腰送上去 30 秒，每插一下都要出声，夹紧或躲开就从头再来。`
+            : `看守用两根手指直接插进${partName}里翻搅，另一只手按住你的腰。按 100 BPM 自行迎合 25 秒，嘴里报数，手只能掰着自己，不许挡。`,
+          bpm: two ? 110 : 100,
+          seconds: two ? 30 : 25,
+          dmg: 0, noDamage: true, showFailure: false, allowSkip: false,
         })
       }
     }
@@ -862,6 +870,52 @@ window.BattleUI = (function () {
         body: `<section class="scene-dialogue"><i>${icon}</i><div><h3>${title}</h3><p>${detail}</p></div></section>`,
         actions: [{ label: '继续搜查', cls: 'btn-primary', handler: () => { Dialog.close(); resolve() } }],
       })
+    })
+  }
+
+  function showCaravanRestraintTask (binding) {
+    const extra = State.get()._battle?.story === 'commission-provoked' ? 5 : 0
+    const held = extra ? '旁边的人按着你，这段再加五秒。' : ''
+    const tasks = {
+      neck: {
+        name: '奴隶项圈',
+        bpm: 60,
+        seconds: 20 + extra,
+        desc: `跪直，下巴抬起，双手背到身后。按 60 BPM 保持这个姿势，让看守检查奴隶项圈。${held}`,
+      },
+      arms: {
+        name: '手铐',
+        bpm: 0,
+        seconds: 20 + extra,
+        desc: `手腕交叉到背后，膝盖分开，保持被铐住的姿势。不能用手撑地。${held}`,
+      },
+      mouth: {
+        name: '球形口塞',
+        bpm: 90,
+        seconds: 20 + extra,
+        desc: `先按 90 BPM 含住，每八拍停在最深处一拍。这一段结束才戴上球形口塞。${held}`,
+      },
+      anal: {
+        name: '小肛塞',
+        bpm: 120,
+        seconds: 25 + extra,
+        desc: `按 120 BPM 自行把小肛塞纳入，停住后让它留在里面。${held}`,
+      },
+    }
+    const task = tasks[binding.slot]
+    if (!task) return Promise.resolve()
+    return showTaskDialog({
+      enemyName: '车队看守',
+      attackName: task.name,
+      desc: task.desc,
+      bpm: task.bpm,
+      seconds: task.seconds,
+      dmg: 0,
+      noDamage: true,
+      allowSkip: false,
+      showFailure: true,
+      completeLabel: '✅ 戴上',
+      dialogTitle: `⛓️ ${task.name}`,
     })
   }
 

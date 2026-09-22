@@ -152,7 +152,7 @@ window.MONSTERS = [
   },
   {
     id: 'p_caravan_guard',
-    name: 'P 的车队看守',
+    name: '派克的车队看守',
     maxHp: 6,
     intro: ['桥下传来皮靴踩碎枯枝的声音。', '一个回来寻找许可的车队看守挡住了桥墩。'],
     tagline: '他只是个落单的看守；除非你非要把他的同伙也叫下来。',
@@ -163,11 +163,11 @@ window.MONSTERS = [
     attacks: [
       {
         roll: 1, name: '强制搜身',
-        desc: '看守把你抵在断桥栏上，从腰包到鞋底一层层翻查。他根本不在找许可——只是想看看今天能从你身上刮走什么。',
+        desc: '看守把你面朝下按在断桥栏上，膝盖顶住后腰。“淫魔的规矩：被命令的人没有拒绝。裤子褪到膝弯，双手自己掰开。我要查的不是口袋。”',
         dmg: 0, special: 'caravan_search', searchTier: 1, part: 'inventory', inspectionPart: 'anal',
         provoked: {
           name: '双人抄检',
-          desc: '被你叫来的同伙堵住另一边，一人扣住手腕，另一人把背包倒在桥板上。“挑一件值钱的；没有，就给他记账。”',
+          desc: '两名看守把你按在桥栏两侧，一人踩住你的手腕，另一人扯开你的腿。“叫人叫得这么响，穴就该一起查。掰开，数到我们说停。藏东西的地方我们自己翻。”',
           dmg: 0, special: 'caravan_search', searchTier: 2, part: 'inventory', inspectionPart: 'anal',
         },
       },
@@ -295,7 +295,7 @@ window.MONSTERS = [
       { roll: 1, name: '锁臂压制', desc: '执法者从两侧扣住你的手臂，把你重重按向登记长桌。', dmg: 1 },
       { roll: 2, name: '短棍击腹', desc: '贝拉米用短棍扫过腹部，逼你弯腰失去反击姿势。', dmg: 2 },
       { roll: 3, name: '编号烙印', desc: '滚烫的编号印贴近皮肤，在挣扎间留下短暂而刺痛的红痕。', dmg: 1 },
-      { roll: 4, name: '跪地示众', desc: '他们踢弯你的膝盖，把你按跪在 P 的长桌前，逼你抬头接受审视。', dmg: 1 },
+      { roll: 4, name: '跪地示众', desc: '他们踢弯你的膝盖，把你按跪在派克的长桌前，逼你抬头接受审视。', dmg: 1 },
       { roll: 5, name: '锁链绊倒', desc: '墨菲甩出的登记链缠住脚踝，将你拖倒在散落的文件之间。', dmg: 1 },
       { roll: 6, name: '合围猛击', desc: '三人同时收紧包围，用盾肩和短棍把你撞回大厅中央。', dmg: 2 },
     ],
@@ -359,35 +359,27 @@ window.MONSTERS = [
       },
       {
         roll: 2, actor: '翻箱扒手', name: '剥衣搜赃', part: 'anal',
-        desc: '扒手笑着割开衣带，把你按在翻倒的货箱上。“名单呢？藏在穴里了？”手指探进菊穴搅动，另一只手扯走钱袋。',
-        dmg: 0, special: 'steal', gold: 12, taskSeconds: 20, requiresCrew: 'bandit-cutpurse',
+        desc: '扒手笑着割开衣带，把你按在翻倒的货箱上。“名单呢？藏在穴里了？”先打，再用手指按拍子往里翻，另一只手扯走钱袋。',
+        dmg: 0, special: 'steal', gold: 12, requiresCrew: 'bandit-cutpurse',
         taskSequence: [
-          { name: '剥衣臀罚', desc: '衣带被割开后，扶稳货箱，用手掌责打臀部十下并报数。', count: 10, tool: '手掌' },
-          { name: '腔内搜赃', desc: '随后双手扶稳货箱，接受十秒腔道检查。', seconds: 10 },
-        ],
-        taskSteps: [
-          { at: 0, label: '剥开搜身', text: '被按在货箱上，衣物被扯乱，双腿分开。' },
-          { at: 6, label: '腔内翻找', text: '手指在体内抠挖，腰不许躲开，直到他把钱袋割走。' },
+          { name: '剥衣臀罚', desc: '衣带被割开后，扶稳货箱，用手掌责打臀部十五下，每一下报数。', count: 15, tool: '手掌' },
+          { name: '腔内搜赃', desc: '双手扶稳货箱，手指按 100 BPM 在穴里翻 25 秒。腰不许躲，翻完才割钱袋。', bpm: 100, seconds: 25 },
         ],
         repeat: {
           name: '裸身搜赃',
-          desc: '衣服早已被扒走，扒手便把你重新按上货箱，检查菊穴与散落的行囊，再割走钱袋里剩下的金币。',
-          taskSteps: [
-            { at: 0, label: '重新按上货箱', text: '全裸趴在货箱上，双腿被踢开。' },
-            { at: 6, label: '继续搜赃', text: '接受腔道与行囊检查，直到扒手搜完。' },
+          desc: '衣服早已被扒走。扒手把你重新按上货箱，先按拍子检查穴，再补几下，然后割走剩下的金币。',
+          taskSequence: [
+            { name: '裸身检查', desc: '全裸趴在货箱上，双腿被踢开。手指按 100 BPM 在穴里翻 25 秒，腰不许躲。', bpm: 100, seconds: 25 },
+            { name: '补打', desc: '检查结束后用手掌再打臀部八下，每一下报数。', count: 8, tool: '手掌' },
           ],
         },
         solo: {
           actor: '劫货强盗头目', name: '盾下搜身', part: 'anal',
-          desc: '头目用盾牌压住后背，粗暴扒开双腿检查身体与菊穴。“扒手不在，我自己问。名单呢？”',
-          dmg: 1, taskSeconds: 20,
+          desc: '头目用盾牌压住后背，粗暴扒开双腿。“扒手不在，我自己问。名单呢？”',
+          dmg: 1,
           taskSequence: [
-            { name: '盾下搜穴', desc: '双手扶稳盾沿，接受十秒腔道检查。', seconds: 10 },
-            { name: '盾面责打', desc: '检查结束后用手掌责打臀部十下并报数。', count: 10, tool: '手掌' },
-          ],
-          taskSteps: [
-            { at: 0, label: '盾牌压背', text: '上身被压在货箱上，双腿被踢开。' },
-            { at: 8, label: '检查腔道', text: '手指探入翻找，直到他确认你没有藏住纸页。' },
+            { name: '盾面责打', desc: '上身被盾牌压在货箱上，用手掌责打臀部十五下，每一下报数。', count: 15, tool: '手掌' },
+            { name: '盾下搜穴', desc: '双手扶稳盾沿，手指按 100 BPM 在穴里翻 25 秒。腰不许躲。', bpm: 100, seconds: 25 },
           ],
         },
       },

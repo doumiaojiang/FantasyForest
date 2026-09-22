@@ -182,7 +182,7 @@ window.TownShopSystem = (function () {
         <div class="camp-grid">
           <button class="camp-opt" data-bs="buy"><i>🛒</i><span><b>商店</b><small>武器与饰品</small></span><em>进店</em></button>
           <button class="camp-opt" data-bs="chat"><i>💬</i><span><b>聊天</b><small>听铁匠唠唠</small></span><em>搭话</em></button>
-          ${commissionReady ? `<button class="camp-opt camp-opt-clue${commissionAsked ? ' is-seen' : ''}" data-bs="wrong-letter"><i>✉️</i><span><b>${commissionAsked ? '再问那批锁具' : '出示 P 的货单'}</b><small>${commissionAsked ? '确认运输许可丢失的位置' : '桥边的新锁环带着铁匠的锉痕'}</small></span><em>${commissionAsked ? '追问' : '调查'}</em></button>` : ''}
+          ${commissionReady ? `<button class="camp-opt camp-opt-clue${commissionAsked ? ' is-seen' : ''}" data-bs="wrong-letter"><i>✉️</i><span><b>${commissionAsked ? '再问那批锁具' : '出示派克的货单'}</b><small>${commissionAsked ? '确认运输许可丢失的位置' : '桥边的新锁环带着铁匠的锉痕'}</small></span><em>${commissionAsked ? '追问' : '调查'}</em></button>` : ''}
           ${unlockableRestraints.length ? `<button class="camp-opt" data-bs="unlockrestr"><i>⛓️</i><span><b>解开妖缚装置</b><small>付费开锁，金属装置也能拆</small></span><em>${unlockableRestraints.length} 件</em></button>` : ''}
           ${state._prisonChastity ? `<button class="camp-opt" data-bs="unlock"><i>🔓</i><span><b>解锁监狱贞操装备</b><small>求铁匠打开你身上的锁</small></span><em>求解锁</em></button>` : ''}
         </div>`,
@@ -214,7 +214,7 @@ window.TownShopSystem = (function () {
     }
     campShow({
       title: '🔨 铁匠铺 · 钳台', className: 'blacksmith-modal wrong-letter-reaction-modal',
-      body: `<section class="scene-dialogue"><i aria-hidden="true">✉️</i><div><h3>你把 P 的货单和桥边捡到的锁环放上铁砧。</h3><p>铁匠只看了一眼锉口，就知道已经无法否认。这些锁出自他的钳台，而且并不是给箱子用的。</p></div></section>
+      body: `<section class="scene-dialogue"><i aria-hidden="true">✉️</i><div><h3>你把派克的货单和桥边捡到的锁环放上铁砧。</h3><p>铁匠只看了一眼锉口，就知道已经无法否认。这些锁出自他的钳台，而且并不是给箱子用的。</p></div></section>
         <div class="wrong-letter-evidence"><span>锁环内侧</span><p>尺寸与妖缚项圈和腕铐完全一致；其中几枚还预留了统一编号的位置。</p></div>
         <div class="scene-choice-list wrong-letter-choices">
           <button data-smith-letter="direct"><i>▸</i><span><b>“这些锁是给谁准备的？”</b><small>追问真正的订货人</small></span><em>追问</em></button>
@@ -232,12 +232,12 @@ window.TownShopSystem = (function () {
     if (!state._pInvestigationChoices || typeof state._pInvestigationChoices !== 'object') state._pInvestigationChoices = {}
     state._pInvestigationChoices.blacksmith = choice
     const complete = wrongCommissionLead('blacksmith')
-    EventBus.emit('ui:log', { text: '🔨 铁匠承认改装过 P 送来的约束锁具，订单由镇方许可。', type: 'warning' })
+    EventBus.emit('ui:log', { text: '🔨 铁匠承认改装过派克送来的约束锁具，订单由镇方许可。', type: 'warning' })
     campShow({
       title: '🔨 铁匠 · 订单', className: 'blacksmith-modal wrong-letter-reaction-modal',
-      body: `<section class="scene-dialogue"><i aria-hidden="true">🔨</i><div><h3>“锁是镇里订的。P 出钱，我照图改装，仅此而已。”</h3><p>${choice === 'permit' ? '他承认车队拿着正式许可，因此卫兵没有检查货箱。' : '他说锁具已经被人取走，送往城门旁的新仓库。'}</p></div></section>
+      body: `<section class="scene-dialogue"><i aria-hidden="true">🔨</i><div><h3>“锁是镇里订的。派克出钱，我照图改装，仅此而已。”</h3><p>${choice === 'permit' ? '他承认车队拿着正式许可，因此卫兵没有检查货箱。' : '他说锁具已经被人取走，送往城门旁的新仓库。'}</p></div></section>
         <div class="wrong-letter-evidence is-found"><span>车夫遗失的东西</span><p>车队在旧桥更换过断裂的轮轴，装着正式许可的皮卷就是在那里丢的。</p></div>
-        ${complete ? '<p class="wrong-letter-after">酒馆和铁匠的说法终于对上了：P 的车队持有镇方许可，而能证明这一点的皮卷还遗落在旧桥。</p>' : ''}`,
+        ${complete ? '<p class="wrong-letter-after">酒馆和铁匠的说法终于对上了：派克的车队持有镇方许可，而能证明这一点的皮卷还遗落在旧桥。</p>' : ''}`,
       actions: [{ kind: 'navigation', label: '离开钳台', handler: blacksmithShop }],
     })
   }

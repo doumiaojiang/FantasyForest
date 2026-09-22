@@ -12,7 +12,7 @@ window.TownGateSystem = (function () {
 
   function leaveCamp () {
     const state = State.get()
-    if (state._pBanditClothesLocked && StatusSystem.has('naked')) {
+    if ((state._pBanditClothesLocked || (state._pBanditDefeatCount || 0) > 0) && StatusSystem.has('naked')) {
       showBanditNakedGate('exit')
       return
     }

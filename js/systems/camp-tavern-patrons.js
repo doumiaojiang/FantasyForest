@@ -25,7 +25,7 @@ window.TownTavernPatronsSystem = (function () {
         <div class="camp-grid">
           <button class="camp-opt" data-tavern="drink"><i>🍷</i><span><b>买酒</b><small>喝完有劲也有代价</small></span><em>开喝</em></button>
           <button class="camp-opt" data-tavern="chat"><i>💬</i><span><b>聊天</b><small>听老板娘说些有的没的</small></span><em>${workUnlocked ? '熟络' : '搭话'}</em></button>
-          ${commissionReady ? `<button class="camp-opt camp-opt-clue${commissionAsked ? ' is-seen' : ''}" data-tavern="wrong-letter"><i>✉️</i><span><b>${commissionAsked ? '再问夜里的车队' : '出示 P 的货单'}</b><small>${commissionAsked ? '确认车夫遗失的许可' : '桥边麦秸与酒馆仓库相同'}</small></span><em>${commissionAsked ? '追问' : '调查'}</em></button>` : ''}
+          ${commissionReady ? `<button class="camp-opt camp-opt-clue${commissionAsked ? ' is-seen' : ''}" data-tavern="wrong-letter"><i>✉️</i><span><b>${commissionAsked ? '再问夜里的车队' : '出示派克的货单'}</b><small>${commissionAsked ? '确认车夫遗失的许可' : '桥边麦秸与酒馆仓库相同'}</small></span><em>${commissionAsked ? '追问' : '调查'}</em></button>` : ''}
           ${workBtn}
         </div>`,
       actions: [{ kind: 'navigation', label: '返回酒馆', handler: () => { Dialog.close(); TownTavernSystem.render() } }],
@@ -55,10 +55,10 @@ window.TownTavernPatronsSystem = (function () {
     }
     campShow({
       title: '💃 酒馆 · 吧台', className: 'camp-tavern-modal wrong-letter-reaction-modal',
-      body: `<section class="scene-dialogue"><i aria-hidden="true">✉️</i><div><h3>你把 P 的货单推过吧台，又放下一把桥边的麦秸。</h3><p>老板娘认出了仓库垫货用的草料。她的笑容没有消失，手却已经悄悄扣住通往后巷的门闩。</p></div></section>
+      body: `<section class="scene-dialogue"><i aria-hidden="true">✉️</i><div><h3>你把派克的货单推过吧台，又放下一把桥边的麦秸。</h3><p>老板娘认出了仓库垫货用的草料。她的笑容没有消失，手却已经悄悄扣住通往后巷的门闩。</p></div></section>
         <div class="scene-choice-list wrong-letter-choices">
           <button data-barkeep-letter="door"><i>▸</i><span><b>“夜里的货车停在后门做什么？”</b><small>追问第一批货物的去向</small></span><em>追问</em></button>
-          <button data-barkeep-letter="permit"><i>▸</i><span><b>“P 是谁？谁准许车队进镇？”</b><small>追查货单背后的委托人</small></span><em>查证</em></button>
+          <button data-barkeep-letter="permit"><i>▸</i><span><b>“派克是谁？谁准许车队进镇？”</b><small>追查货单背后的委托人</small></span><em>查证</em></button>
         </div>`,
       actions: [{ kind: 'navigation', label: '把信收回来', handler: tavernBarkeep }],
     })
@@ -72,12 +72,12 @@ window.TownTavernPatronsSystem = (function () {
     if (!state._pInvestigationChoices || typeof state._pInvestigationChoices !== 'object') state._pInvestigationChoices = {}
     state._pInvestigationChoices.barkeep = choice
     const complete = wrongCommissionLead('barkeep')
-    EventBus.emit('ui:log', { text: '🍺 老板娘承认 P 的车队在后巷卸过货，而且持有镇方许可。', type: 'warning' })
+    EventBus.emit('ui:log', { text: '🍺 老板娘承认派克的车队在后巷卸过货，而且持有镇方许可。', type: 'warning' })
     campShow({
       title: '💃 老板娘 · 夜间卸货', className: 'camp-tavern-modal wrong-letter-reaction-modal',
       body: `<section class="scene-dialogue"><i aria-hidden="true">💃</i><div><h3>“他们只借后巷拆货。真正签收的人来自镇务厅。”</h3><p>${choice === 'permit' ? '她说卫兵亲自检查过盖章许可，然后替车队打开了侧门。' : '她承认货箱里装着成批的项圈、腕铐和编号牌，天亮前便被运走。'}</p></div></section>
         <div class="wrong-letter-evidence is-found"><span>车夫遗失的东西</span><p>车队在旧桥换过断裂的轮轴，装着正式许可的皮卷就是在那里丢的。</p></div>
-        ${complete ? '<p class="wrong-letter-after">酒馆和铁匠的说法终于对上了：P 的车队持有镇方许可，而能证明这一点的皮卷还遗落在旧桥。</p>' : ''}`,
+        ${complete ? '<p class="wrong-letter-after">酒馆和铁匠的说法终于对上了：派克的车队持有镇方许可，而能证明这一点的皮卷还遗落在旧桥。</p>' : ''}`,
       actions: [{ kind: 'navigation', label: '收起信件', handler: tavernBarkeep }],
     })
   }

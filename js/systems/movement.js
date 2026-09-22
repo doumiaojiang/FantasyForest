@@ -136,6 +136,15 @@ window.NodeEvents = {
         }
         return
 
+      case TILE.BANDIT_CAMP:
+        if (hint) hint.textContent = '🔥 进入桥下强盗营地……'
+        if (typeof CommissionSystem !== 'undefined' && CommissionSystem.visitBanditCamp) {
+          CommissionSystem.visitBanditCamp()
+        } else {
+          GameFlow.afterEvent()
+        }
+        return
+
       case TILE.CHECKPOINT:
         const tp = typeof TeleportSystem !== 'undefined' ? TeleportSystem.byPos(state.position.x, state.position.y) : null
         if (tp) TeleportSystem.activate(tp.id)

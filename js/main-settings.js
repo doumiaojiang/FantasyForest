@@ -208,7 +208,7 @@ window.AppSettings = (function () {
         ${sect('🧭 基础资源', cheatBtn('cheat-hp', '❤️ 回满 HP') + cheatBtn('cheat-gold', '💰 金币 +500') + cheatBtn('cheat-supply', '🎒 全补给 ×5') + cheatBtn('cheat-clear-status', '✨ 清除状态'))}
         ${sect('⚔️ 战斗', cheatBtn('cheat-kill', '💀 击杀当前敌人') + cheatBtn('cheat-win', '🏆 直接通关') + cheatBtn('cheat-god', '🛡️ 无敌模式', 'btn-cheat') + cheatBtn('cheat-orb', '🔮 力量宝珠') )}
         ${sect('🧰 装备', cheatBtn('cheat-weapons', '⚔️ 全部武器') + cheatBtn('cheat-accessories', '📿 全部饰品') + cheatBtn('cheat-items', '🧪 全部消耗品') + cheatBtn('cheat-material', '🔧 升级材料 ×3'))}
-        ${sect('🔧 调试', cheatBtn('cheat-goto', '📍 移动到坐标') + cheatBtn('cheat-mob', '👺 遭遇怪物') + cheatBtn('cheat-boss', '👑 遭遇 BOSS') + cheatBtn('cheat-position', '📌 查看坐标') + cheatBtn('cheat-merc-debt', '💸 佣兵债务 +100') + cheatBtn('cheat-merc-clear', '✓ 清除佣兵债务'))}
+        ${sect('🔧 调试', cheatBtn('cheat-goto', '📍 移动到坐标') + cheatBtn('cheat-mob', '👺 遭遇怪物') + cheatBtn('cheat-boss', '👑 遭遇 BOSS') + cheatBtn('cheat-bandit-victory', '☠️ 桥洞胜利预览', 'btn-cheat') + cheatBtn('cheat-position', '📌 查看坐标') + cheatBtn('cheat-merc-debt', '💸 佣兵债务 +100') + cheatBtn('cheat-merc-clear', '✓ 清除佣兵债务'))}
       `,
       actions: [{ label: '关闭', handler: () => Dialog.close() }],
     })
@@ -221,6 +221,7 @@ window.AppSettings = (function () {
           if (id === 'cheat-goto') { cheatGoto(); return }
           if (id === 'cheat-mob') { cheatEncounter(); return }
           if (id === 'cheat-boss') { cheatBoss(); return }
+          if (id === 'cheat-bandit-victory') { cheatBanditVictory(); return }
           if (id === 'cheat-position') { cheatPosition(); return }
           const msg = runCheat(id)
           if (msg) EventBus.emit('ui:log', { text: msg, type: 'good' })
@@ -229,6 +230,36 @@ window.AppSettings = (function () {
         }
       })
     })
+  }
+
+  function cheatBanditVictory () {
+    const state = State.get()
+    if (!state || typeof CommissionSystem === 'undefined') return
+    Dialog.close()
+    state._battle = null
+    state._ambush = null
+    state.phase = 'idle'
+    state.position = { x: 10, y: 9 }
+    state._wrongCommissionStage = 6
+    state._wrongCommissionOutcome = null
+    state._pMainlineStage = 0
+    state._pRole = null
+    state._pChapterOneLocked = false
+    state._pRouteLocked = false
+    state._pGateChoices = []
+    state._pDayaOutcome = null
+    state._pTownInquiry = { guard: false, merchant: false, citizen: false }
+    state._pBanditDefeatCount = 1
+    state._pBanditClothesLocked = false
+    state._pBanditLeaderFate = null
+    state._pBanditMarkChoice = null
+    state._pBanditVictoryResult = { fleeingCrew: 2, clothesTaken: true, gold: 22 }
+    state._pBanditAftermath = 'victory-fall'
+    if (!StatusSystem.has('naked')) StatusSystem.apply('naked', 99999, { source: 'p_bandit_chest' })
+    EventBus.emit('ui:log', { text: '☠️ 调试：已进入战胜强盗头目后的清算。', type: 'good' })
+    EventBus.emit('state:changed', state)
+    State.save()
+    CommissionSystem.resumePending()
   }
 
   /** 执行作弊指令，返回日志消息 */

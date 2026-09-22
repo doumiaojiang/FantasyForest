@@ -14,10 +14,10 @@
 
 window.BattleSystem = (function () {
   const CARAVAN_BINDING_SEQUENCE = [
-    { slot: 'neck', id: 'slave_collar', label: '编号项圈', icon: '🐕' },
-    { slot: 'arms', id: 'handcuffs', label: '车队手铐', icon: '⛓️' },
-    { slot: 'mouth', id: 'leather_gag', label: '封口球', icon: '🤐' },
-    { slot: 'anal', id: 'butt_plug', label: '入库肛塞', icon: '🍑' },
+    { slot: 'neck', id: 'slave_collar', label: '奴隶项圈', icon: '🐕' },
+    { slot: 'arms', id: 'handcuffs', label: '手铐', icon: '⛓️' },
+    { slot: 'mouth', id: 'leather_gag', label: '球形口塞', icon: '🤐' },
+    { slot: 'anal', id: 'butt_plug', label: '小肛塞', icon: '🍑' },
   ]
 
   /** 开始战斗 */
@@ -367,7 +367,7 @@ window.BattleSystem = (function () {
     EventBus.emit('state:changed', state)
   }
 
-  /** P 车队看守：取得当前尚未上锁的束缚。 */
+  /**派克车队看守：取得当前尚未上锁的束缚。 */
   function caravanPendingBindings () {
     const battle = State.get()._battle
     if (!battle || battle.enemyId !== 'p_caravan_guard') return []
@@ -376,6 +376,16 @@ window.BattleSystem = (function () {
   }
 
   /** 按项圈→手铐→口塞→肛塞的顺序佩戴；已占用的槽位只加车队封条，不覆盖玩家装备。 */
+  function peekCaravanBinding () {
+    const battle = State.get()._battle
+    if (!battle) return null
+    if (!Array.isArray(battle.caravanBindings)) battle.caravanBindings = []
+    const activeStages = new Set(battle.caravanBindings.map(binding => binding.stage))
+    const stage = CARAVAN_BINDING_SEQUENCE.findIndex((_, index) => !activeStages.has(index))
+    if (stage < 0) return null
+    return CARAVAN_BINDING_SEQUENCE[stage]
+  }
+
   function applyCaravanBinding () {
     const state = State.get()
     const battle = state._battle
@@ -605,10 +615,9 @@ window.BattleSystem = (function () {
           }
           secureCaravanBindings(battle)
         }
-        const banditLossDue = Math.max(0, 12 - (battle.banditGoldStolen || 0))
-        const goldLost = hallAssault ? 0 : Math.min(state.gold, banditHideout ? banditLossDue : provoked ? 30 : 12)
-        const displayedGoldLost = banditHideout ? (battle.banditGoldStolen || 0) + goldLost : goldLost
-        state.gold -= goldLost
+        const goldLost = hallAssault ? 0 : Math.min(state.gold, banditHideout ? state.gold : provoked ? 30 : 12)
+        const displayedGoldLost = banditHideout ? state.gold : goldLost
+        if (!banditHideout) state.gold -= goldLost
         state.hp = Math.max(1, Math.ceil(state.maxHp * (hallAssault || provoked ? 0.25 : 0.5)))
         // 剧情战各自决定失败落点：桥洞强盗只把玩家逐回旧桥，
         // 车队与会馆失败才会把人送进雾灯镇。
@@ -616,9 +625,9 @@ window.BattleSystem = (function () {
         state._battle = null
         state.phase = 'idle'
         EventBus.emit('ui:log', { text: hallAssault
-          ? '⛓️ 商团执法者没有杀你。他们把你拖回 P 的长桌前，准备强制登记。'
+          ? '⛓️ 商团执法者没有杀你。他们把你拖回派克的长桌前，准备强制登记。'
           : banditHideout
-            ? `🗡️ 强盗前后共搜走 ${displayedGoldLost}G，把你留在桥洞里继续处置；证人仍被关在深处。`
+            ? `🗡️ 头目把你身上的 ${displayedGoldLost}G 全部搜走，准备把你留在桥洞里当几天飞机杯。`
             : `⛓️ 车队看守没有杀你。他们夺走 ${goldLost}G，把你捆上货车押回了雾灯镇。`, type: 'danger' })
         EventBus.emit('state:changed', state)
         State.save()
@@ -637,7 +646,7 @@ window.BattleSystem = (function () {
     }
   }
 
-  return { start, playerAttack, getTargets, mainTarget, removeTarget, end, defend, flee, enemyEscape, applyCaravanBinding, struggleCaravanBinding, tickCaravanBindings, caravanPendingBindings }
+  return { start, playerAttack, getTargets, mainTarget, removeTarget, end, defend, flee, enemyEscape, peekCaravanBinding, applyCaravanBinding, struggleCaravanBinding, tickCaravanBindings, caravanPendingBindings }
 })()
 
 /* ---------- 掷骰工具 ---------- */

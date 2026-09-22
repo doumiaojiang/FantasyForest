@@ -28,5 +28,6 @@ const ui = read('js/ui/battle.js')
 assert.match(ui, /p_bandit_cutpurse/)
 const story = read('js/systems/commission.js')
 assert.match(story, /function recoverBanditClothes/)
+assert.match(story, /playBanditToyDefeat/)
 
 console.log('bandit leader tests passed')

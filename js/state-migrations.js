@@ -95,6 +95,9 @@ window.StateMigrations = (function () {
         provoked: !!state._pCaravanEscortResult.provoked,
         bindings: Math.max(0, Math.min(4, Math.floor(finite(state._pCaravanEscortResult.bindings, 4)))),
         naked: !!state._pCaravanEscortResult.naked,
+        punished: !!state._pCaravanEscortResult.punished,
+        punishmentStep: Math.max(0, Math.min(2, Math.floor(finite(state._pCaravanEscortResult.punishmentStep, 0)))),
+        gateUsed: !!state._pCaravanEscortResult.gateUsed,
       }
     } else {
       state._pCaravanEscortResult = null
@@ -102,9 +105,12 @@ window.StateMigrations = (function () {
     }
     state._pFourfoldEscortCompleted = !!state._pFourfoldEscortCompleted
     state._pDefeatDispatchPending = !!state._pDefeatDispatchPending
-    if (!['clothes', 'defeat-verify', 'defeat-rotate', 'defeat-discard', 'victory-fall', 'victory-mark'].includes(state._pBanditAftermath)) state._pBanditAftermath = null
+    state._pDefeatPunished = !!state._pDefeatPunished
+    state._pDefeatSentenced = !!state._pDefeatSentenced
+    state._pDefeatPunishmentStep = Math.max(0, Math.min(2, Math.floor(finite(state._pDefeatPunishmentStep, 0))))
+    if (!['clothes', 'defeat-toy', 'defeat-verify', 'defeat-rotate', 'defeat-discard', 'witness-trade', 'victory-fall', 'victory-mark'].includes(state._pBanditAftermath)) state._pBanditAftermath = null
     state._pBanditDefeatCount = Math.max(0, Math.min(99, Math.floor(finite(state._pBanditDefeatCount, 0))))
-    state._pBanditDefeatScene = Math.max(0, Math.min(3, Math.floor(finite(state._pBanditDefeatScene, 0))))
+    state._pBanditDefeatScene = Math.max(0, Math.min(18, Math.floor(finite(state._pBanditDefeatScene, 0))))
     if (state._pBanditDefeatResult && typeof state._pBanditDefeatResult === 'object' && !Array.isArray(state._pBanditDefeatResult)) {
       state._pBanditDefeatResult = {
         goldLost: Math.max(0, Math.min(9999, Math.floor(finite(state._pBanditDefeatResult.goldLost, 0)))),
@@ -118,10 +124,31 @@ window.StateMigrations = (function () {
       state._pBanditVictoryResult = {
         fleeingCrew: Math.max(0, Math.min(2, Math.floor(finite(state._pBanditVictoryResult.fleeingCrew, 0)))),
         clothesTaken: !!state._pBanditVictoryResult.clothesTaken,
+        gold: Math.max(0, Math.min(9999, Math.floor(finite(state._pBanditVictoryResult.gold, 0)))),
       }
     } else state._pBanditVictoryResult = null
     if (!['questioned', 'bound', 'released'].includes(state._pBanditLeaderFate)) state._pBanditLeaderFate = null
     if (!['scrubbed', 'kept'].includes(state._pBanditMarkChoice)) state._pBanditMarkChoice = null
+    if (state._pBanditToySession && typeof state._pBanditToySession === 'object' && Array.isArray(state._pBanditToySession.uses)) {
+      state._pBanditToySession = {
+        days: Math.max(2, Math.min(3, Math.floor(finite(state._pBanditToySession.days, 2)))),
+        index: Math.max(0, Math.floor(finite(state._pBanditToySession.index, 0))),
+        repeat: !!state._pBanditToySession.repeat,
+        announcedDay: Math.max(0, Math.min(3, Math.floor(finite(state._pBanditToySession.announcedDay, 0)))),
+        uses: state._pBanditToySession.uses.slice(0, 18).map(use => ({
+          actor: String(use && use.actor || '☠️ 劫货强盗头目').slice(0, 40),
+          name: String(use && use.name || '泄火').slice(0, 40),
+          desc: String(use && use.desc || '').slice(0, 400),
+          bpm: Math.max(0, Math.min(240, Math.floor(finite(use && use.bpm, 0)))),
+          seconds: Math.max(0, Math.min(120, Math.floor(finite(use && use.seconds, 0)))),
+          taskCount: Math.max(0, Math.min(40, Math.floor(finite(use && use.taskCount, 0)))),
+          taskTool: String(use && use.taskTool || '').slice(0, 20),
+        })),
+      }
+    } else state._pBanditToySession = null
+    state._pBanditTradeStep = Math.max(0, Math.min(6, Math.floor(finite(state._pBanditTradeStep, 0))))
+    state._pBanditBridgeToll = !!state._pBanditBridgeToll
+    state._pBanditRansomDebt = Math.max(0, Math.min(9999, Math.floor(finite(state._pBanditRansomDebt, 0))))
     if (!state._pTownInquiry || typeof state._pTownInquiry !== 'object' || Array.isArray(state._pTownInquiry)) {
       state._pTownInquiry = { guard: false, merchant: false, citizen: false }
     }
@@ -156,12 +183,13 @@ window.StateMigrations = (function () {
     }
     state._pMainlineStage = Math.max(0, Math.min(6, Math.floor(finite(state._pMainlineStage, 0))))
     if (!['slaver', 'free', 'slave'].includes(state._pRole)) state._pRole = null
+    state._pChapterOneLocked = !!state._pChapterOneLocked
     state._pGateChoices = Array.isArray(state._pGateChoices)
-      ? [...new Set(state._pGateChoices.filter(choice => ['work', 'question', 'refuse', 'cautious', 'defiant'].includes(choice)))].slice(0, 6)
+      ? [...new Set(state._pGateChoices.filter(choice => ['work', 'question', 'refuse', 'cautious', 'defiant', 'slave', 'free'].includes(choice)))].slice(0, 6)
       : []
     if (!['registered', 'helped', 'refused', 'assault_win', 'assault_loss', 'slaver_training', 'free_observer', 'slave_training'].includes(state._pDayaOutcome)) state._pDayaOutcome = null
     state._pRouteLocked = !!state._pRouteLocked || state._pMainlineStage >= 6
-    // 旧版把“发现许可”后到初见 P 的整段内容压缩掉了。未锁定路线的旧档回退到
+    // 旧版把“发现许可”后到初见派克的整段内容压缩掉了。未锁定路线的旧档回退到
     // 车队残骸阶段，避免刷新后继续进入已经废弃的登记页四选一。
     if (previousPStoryRevision < 2 && !state._pRouteLocked && state._wrongCommissionStage >= 6) {
       state._wrongCommissionStage = 5
@@ -635,10 +663,10 @@ window.StateMigrations = (function () {
       state._battle.blocked = state._battle.insertionBlocks.anal + state._battle.insertionBlocks.vagina
       state._battle.bossForcedUnlockUsed = !!state._battle.bossForcedUnlockUsed
       const caravanDefs = [
-        { slot: 'neck', id: 'slave_collar', label: '编号项圈', icon: '🐕' },
-        { slot: 'arms', id: 'handcuffs', label: '车队手铐', icon: '⛓️' },
-        { slot: 'mouth', id: 'leather_gag', label: '封口球', icon: '🤐' },
-        { slot: 'anal', id: 'butt_plug', label: '入库肛塞', icon: '🍑' },
+        { slot: 'neck', id: 'slave_collar', label: '奴隶项圈', icon: '🐕' },
+        { slot: 'arms', id: 'handcuffs', label: '手铐', icon: '⛓️' },
+        { slot: 'mouth', id: 'leather_gag', label: '球形口塞', icon: '🤐' },
+        { slot: 'anal', id: 'butt_plug', label: '小肛塞', icon: '🍑' },
       ]
       state._battle.caravanBindings = Array.isArray(state._battle.caravanBindings)
         ? state._battle.caravanBindings.map(binding => {

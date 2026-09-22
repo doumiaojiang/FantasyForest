@@ -1,5 +1,5 @@
 /**
- * systems/commission.js — “P 的货单”序章野外事件。
+ * systems/commission.js — “欲缚镇 · 序章”野外事件。
  *
  * 任务顺序：收到错信 → 旧桥核对车辙 → 调查酒馆与铁匠
  * → 返回旧桥寻找遗失许可 → 搜查桥下车队残骸 → 桥洞据点救出证人
@@ -15,7 +15,7 @@ window.CommissionSystem = (function () {
   }
 
   function firstBridgeInspection () {
-    saveProgress(3, '🌉 旧桥上的车辙证实，P 的货物已经分批送进雾灯镇。')
+    saveProgress(3, '🌉 旧桥上的车辙证实，派克的货物已经分批送进雾灯镇。')
     Dialog.show({
       title: '🌉 旧桥 · 车辙',
       className: 'commission-bridge-modal',
@@ -43,11 +43,11 @@ window.CommissionSystem = (function () {
       title: '🌉 旧桥 · 遗失的许可',
       className: 'commission-bridge-modal',
       body: `<section class="scene-dialogue"><i aria-hidden="true">📜</i><div><h3>桥墩缝里卡着一只泡湿的皮卷。</h3><p>这是车夫丢失的运输许可。酒馆与铁匠都列在收货人一栏，最下方却盖着雾灯镇的正式印章——这批货不是偷运进来的。</p></div></section>
-        <div class="wrong-letter-evidence is-found"><span>许可背面</span><p>“货到后启用新规。城门监督官负责接管。——P”</p></div>
+        <div class="wrong-letter-evidence is-found"><span>许可背面</span><p>“货到后启用新规。城门监督官负责接管。——派克”</p></div>
         <p class="wrong-letter-after">桥栏外侧沾着尚未干透的血迹。一截蓝布挂在桥墩下，凌乱的车轮印沿着斜坡滑进断桥阴影。</p>`,
       actions: [{ label: '收起许可，沿桥墩下去', cls: 'btn-primary', handler: () => {
         state._pBridgeAftermath = null
-        EventBus.emit('ui:log', { text: '📜 你收好了雾灯镇签发给 P 商队的通行许可。', type: 'warning' })
+        EventBus.emit('ui:log', { text: '📜 你收好了雾灯镇签发给派克商队的通行许可。', type: 'warning' })
         EventBus.emit('state:changed', state)
         State.save()
         Dialog.close()
@@ -94,7 +94,7 @@ window.CommissionSystem = (function () {
       className: 'commission-bridge-modal',
       body: `<section class="scene-dialogue"><i aria-hidden="true">🛞</i><div><h3>翻倒的货车卡在桥墩与浅滩之间，车夫与两名护卫已经没了呼吸。</h3><p>箱子被撬开，约束器具却几乎没有被拿走。强盗真正寻找的是随车名单，以及一个知道收货人身份的活口。</p></div></section>
         <div class="wrong-letter-evidence is-found"><span>桥洞里的痕迹</span><p>拖拽脚印和断裂的蓝布条钻进旧桥封死的泄洪洞。石缝深处透着营火，有人被活着带进去了。</p></div>
-        <p class="wrong-letter-after">这不再只是送错的货单。只要证人还活着，就有人能说明 P 的车队究竟替谁办事。</p>`,
+        <p class="wrong-letter-after">这不再只是送错的货单。只要证人还活着，就有人能说明派克的车队究竟替谁办事。</p>`,
       actions: [{ label: '靠近桥洞里的营火', cls: 'btn-primary', handler: () => { Dialog.close(); enterBanditHideout() } }],
     })
   }
@@ -103,7 +103,12 @@ window.CommissionSystem = (function () {
     const state = State.get()
     if ((state._wrongCommissionStage || 0) !== 6) { GameFlow.openCamp(); return }
     Dialog.close()
-    EventBus.emit('ui:log', { text: returning ? '⚔️ “熟客，先堵嘴。”哨探从旧位置扑来，但这一次没人再替头目挡刀。' : '⚔️ 你踏进桥洞。哨探已经从斜坡阴影里摸到你背后。', type: 'danger' })
+    EventBus.emit('ui:log', {
+      text: returning
+        ? '⚔️ “这不是上次那只肉便器吗？！”哨探从旧位置扑来，这一次没人再替头目挡刀。'
+        : '⚔️ 你踏进桥洞。哨探已经从斜坡阴影里摸到你背后。',
+      type: 'danger',
+    })
     State.save()
     GameFlow.startBattle('p_bandit_leader', { story: 'commission-bandits', noElite: true, banditNoCover: returning })
   }
@@ -116,6 +121,7 @@ window.CommissionSystem = (function () {
       seconds: options.seconds || 0,
       taskCount: options.taskCount || 0,
       taskTool: options.taskTool || '',
+      taskSteps: options.taskSteps || [],
       dmg: 0, noDamage: true,
       allowSkip: false,
       completeLabel: options.completeLabel || '完成这一段',
@@ -128,62 +134,135 @@ window.CommissionSystem = (function () {
     if (StatusSystem.has('naked')) StatusSystem.remove('naked')
     StatusSystem.apply('naked', 99999, { source: 'p_bandit_chest' })
     state._pBanditClothesLocked = true
-    EventBus.emit('ui:log', { text: '🔒 强盗把你的原衣锁进头目铁箱；浅滩和赃物堆里都找不到。', type: 'danger' })
+    EventBus.emit('ui:log', { text: '👙 他们把你扔上断桥时没有给你衣服。', type: 'danger' })
   }
 
-  async function playFirstBanditDefeat (startScene = 1) {
-    const state = State.get()
-    const result = state._pBanditDefeatResult || { goldLost: 0, livingCrew: 2 }
-    if (startScene <= 1) {
-      state._pBanditAftermath = 'defeat-verify'
-      state._pBanditDefeatScene = 1
-      lockBanditClothes()
-      EventBus.emit('state:changed', state); State.save()
-      await runBanditTask('☠️ 劫货强盗头目', '给弃畜烙号', '全裸趴上货箱，左右交替拧乳并逐下报数。头目踩着箱沿骂道：“二十下，母畜。衣服锁起来，你以后就靠腿上的字认自己。”', { taskCount: 20, taskTool: '双手', completeLabel: '报完二十下' })
-      await runBanditTask('☠️ 劫货强盗头目', '烂货耳光', '保持趴伏，逐下完成八记耳光。炭笔随后在大腿内侧写下弃畜编号。', { taskCount: 8, taskTool: '手掌', completeLabel: '挨完八下' })
-    }
-
-    if (startScene <= 2) {
-      state._pBanditAftermath = 'defeat-rotate'
-      state._pBanditDefeatScene = 2
-      EventBus.emit('state:changed', state); State.save()
-      const living = Math.max(0, Math.min(2, result.livingCrew || 0))
-      await runBanditTask('☠️ 劫货强盗头目', '匪帮泄火', living > 0
-        ? '头目从身后使用你十五秒。“名单不在这头婊子身上。轮着操完，再把烂货扔出去。”'
-        : '头目独占着从身后使用你二十秒，每八拍停住一次。', { bpm: 100, seconds: living > 0 ? 15 : 20 })
-      if (living >= 1) await runBanditTask('🗡️ 桥洞哨探', '封口收尾', '哨探按住后脑深喉八秒，最后停住憋气。', { bpm: 70, seconds: 8 })
-      if (living >= 2) await runBanditTask('🗡️ 翻箱扒手', '搜净母畜', '扒手探穴确认没有藏东西，再逐下扇臀十次。', { taskCount: 10, taskTool: '手掌' })
-    }
-
-    state._pBanditAftermath = 'defeat-discard'
-    state._pBanditDefeatScene = 3
-    EventBus.emit('state:changed', state); State.save()
-    showBanditDiscard()
+  function banditOrifice (kind) {
+    const male = State.get().gender === 'male'
+    if (kind === 'anal') return '菊穴'
+    if (kind === 'vagina') return male ? '菊穴' : '小穴'
+    if (kind === 'oral') return '嘴穴'
+    return '身体'
   }
 
-  async function playRepeatBanditDefeat () {
+  function banditUseEntry (pick) {
+    return {
+      actor: pick.actor,
+      name: pick.name,
+      desc: pick.desc,
+      bpm: pick.bpm || 0,
+      seconds: pick.seconds || 0,
+      taskCount: pick.count || 0,
+      taskTool: pick.tool || '',
+    }
+  }
+
+  function pickBanditToyUses (days) {
+    const male = State.get().gender === 'male'
+    const hole = banditOrifice('vagina')
+    const anal = banditOrifice('anal')
+    const oral = banditOrifice('oral')
+    const frontalUse = male
+      ? { name: '撸管寸止', actor: '🗡️ 翻箱扒手', bpm: 100, seconds: 40, desc: '扒手把你翻过来，攥住阴茎反复套弄，每次快要射出时就突然停手。“没有小穴也一样能验货。没有我的命令，不准射。”' }
+      : { name: '正穴灌精', actor: '🗡️ 翻箱扒手', bpm: 130, seconds: 40, desc: `扒手把你翻过来，对准${hole}整根没入。“名单不在这口穴里？那就把精液先灌进去。”` }
+    const penetration = [
+      { name: '后入飞机杯', actor: '☠️ 劫货强盗头目', bpm: 140, seconds: 40, desc: `头目把你按在货箱上当飞机杯用，从身后整根操进${anal}，每一下都顶到最深。“送上门的洞，当然要灌满。”` },
+      { name: '操嘴泄火', actor: '🗡️ 桥洞哨探', bpm: 110, seconds: 35, desc: `哨探揪着头发把鸡巴塞进${oral}，按节拍抽插，唾液顺着下巴往下滴。` },
+      frontalUse,
+      { name: '深喉停住', actor: '☠️ 劫货强盗头目', bpm: 90, seconds: 35, desc: `头目按住后脑做深喉，每八拍停在最深处逼你憋气。“飞机杯不会喘气，只会吞。”` },
+    ]
+    const punishment = [
+      { name: '拱穴展示', actor: '🗡️ 桥洞哨探', bpm: 60, seconds: 30, desc: '哨探命你双手抱头、双腿打开，按拍子反复下蹲并向后拱起臀部，让营火边所有人看清被操开的穴口。' },
+      { name: '打飞机杯屁股', actor: '☠️ 劫货强盗头目', count: 20, tool: '手掌或皮带', desc: '头目把你按过膝弯，连续抽打臀部并逼你报数。“烂飞机杯也要会报数。”' },
+      { name: '扇巴掌', actor: '🗡️ 桥洞哨探', count: 12, tool: '手掌', desc: '哨探左右开弓扇脸，每一下都要你把嘴张开给下一个人用。' },
+      { name: '拧乳泄愤', actor: '🗡️ 翻箱扒手', count: 16, tool: '双手', desc: '扒手左右交替拧乳头并逼你报数。乳尖被拧得又红又肿，他还故意往上面抹精液。' },
+    ]
+    const uses = []
+    for (let day = 0; day < days; day++) {
+      uses.push(banditUseEntry(penetration[Math.floor(Math.random() * penetration.length)]))
+      uses.push(banditUseEntry(punishment[Math.floor(Math.random() * punishment.length)]))
+    }
+    return uses
+  }
+
+  function ensureBanditToySession (repeat) {
     const state = State.get()
-    state._pBanditAftermath = 'defeat-rotate'
-    state._pBanditDefeatScene = 2
+    if (state._pBanditToySession && Array.isArray(state._pBanditToySession.uses) && state._pBanditToySession.uses.length) return state._pBanditToySession
+    const days = 2 + Math.floor(Math.random() * 2)
+    const session = { days, uses: pickBanditToyUses(days), index: 0, repeat: !!repeat }
+    state._pBanditToySession = session
+    return session
+  }
+
+  async function playBanditToyDefeat (repeat = false) {
+    const state = State.get()
+    const session = ensureBanditToySession(repeat)
+    state._pBanditAftermath = 'defeat-toy'
     EventBus.emit('state:changed', state); State.save()
-    await runBanditTask('☠️ 劫货强盗头目', '爬回来的弃畜', '“被操完扔进浅滩的母猪，又自己爬回来了。”头目不再检查，只让人扇臀十下。', { taskCount: 10, taskTool: '手掌' })
-    await runBanditTask('🗡️ 桥洞哨探', '堵嘴泄火', '“这头骚货只配堵嘴泄火。”哨探用深喉堵住辩解，最后停住憋气八秒。', { bpm: 70, seconds: 12 })
-    state._pBanditAftermath = 'defeat-discard'
-    state._pBanditDefeatScene = 3
+    Dialog.show({
+      title: repeat ? '🍑 桥洞 · 免费精液飞机杯' : '🍑 桥洞 · 送上门的飞机杯',
+      className: 'commission-bridge-modal',
+      body: `<section class="scene-dialogue"><i aria-hidden="true">🍑</i><div><h3>${repeat ? '“被灌满扔出去的飞机杯，自己又爬回来了。”' : '“名单不在这头货身上。那就先当几天飞机杯。”'}</h3><p>头目把你按上货箱。他们把你留在桥洞里 <b>${session.days}</b> 天。每一天只有两段：先使用一次，再责打或展示一次。身上会被写满淫话，用完才把你扔回断桥。</p></div></section>`,
+      actions: [{ label: '被留下当飞机杯', cls: 'btn-danger', handler: () => { Dialog.close(); continueBanditToySession() } }],
+    })
+  }
+
+  async function continueBanditToySession () {
+    const state = State.get()
+    const session = ensureBanditToySession(false)
+    const index = Math.max(0, Math.min(session.uses.length, Number(session.index) || 0))
+    if (index >= session.uses.length) {
+      showBanditDiscard(!!session.repeat)
+      return
+    }
+    const structured = session.uses.length === session.days * 2
+    const day = Math.floor(index / 2) + 1
+    if (structured && index > 0 && index % 2 === 0 && session.announcedDay !== day) {
+      session.announcedDay = day
+      state._pBanditToySession = session
+      EventBus.emit('state:changed', state); State.save()
+      await new Promise(resolve => {
+        Dialog.show({
+          title: `🍑 桥洞 · 第${day}天`,
+          className: 'commission-bridge-modal',
+          body: `<section class="scene-dialogue"><i aria-hidden="true">🔥</i><div><h3>营火重新点起来。这是第 ${day} 天，一共 ${session.days} 天。</h3><p>今天仍是两段：先使用一次，再责打或展示一次。</p></div></section>`,
+          actions: [{ label: '继续这一天', cls: 'btn-danger', handler: () => { Dialog.close(); resolve() } }],
+        })
+      })
+    }
+    const latest = State.get()
+    const current = latest._pBanditToySession || session
+    const use = current.uses[index]
+    latest._pBanditAftermath = 'defeat-toy'
+    latest._pBanditDefeatScene = index + 1
+    current.index = index
+    EventBus.emit('state:changed', latest); State.save()
+    const endOfDay = structured && index % 2 === 1
+    const last = index + 1 >= current.uses.length
+    const label = structured
+      ? `${use.name}（第${day}天 · ${index % 2 === 0 ? '使用' : '责打'}）`
+      : `${use.name}（${index + 1}/${current.uses.length}）`
+    await runBanditTask(use.actor, label, use.desc, {
+      bpm: use.bpm, seconds: use.seconds, taskCount: use.taskCount, taskTool: use.taskTool,
+      completeLabel: last ? '被用完' : endOfDay ? '这一天结束' : '下一段',
+    })
+    session.index = index + 1
+    state._pBanditToySession = session
     EventBus.emit('state:changed', state); State.save()
-    showBanditDiscard(true)
+    if (session.index >= session.uses.length) showBanditDiscard(!!session.repeat)
+    else continueBanditToySession()
   }
 
   function showBanditDiscard (repeat = false) {
     const state = State.get()
-    const result = state._pBanditDefeatResult || { goldLost: 0 }
+    const lost = Math.max(0, Number((state._pBanditDefeatResult || {}).goldLost) || 0)
     Dialog.show({
-      title: '🩸 旧桥下 · 弃置浅滩',
+      title: '🩸 断桥 · 扔出去的飞机杯',
       className: 'commission-bridge-modal',
-      body: `<section class="scene-dialogue"><i aria-hidden="true">🩸</i><div><h3>“${repeat ? '这头弃畜连号都不用重写。堵完嘴，照旧扔下去。' : '问过了。把这头烂母畜操完扔出去，活口比她值钱。'}”</h3><p>头目揪着记号把你拖到洞口，像空箱子一样踹下斜坡。你全裸摔进浅滩，腿上的炭字还新；${result.goldLost || 0}G 已被搜走，原衣则锁在他腰间钥匙对应的铁箱里。</p></div></section>
-        <div class="wrong-letter-evidence"><span>桥下的记号</span><p>蕾娜仍被关在木栅后。你可以先回镇整备，也可以立刻再次进入桥洞。</p></div>`,
+      body: `<section class="scene-dialogue"><i aria-hidden="true">🩸</i><div><h3>“${repeat ? '免费精液飞机杯用完了。照旧扔到断桥上去。' : '问过了。烂飞机杯扔出去，活口比她值钱。'}”</h3><p>他们把灌满精液和尿的你拖到断桥边踹下去。没有衣服。身上写满淫话，穴口还在往外淌。${lost ? `身上仅剩的 ${lost}G 也被头目搜走。` : '钱袋早就空了。'}蕾娜仍被锁在木栅后。</p></div></section>
+        <div class="wrong-letter-evidence"><span>断桥</span><p>你可以先回镇，也可以马上再进洞。他们没有把衣服扔给你。</p></div>`,
       actions: [
-        { kind: 'navigation', label: '先回镇里整备', handler: () => finishBanditDiscard(true) },
+        { kind: 'navigation', label: '先回镇里', handler: () => finishBanditDiscard(true) },
         { label: '再次进入桥洞', cls: 'btn-danger', handler: () => finishBanditDiscard(false) },
       ],
     })
@@ -194,30 +273,61 @@ window.CommissionSystem = (function () {
     state._pBanditAftermath = null
     state._pBanditDefeatScene = 0
     state._pBanditDefeatResult = null
-    state._pBanditGateReactionPending = toTown && state._pBanditClothesLocked && StatusSystem.has('naked')
+    state._pBanditToySession = null
+    state._pBanditTradeStep = 0
+    state._pBanditGateReactionPending = toTown && StatusSystem.has('naked')
     EventBus.emit('state:changed', state); State.save(); Dialog.close()
     if (toTown) GameFlow.openCamp()
     else enterBanditHideout()
   }
 
-  async function begForWitness () {
+  async function fakeWitnessTrade () {
     const state = State.get()
+    const oral = banditOrifice('oral')
+    const anal = banditOrifice('anal')
+    const steps = [
+      ['☠️ 劫货强盗头目', '嘴穴第一轮', `你爬上货箱求换人。头目笑着把鸡巴塞进${oral}：“想免费换人？先把这张嘴献出来。”`, { bpm: 120, seconds: 35 }],
+      ['☠️ 劫货强盗头目', '菊穴第一轮', `第一轮还没结束，他就把你翻过去，整根操进${anal}。`, { bpm: 140, seconds: 35 }],
+      ['☠️ 劫货强盗头目', '嘴穴第二轮', '第二轮从嘴开始。精液还没咽下去，下一根又顶进来。', { bpm: 130, seconds: 30 }],
+      ['☠️ 劫货强盗头目', '菊穴第二轮', `他拍着被操开的${anal}：“这才第二轮。”`, { bpm: 150, seconds: 30 }],
+      ['☠️ 劫货强盗头目', '嘴穴第三轮', '第三轮深喉停在最深处。哨探和扒手在旁边笑。', { bpm: 100, seconds: 30 }],
+      ['☠️ 劫货强盗头目', '菊穴第三轮', '三轮结束。头目射在最深处，把你像用完的套一样拽起来。', { bpm: 150, seconds: 30 }],
+    ]
     Dialog.close()
-    await runBanditTask('🗡️ 桥洞哨探', '熟客封口', '自己爬上货箱，报出腿上的编号。哨探按住后脑深喉十二秒，最后停住憋气。', { bpm: 75, seconds: 12 })
-    await runBanditTask('🗡️ 翻箱扒手', '锁箱验收', '扒手拍了拍仍锁着原衣的铁箱，当众拧乳十五下。', { taskCount: 15, taskTool: '双手' })
-    await runBanditTask('☠️ 劫货强盗头目', '名单换人', '头目从身后使用你二十五秒：“名单换人，人换这张嘴。用完这头婊子，就把记账的扔给她。”', { bpm: 100, seconds: 25 })
-    state._pBanditWitnessBegged = true
+    state._pBanditAftermath = 'witness-trade'
+    let step = Math.max(0, Math.min(steps.length, Math.floor(Number(state._pBanditTradeStep) || 0)))
     EventBus.emit('state:changed', state); State.save()
-    rescueCaravanWitness('begged')
+    for (; step < steps.length; step++) {
+      await runBanditTask(...steps[step])
+      const latest = State.get()
+      latest._pBanditTradeStep = step + 1
+      latest._pBanditAftermath = 'witness-trade'
+      EventBus.emit('state:changed', latest); State.save()
+    }
+    const latest = State.get()
+    EventBus.emit('ui:log', { text: '🩸 三轮用完，他们把你笑着扔回断桥。蕾娜仍锁在木栅后。', type: 'danger' })
+    latest._pBanditTradeStep = 0
+    latest._pBanditAftermath = 'defeat-discard'
+    EventBus.emit('state:changed', latest); State.save()
+    showBanditDiscard(true)
   }
 
   function buyWitness () {
     const state = State.get()
-    const price = Math.max(300, (state._pCaravanDebt || 0) * 2)
-    if (state.gold < price) { enterBanditHideout(); return }
-    state.gold -= price
+    const price = 600
+    if (state.gold >= price) {
+      state.gold -= price
+      state._pBanditWitnessBegged = true
+      state._pBanditBridgeToll = false
+      EventBus.emit('ui:log', { text: `💰 你当场付清 ${price}G：你和人质各 300G。头目仍没把衣服给你。`, type: 'danger' })
+      EventBus.emit('state:changed', state); State.save(); Dialog.close()
+      rescueCaravanWitness('bought')
+      return
+    }
+    state._pBanditRansomDebt = (state._pBanditRansomDebt || 0) + 1200
     state._pBanditWitnessBegged = true
-    EventBus.emit('ui:log', { text: `💰 你付出 ${price}G 买下蕾娜的命；头目仍拒绝打开衣箱。`, type: 'danger' })
+    state._pBanditBridgeToll = true
+    EventBus.emit('ui:log', { text: '🧾 你欠下 1200G。从此每次路过旧桥，都要给头目口交、深喉、肛交和性交各一次。', type: 'danger' })
     EventBus.emit('state:changed', state); State.save(); Dialog.close()
     rescueCaravanWitness('bought')
   }
@@ -226,17 +336,15 @@ window.CommissionSystem = (function () {
     const state = State.get()
     if ((state._wrongCommissionStage || 0) !== 6) { GameFlow.openCamp(); return }
     if ((state._pBanditDefeatCount || 0) >= 1) {
-      const price = Math.max(300, (state._pCaravanDebt || 0) * 2)
-      const forceChoice = (state._pBanditDefeatCount || 0) >= 2
       Dialog.show({
         title: '🌉 旧桥下 · 熟客',
         className: 'commission-bridge-modal',
-        body: `<section class="scene-dialogue"><i aria-hidden="true">🔥</i><div><h3>头目一眼认出你腿上的炭字，笑声从货箱一路传到木栅。</h3><p>“昨天扔出去的${state.gender === 'male' ? '男婊子' : '母猪'}自己爬回来了。名单还在。你是来打，还是来跪？”蕾娜隔着木栅看着你，没有出声。</p></div></section>
-          ${forceChoice ? '<p class="wrong-letter-after">连续两次被扔回来后，匪帮已经封死正面入口。要救人，只能交出足够的代价。</p>' : ''}`,
+        body: `<section class="scene-dialogue"><i aria-hidden="true">🔥</i><div><h3>头目一眼认出你身上的淫话和还没干的精斑，笑声从货箱传到木栅。</h3><p>“这不是上次那只肉便器吗？！名单还在。你是来挨打，还是又送上门来给操？”蕾娜隔着木栅看着你，没有出声。</p></div></section>
+          <p class="wrong-letter-after">当场付 600G 可带走人质；付不起就欠 1200G，以后每次路过旧桥都要给头目口交、深喉、肛交和性交各一次。想免费换人，他们只会再操你三轮再把你扔出去。</p>`,
         actions: [
-          ...(!forceChoice ? [{ label: '再打一次', cls: 'btn-danger', handler: () => startBanditBattle(true) }] : []),
-          { label: '跪上货箱换人', cls: 'btn-danger', handler: begForWitness },
-          ...(state.gold >= price ? [{ label: `付 ${price}G 买下活口`, cls: 'btn-primary', handler: buyWitness }] : []),
+          { label: '再打一次', cls: 'btn-danger', handler: () => startBanditBattle(true) },
+          { label: '尝试空手换人', cls: 'btn-danger', handler: fakeWitnessTrade },
+          { label: state.gold >= 600 ? '付 600G 买下两个人' : '欠 1200G 把人带走', cls: 'btn-primary', handler: buyWitness },
           { kind: 'navigation', label: '退回桥面', handler: () => { Dialog.close(); GameFlow.afterEvent() } },
         ],
       })
@@ -256,46 +364,31 @@ window.CommissionSystem = (function () {
 
   function showBanditVictoryFall () {
     const state = State.get()
-    const result = state._pBanditVictoryResult || { fleeingCrew: 0 }
-    const revenge = (state._pBanditDefeatCount || 0) > 0
+    const result = state._pBanditVictoryResult || { fleeingCrew: 0, gold: 0 }
     state._pBanditAftermath = 'victory-fall'
     EventBus.emit('state:changed', state); State.save()
     Dialog.show({
-      title: revenge ? '☠️ 桥洞 · 弃畜归来' : '☠️ 桥洞 · 头目倒下',
+      title: '☠️ 战胜强盗头目',
       className: 'commission-bridge-modal',
-      body: `<section class="scene-dialogue"><i aria-hidden="true">☠️</i><div><h3>${revenge ? '头目认出腿上的炭号时已经太迟。木盾脱手，他跪倒在那只曾经压住你的货箱旁。' : '木盾砸进灰堆，头目跪倒在货箱旁。'}</h3><p>${result.fleeingCrew > 0 ? `剩余 ${result.fleeingCrew} 名喽啰看见头目倒下，抢着钻出桥洞，连账册和钥匙都没敢拿。` : '哨探和扒手已经倒下，桥洞里只剩头目的喘息与木栅后的锁链声。'}${revenge ? '“被你们扔进浅滩的弃畜，自己爬回来取钥匙了。”' : ''}</p></div></section>
-        <div class="wrong-letter-evidence is-found"><span>胜负已定</span><p>头目已经不能继续战斗。现在决定怎样处置他，再去处理铁箱与证人。</p></div>`,
-      actions: [
-        { label: '踩住他，逼问雇主', cls: 'btn-primary', handler: () => settleBanditLeader('questioned') },
-        { label: '用他的绳子捆好', handler: () => settleBanditLeader('bound') },
-        { label: '让他带着记号爬出去', cls: 'btn-danger', handler: () => settleBanditLeader('released') },
-      ],
+      body: `<section class="scene-dialogue"><i aria-hidden="true">☠️</i><div><h3>头目倒下了。木盾砸进灰堆，桥洞里只剩营火和木栅后的锁链声。</h3><p>${result.fleeingCrew > 0 ? `剩余 ${result.fleeingCrew} 名喽啰抢着钻出桥洞。` : '哨探和扒手也已经倒下。'}你从他们身上搜出 ${result.gold || 0}G，以及能证明这批货通往镇务厅的账页。</p></div></section>
+        <div class="wrong-letter-evidence is-found"><span>战利品</span><p>头目已死。先处理衣服，再去救木栅后的证人。</p></div>`,
+      actions: [{ label: '继续', cls: 'btn-primary', handler: () => { Dialog.close(); continueBanditVictory() } }],
     })
-  }
-
-  function settleBanditLeader (fate) {
-    const state = State.get()
-    state._pBanditLeaderFate = fate
-    const logs = {
-      questioned: '📖 头目吐出雇主只要求烧掉名单、不能伤及镇内收货人的口供。',
-      bound: '🪢 你用头目的绳子反绑住他，准备把人和账册一起交给镇务厅。',
-      released: '🩸 你把炭号写回头目脸上，让他带着“弃匪”的记号爬出桥洞。',
-    }
-    EventBus.emit('ui:log', { text: logs[fate], type: fate === 'released' ? 'danger' : 'good' })
-    EventBus.emit('state:changed', state); State.save(); Dialog.close()
-    continueBanditVictory()
   }
 
   function continueBanditVictory () {
     const state = State.get()
-    const result = state._pBanditVictoryResult || {}
-    if ((result.clothesTaken || state._pBanditClothesLocked) && StatusSystem.has('naked')) {
+    if (StatusSystem.has('naked')) {
       state._pBanditAftermath = 'clothes'
       EventBus.emit('state:changed', state); State.save()
       recoverBanditClothes()
       return
     }
-    showBanditVictoryMark()
+    if ((state._pBanditDefeatCount || 0) > 0) {
+      showBanditVictoryMark()
+      return
+    }
+    finishBanditVictory()
   }
 
   function showBanditVictoryMark () {
@@ -307,12 +400,12 @@ window.CommissionSystem = (function () {
     state._pBanditAftermath = 'victory-mark'
     EventBus.emit('state:changed', state); State.save()
     Dialog.show({
-      title: '🩸 桥洞 · 腿上的弃畜号',
+      title: '🩸 桥洞 · 身上的淫话',
       className: 'commission-bridge-modal',
-      body: '<section class="scene-dialogue"><i aria-hidden="true">🩸</i><div><h3>铁箱已经打开，腿内侧的炭字却还留着。</h3><p>浅滩的水能把它擦淡。你也可以故意留下，让镇里的人知道这头被强盗扔出去的“弃畜”最后又爬回来打倒了主人。</p></div></section>',
+      body: '<section class="scene-dialogue"><i aria-hidden="true">🩸</i><div><h3>头目死了，身上被写成飞机杯的字还在。</h3><p>浅滩的水能把它们擦掉。</p></div></section>',
       actions: [
-        { label: '用浅滩水擦掉记号', cls: 'btn-primary', handler: () => settleBanditMark('scrubbed') },
-        { label: '留下记号作为战利品', cls: 'btn-danger', handler: () => settleBanditMark('kept') },
+        { label: '擦掉', cls: 'btn-primary', handler: () => settleBanditMark('scrubbed') },
+        { label: '先不擦', handler: () => settleBanditMark('kept') },
       ],
     })
   }
@@ -320,7 +413,7 @@ window.CommissionSystem = (function () {
   function settleBanditMark (choice) {
     const state = State.get()
     state._pBanditMarkChoice = choice
-    EventBus.emit('ui:log', { text: choice === 'scrubbed' ? '💧 你用冷水擦淡了腿上的弃畜号。' : '🩸 你保留了腿上的弃畜号，把它变成爬回来复仇的证明。', type: choice === 'scrubbed' ? 'good' : 'warning' })
+    EventBus.emit('ui:log', { text: choice === 'scrubbed' ? '💧 你把身上的淫话擦掉了。' : '🩸 那些字还留在皮肤上。', type: choice === 'scrubbed' ? 'good' : 'warning' })
     EventBus.emit('state:changed', state); State.save(); Dialog.close()
     finishBanditVictory()
   }
@@ -329,6 +422,8 @@ window.CommissionSystem = (function () {
     const state = State.get()
     state._pBanditAftermath = null
     state._pBanditVictoryResult = null
+    state._pBanditClothesLocked = false
+    state._pBanditBridgeToll = false
     EventBus.emit('state:changed', state); State.save()
     rescueCaravanWitness((state._pBanditDefeatCount || 0) > 0 ? 'revenge' : 'victory')
   }
@@ -343,16 +438,35 @@ window.CommissionSystem = (function () {
     Dialog.show({
       title: '🕯️ 旧桥下 · 活着的证人',
       className: 'commission-bridge-modal',
-      body: `<section class="scene-dialogue"><i aria-hidden="true">🕯️</i><div><h3>${['victory', 'revenge'].includes(method) ? '你劈开木栅上的锁，女人却先扑向即将烧尽的文件。' : '强盗终于打开木栅，把蕾娜推到你脚边；锁着原衣的铁箱却重新落了锁。'}</h3><p>${method === 'begged' ? '“他们用完你才开锁。”蕾娜捡起半张名单，冷冷看了你一眼，“别求我感谢。至少跟你走，比留在洞里强。”' : method === 'bought' ? '“你买的是我的命，不是我的感谢。”蕾娜把半张名单藏进外套，催你立刻离开桥洞。' : method === 'revenge' ? '蕾娜认得腿上的炭号，也看见你拿着头目钥匙回来。“他们把你当弃畜扔出去，你却回来把锁打开了。”她没有道谢，只把半张名单递给你，“这次别再倒下。”' : '她叫蕾娜，是车队的记账员。P 的货只是诱饵；真正重要的是镇务厅签署的合作名单。'}</p></div></section>
+      body: `<section class="scene-dialogue"><i aria-hidden="true">🕯️</i><div><h3>${method === 'bought' ? '头目收了钱，把木栅打开，把蕾娜推到你脚边。' : '你劈开木栅上的锁，女人却先扑向即将烧尽的文件。'}</h3><p>${method === 'bought' ? '“你买的是我的命，不是我的感谢。”蕾娜把半张名单藏进外套，催你立刻离开桥洞。' : method === 'revenge' ? '蕾娜看见那些还没擦掉的字，也看见头目已经死了。“他们把你当飞机杯扔出去，你却回来把锁打开了。”她把半张名单递给你。' : '她叫蕾娜，是车队的记账员。派克的货只是诱饵；真正重要的是镇务厅签署的合作名单。'}</p></div></section>
         <div class="wrong-letter-evidence is-found"><span>半张收货名单</span><p>酒馆、铁匠铺、城门卫队都在名单上。最后一栏的签署人属于镇务厅。</p></div>
-        <p class="wrong-letter-after">${['victory', 'revenge'].includes(method) ? `蕾娜看了一眼${state._pBanditLeaderFate === 'bound' ? '被反绑的头目' : state._pBanditLeaderFate === 'released' ? '洞口那道带血的爬痕' : '被撬开的账册'}，同意把处置经过一起写进口供。` : '蕾娜记得自己是怎样被换出来的；后续证词会保留这段经过。'}她要你先护送她回雾灯镇。</p>`,
+        <p class="wrong-letter-after">${method === 'bought' ? '蕾娜记得自己是被钱换出来的。' : '头目已经死了。'}她要你先护送她回雾灯镇。</p>`,
       actions: [{ label: '护送蕾娜返回镇务厅', cls: 'btn-primary', handler: () => { Dialog.close(); GameFlow.openCamp() } }],
     })
+  }
+
+  /** 从后期存档回测序章时，清掉会把读档强制推回 stage 10 的未来状态。 */
+  function resetPostPrologueState (state) {
+    state._wrongCommissionOutcome = null
+    state._pMainlineStage = 0
+    state._pRole = null
+    state._pChapterOneLocked = false
+    state._pRouteLocked = false
+    state._pGateChoices = []
+    state._pDayaOutcome = null
+    state._pTownInquiry = { guard: false, merchant: false, citizen: false }
+    state._pDefeatDispatchPending = false
+    state._pDefeatPunished = false
+    state._pDefeatSentenced = false
+    state._pDefeatPunishmentStep = 0
+    state._pCaravanEscortStage = 0
+    state._pCaravanEscortResult = null
   }
 
   function startBridgeBattle (provoked) {
     const state = State.get()
     Dialog.close()
+    resetPostPrologueState(state)
     state._wrongCommissionBattle = provoked ? 'provoked' : 'guard'
     EventBus.emit('ui:log', {
       text: provoked
@@ -389,6 +503,7 @@ window.CommissionSystem = (function () {
       state._pBanditVictoryResult = {
         fleeingCrew: Math.max(0, Math.min(2, Number(result.banditFleeingCrew) || 0)),
         clothesTaken: !!result.banditClothesTaken,
+        gold: Math.max(0, Number(result.loot && result.loot.gold) || 0),
       }
       state._pBanditAftermath = 'victory-fall'
       EventBus.emit('state:changed', state); State.save()
@@ -422,18 +537,27 @@ window.CommissionSystem = (function () {
       showBanditVictoryMark()
       return true
     }
-    if (state._pBanditAftermath === 'defeat-verify') {
-      playFirstBanditDefeat(1)
+    if (state._pBanditAftermath === 'defeat-toy') {
+      continueBanditToySession()
       return true
     }
-    if (state._pBanditAftermath === 'defeat-rotate') {
-      if ((state._pBanditDefeatCount || 0) > 1) playRepeatBanditDefeat()
-      else playFirstBanditDefeat(2)
+    if (state._pBanditAftermath === 'defeat-verify' || state._pBanditAftermath === 'defeat-rotate') {
+      playBanditToyDefeat((state._pBanditDefeatCount || 0) > 1)
       return true
     }
     if (state._pBanditAftermath === 'defeat-discard') {
       showBanditDiscard((state._pBanditDefeatCount || 0) > 1)
       return true
+    }
+    if (state._pBanditAftermath === 'witness-trade') {
+      fakeWitnessTrade()
+      return true
+    }
+    if (state._pBridgeAftermath === 'punish') {
+      const clothesPending = !!(state._pCaravanPunish && state._pCaravanPunish.clothesPending)
+      state._pCaravanPunish = null
+      state._pBridgeAftermath = clothesPending ? 'clothes' : 'permit'
+      State.save()
     }
     if (state._pBridgeAftermath === 'clothes') {
       if (state._pCaravanClothesAwaitingRecovery && StatusSystem.has('naked')) recoverCaravanClothes()
@@ -452,30 +576,25 @@ window.CommissionSystem = (function () {
   }
 
   function recoverBanditClothes () {
-    const state = State.get()
-    const locked = !!state._pBanditClothesLocked
     Dialog.show({
-      title: locked ? '🔑 桥洞 · 头目的铁箱' : '👕 桥洞 · 赃物堆',
+      title: '👕 桥洞 · 衣服',
       className: 'commission-bridge-modal caravan-clothes-modal',
-      body: locked
-        ? '<section class="scene-dialogue"><i aria-hidden="true">🔑</i><div><h3>头目倒下时，腰间那把铁钥匙也落进尘土。</h3><p>赃物堆里果然没有衣服。你用钥匙打开他的铁箱，才找回被专门锁起来的原衣；腿上的炭字仍提醒着你第一次被扔出去的样子。</p></div></section>'
-        : '<section class="scene-dialogue"><i aria-hidden="true">📦</i><div><h3>头目倒下后，你在扒手翻乱的赃物堆里找到了自己的衣服。</h3><p>衣带已经被割断，但还能勉强穿回去。木栅后的记账员仍在呼救，现在不是继续翻找战利品的时候。</p></div></section>',
+      body: '<section class="scene-dialogue"><i aria-hidden="true">👕</i><div><h3>头目倒下后，你的衣服就在旁边。</h3><p>可以穿上，也可以继续光着去救人。</p></div></section>',
       actions: [
-        { label: '穿回原衣', cls: 'btn-primary', handler: () => finishBanditClothes(true, locked) },
-        { label: '把破损原衣披在肩上', cls: 'btn-danger', handler: () => finishBanditClothes(false, locked) },
+        { label: '穿上', cls: 'btn-primary', handler: () => finishBanditClothes(true) },
+        { label: '先不穿', handler: () => finishBanditClothes(false) },
       ],
     })
   }
 
-  function finishBanditClothes (wear, locked) {
+  function finishBanditClothes (wear) {
     const state = State.get()
     if (wear && StatusSystem.has('naked')) StatusSystem.remove('naked')
     state._pBanditClothesLocked = false
-    EventBus.emit('ui:log', { text: wear
-      ? `👕 你${locked ? '打开头目铁箱，' : ''}穿回了自己的原衣。`
-      : `👕 你${locked ? '从头目铁箱取回' : '从赃物堆拿起'}破损原衣披在肩上，身体仍保持裸露。`, type: wear ? 'good' : 'warning' })
+    EventBus.emit('ui:log', { text: wear ? '👕 你把衣服穿上了。' : '👙 你决定先不穿。', type: wear ? 'good' : 'warning' })
     EventBus.emit('state:changed', state); State.save(); Dialog.close()
-    showBanditVictoryMark()
+    if ((state._pBanditDefeatCount || 0) > 0) showBanditVictoryMark()
+    else finishBanditVictory()
   }
 
   function setCaravanEscortStage (stage) {
@@ -498,11 +617,30 @@ window.CommissionSystem = (function () {
     const result = state._pCaravanEscortResult || { goldLost: 0, provoked: false, bindings: 4, naked: StatusSystem.has('naked') }
     if (!stage) return false
 
+    if (stage === 1 && !result.punished) {
+      punishCaravanDefeat(!!result.provoked, () => {
+        const latest = State.get()
+        latest._pCaravanEscortResult = { ...(latest._pCaravanEscortResult || result), punished: true, punishmentStep: 2 }
+        EventBus.emit('state:changed', latest)
+        State.save()
+        resumeCaravanEscort()
+      }, {
+        startStep: result.punishmentStep,
+        onStep: step => {
+          const latest = State.get()
+          latest._pCaravanEscortResult = { ...(latest._pCaravanEscortResult || result), punishmentStep: step }
+          EventBus.emit('state:changed', latest)
+          State.save()
+        },
+      })
+      return true
+    }
+
     if (stage === 1) {
       Dialog.show({
         title: '⛓️ 旧桥 · 封箱',
         className: 'commission-bridge-modal',
-        body: `<section class="scene-dialogue"><i aria-hidden="true">🔒</i><div><h3>第四道锁扣咬死时，看守没有再继续攻击。</h3><p>他扯住编号项圈，先检查手铐、口塞和入库肛塞的封条，再在货单上写下“四件齐全”。你不再被当作对手，而是被当作一件已经验收的货物。</p></div></section>
+        body: `<section class="scene-dialogue"><i aria-hidden="true">🔒</i><div><h3>第四道锁扣咬死时，看守没有再继续攻击。</h3><p>他扯住奴隶项圈，先检查手铐、球形口塞和小肛塞的封条，再在货单上写下“四件齐全”。你不再被当作对手，而是被当作一件已经验收的货物。</p></div></section>
           <div class="wrong-letter-evidence is-found"><span>入库记录</span><p>束缚 ${result.bindings || 4}/4 · 搜走 ${result.goldLost || 0}G${state._pCaravanDebt ? ` · 车队欠条 ${state._pCaravanDebt}G` : ''}。锁具在押送结束前不会打开。</p></div>
           <p class="wrong-letter-after">看守把一块写着临时编号的木牌挂在项圈上，叫人把你抬向停在桥下的货车。</p>`,
         actions: [{ label: '被抬上货车', cls: 'btn-danger', handler: () => nextCaravanEscortStage(2) }],
@@ -522,36 +660,108 @@ window.CommissionSystem = (function () {
       return true
     }
 
-    if (stage === 3) {
+    if (stage === 3 && !result.gateUsed) {
       Dialog.show({
-        title: '⚖️ 雾灯镇城门 · 交接',
+        title: '⚖️ 雾灯镇城门 · 莫须有的卖淫',
         className: 'commission-bridge-modal p-gate-modal',
-        body: `<section class="scene-dialogue"><i aria-hidden="true">📖</i><div><h3>货车没有排在入城队伍后面，而是直接停在新立的登记桌旁。</h3><p>佩着短鞭的 Bellamy 先扯了扯项圈，确认四道锁扣都没有被破坏。Murphy 则翻开黑皮册，核对车队看守交上来的货单。</p></div></section>
-          <div class="wrong-letter-evidence is-found"><span>Bellamy</span><p>“旧桥上还没处理完，就先送来一个四道锁的。好。这个我会记住。”</p></div>
-          <div class="wrong-letter-evidence"><span>Murphy</span><p>他没把你写进正式财产页，只在城门备忘录上留下临时编号、旧桥地点和“待追查失踪车辆”。</p></div>`,
-        actions: [{ label: '接受临时登记', cls: 'btn-danger', handler: () => nextCaravanEscortStage(4) }],
+        body: `<section class="scene-dialogue"><i aria-hidden="true">⛓️</i><div><h3>看守把项圈绳子交到登记桌边上，当着排队的人给你按了罪。</h3><p>“四道锁还戴着就送上门，不是卖淫是什么？非法卖淫，人赃并获。监督官先验收，验完我再交给守卫。”</p></div></section>
+          <div class="wrong-letter-evidence is-found"><span>罪名</span><p>非法卖淫。没有客人，没有定价，只有他随口写下的这一条。锁具一件不拆。</p></div>`,
+        actions: [{ label: '被交到贝拉米与墨菲面前', cls: 'btn-danger', handler: () => {
+          Dialog.close()
+          useByGateOfficers(() => {
+            const latest = State.get()
+            latest._pCaravanEscortResult = { ...(latest._pCaravanEscortResult || result), gateUsed: true }
+            latest._pCaravanEscortStage = 4
+            EventBus.emit('state:changed', latest)
+            State.save()
+            resumeCaravanEscort()
+          })
+        } }],
       })
       return true
     }
 
+    if (stage === 3) {
+      nextCaravanEscortStage(4)
+      return true
+    }
+
     Dialog.show({
-      title: '📖 城门内侧 · 临时编号',
+      title: '🛡️ 城门守卫 · 卖淫收押',
       className: 'commission-bridge-modal p-gate-modal',
-      body: `<section class="scene-dialogue"><i aria-hidden="true">⛓️</i><div><h3>Murphy 在木牌上盖下城门印，Bellamy 却没有把你直接送去地牢。</h3><p>被劫的车辆、失踪的记账员和桥下的血迹都还没有答案。他需要一个已经被登记、又熟悉旧桥现场的人回去追查。</p></div></section>
-        <section class="p-hall-order"><span>Bellamy</span><blockquote>“锁先留着。进城，恢复体力，然后回旧桥找出车队和活口。别以为这是释放——Murphy 会等你回来销记。”</blockquote></section>
-        <div class="wrong-letter-evidence is-found"><span>新任务理由</span><p>你不是莫名其妙地折返旧桥：临时登记的条件，就是找到失踪车队、记账员与后续证据。今后再见 Bellamy 与 Murphy，他们会记得你是怎样被送进城的。</p></div>`,
-      actions: [{ label: '带着临时编号进入雾灯镇', cls: 'btn-danger', handler: () => {
+      body: `<section class="scene-dialogue"><i aria-hidden="true">🛡️</i><div><h3>贝拉米把用完的绳子扔给守卫，墨菲把刚写好的一页拍进黑皮册。</h3><p>守卫看都不用看第二遍。“非法卖淫，按无证卖淫收监。广场木枷太便宜你了。贞操锁扣上，积分攒够才放你出去。出去之后，货车和那个记账的女人你还得自己找。”</p></div></section>
+        <section class="p-hall-order"><span>守卫的判决</span><blockquote>“卖淫的去监狱服役。这本册子上的道数不满，门不会开。”</blockquote></section>`,
+      actions: [{ label: '被押进雾灯镇监牢', cls: 'btn-danger', handler: () => {
         Dialog.close()
         state._pCaravanEscortStage = 0
         state._pCaravanEscortResult = null
         state._pFourfoldEscortCompleted = true
-        EventBus.emit('ui:log', { text: '⛓️ Bellamy 与 Murphy 完成了临时登记，命你之后返回旧桥追查失踪车队。', type: 'warning' })
+        EventBus.emit('ui:log', { text: '⛓️ 守卫以非法卖淫把你收监。服刑期满后，仍要回旧桥找回货车与活口。', type: 'danger' })
         EventBus.emit('state:changed', state)
         State.save()
-        GameFlow.openCamp()
+        if (window.TownPrisonSystem) TownPrisonSystem.enter()
+        else GameFlow.openCamp()
       } }],
     })
     return true
+  }
+
+  /** 四重束缚押到城门后，贝拉米与墨菲先按卖淫罪使用，再交给守卫。手铐不解开。 */
+  async function useByGateOfficers (done) {
+    const male = State.get().gender === 'male'
+    const oral = banditOrifice('oral')
+    const hole = banditOrifice('vagina')
+    const anal = banditOrifice('anal')
+    await runBanditTask('墨菲', '验收这张嘴', `墨菲扯开口塞，笔还夹在耳后。手铐和项圈都没解开。“非法卖淫？手既然不能动，${oral}就自己送到拍子上。账房先验收。”`, {
+      bpm: 110, seconds: 35,
+      taskSteps: [
+        { at: 0, label: '跪好', text: '膝盖分开跪下。手腕保持在背后，当它们还拷在一起。口塞被拿开后含住假阳具，不要用手扶。' },
+        { at: 8, label: '按拍吞吐', text: '按 110 BPM 前后含入。每八拍停在最深处一拍，再继续。' },
+        { at: 25, label: '听到嘲笑也不许停', text: '墨菲会数你漏掉的拍子。含到最深，直到这一段结束。' },
+      ],
+    })
+    await runBanditTask('贝拉米', '登记桌边上', `贝拉米把你按到登记桌边上，短鞭横在腰后，抽开后面的塞子，整根插进${anal}。“手被铐着还想卖淫？一百五十拍。腰自己送，腿不许并。”`, {
+      bpm: 150, seconds: 40,
+      taskSteps: [
+        { at: 0, label: '上身压住', text: '上身趴低，脸侧过去。双手仍背在身后，不能撑桌。' },
+        { at: 8, label: '把腰送上拍子', text: `假阳具对准${anal}，按 150 BPM 自行迎合。每八拍停一拍，再坐到底。` },
+        { at: 28, label: '最后不要躲', text: '幅度加大。腿保持分开，直到贝拉米数完这一段。' },
+      ],
+    })
+    if (Math.random() < 0.5) {
+      EventBus.emit('ui:log', { text: '👁️ 贝拉米朝排队的人抬了抬下巴，叫了一个路人过来一起使用你。', type: 'danger' })
+      await runBanditTask('路人', '被叫来的客人', `贝拉米揪着你的项圈，把一个路人按到你面前。“卖淫的嘴闲着也是闲着。你含他的，我继续用后面。拍子听我的，不许停。”`, {
+        bpm: 120, seconds: 30,
+        taskSteps: [
+          { at: 0, label: '前后一起', text: `维持被铐住的姿势。嘴里含住假阳具，${male ? anal : `${hole}或${anal}`}继续迎合后面。双手不要绕到前面。` },
+          { at: 10, label: '听贝拉米的拍子', text: '按 120 BPM。前面每八拍深含一次，后面每八拍送到底一次。' },
+          { at: 22, label: '路人听完就走', text: '保持这个节奏直到结束。路人只是被叫来试用，用完就会被打发走。' },
+        ],
+      })
+    }
+    if (done) done()
+  }
+
+  /** 战败后先在桥上做完惩罚，再进入押送或城门交接。 */
+  async function punishCaravanDefeat (provoked, done, options = {}) {
+    const male = State.get().gender === 'male'
+    const hole = banditOrifice('vagina')
+    const anal = banditOrifice('anal')
+    const steps = provoked
+      ? [
+          ['车队看守', '战败惩罚 · 轮流使用', '你跪在桥板上，已经没有还手的力气。两个看守按住你的头。“打输的人只负责挨操。嘴张开，含到最深，换人时不许吐出来。”', { bpm: 140, seconds: 35 }],
+          ['车队看守', '战败惩罚 · 按在栏上', `他们把你翻过去按在断栏上，一个人插进${anal}，另一个继续按着你的后颈。“一百六十拍。每一下都报数。哭可以，停不行。”`, { bpm: 160, seconds: 40 }],
+        ]
+      : [
+          ['车队看守', '战败惩罚', `看守一脚把你踢得趴在桥板上，揪住头发迫使你仰起脸。“淫魔的规矩你清楚：输了就服从。先深喉，再把${male ? anal : `${hole}和${anal}轮流`}送上来。我没射完之前，你只是桥上的洞。”`, { bpm: 120, seconds: 35 }],
+          ['车队看守', '战败惩罚 · 后入', `他没有把你放开，直接按着腰从后面整根插入${anal}。一百五十拍，撞一下你就出一声，手背到身后，腿不许并。`, { bpm: 150, seconds: 35 }],
+        ]
+    const startStep = Math.max(0, Math.min(steps.length, Math.floor(Number(options.startStep) || 0)))
+    for (let index = startStep; index < steps.length; index++) {
+      await runBanditTask(...steps[index])
+      if (typeof options.onStep === 'function') options.onStep(index + 1)
+    }
+    if (done) done()
   }
 
   /** 普通生命归零后的城门交接；独立存档，避免刷新后凭空跳到营地。 */
@@ -562,16 +772,55 @@ window.CommissionSystem = (function () {
       ? state._pBridgeResult
       : (state._wrongCommissionCaptured ? 'normal_captured' : 'normal_victory')
     const provoked = result === 'provoked_captured'
+    if (!state._pDefeatPunished) {
+      punishCaravanDefeat(provoked, () => {
+        const latest = State.get()
+        latest._pDefeatPunished = true
+        latest._pDefeatPunishmentStep = 2
+        EventBus.emit('state:changed', latest)
+        State.save()
+        resumeDefeatDispatch()
+      }, {
+        startStep: state._pDefeatPunishmentStep,
+        onStep: step => {
+          const latest = State.get()
+          latest._pDefeatPunishmentStep = step
+          EventBus.emit('state:changed', latest)
+          State.save()
+        },
+      })
+      return true
+    }
+    if (!state._pDefeatSentenced) {
+      Dialog.show({
+        title: '🛞 雾灯镇城门 · 全裸押到',
+        className: 'commission-bridge-modal p-gate-modal',
+        body: `<section class="scene-dialogue"><i aria-hidden="true">👙</i><div><h3>绳子套在你脖子上。看守牵着全裸的你，越过排队的人，直接走到守卫面前。</h3><p>${provoked ? '“这个在桥上把整队人都叫出来，然后光着输了。”' : '“桥上拦车的。衣服已经收了，人就这副样子。”'}他把绳头塞进守卫手里，“裸身妨碍车队通行。我的部分到此为止，罪你们定。”</p></div></section>
+          <div class="wrong-letter-evidence"><span>看守报上的罪名</span><p>裸身妨碍车队通行。比卖淫轻，但是当众、全裸、有绳子为证。</p></div>`,
+        actions: [{ label: '绳子交到守卫手里', cls: 'btn-danger', handler: () => {
+          Dialog.close()
+          runBanditTask('城门守卫', '淫秽妨碍 · 当众报罪', '守卫把你按得跪在告示柱下。“罪名改成淫秽妨碍通行。自己掰开，把这句话报十遍。报错就从头。报完不准穿衣，滚回旧桥抵罪。”', { taskCount: 10, taskTool: '当众掰开并出声报罪' }).then(() => {
+            const latest = State.get()
+            latest._pDefeatSentenced = true
+            EventBus.emit('state:changed', latest)
+            State.save()
+            resumeDefeatDispatch()
+          })
+        } }],
+      })
+      return true
+    }
     Dialog.show({
-      title: '⚖️ 雾灯镇城门 · 临时交接',
+      title: '🛡️ 城门守卫 · 淫秽妨碍',
       className: 'commission-bridge-modal p-gate-modal',
-      body: `<section class="scene-dialogue"><i aria-hidden="true">🛞</i><div><h3>货车越过排队的人群，直接停在新立的登记桌旁。</h3><p>Murphy 核对看守交来的货单，把你的名字、旧桥地点和“未取得许可”写进临时页。Bellamy 则扯住捆腕的绳结，确认你身上没有藏着那张许可。</p></div></section>
-        <div class="wrong-letter-evidence is-found"><span>Bellamy</span><p>“${provoked ? '把整队人叫来又被送回来，你至少该记得桥下有什么。' : '车队少了一辆，记账员也没进城。你既然从旧桥来，就回去把他们找出来。'}”</p></div>
-        <section class="p-hall-order"><span>临时命令</span><blockquote>进城恢复体力，然后返回旧桥，寻找失踪车辆与活口。没有许可，也要带回能让 Murphy 销记的证据。</blockquote></section>
-        <p class="wrong-letter-after">这不是正式的身份登记。真正的城门换岗与路线选择，要等你查完车队、救出证人并向镇长复命后才会发生。</p>`,
-      actions: [{ label: '接受临时命令，进入雾灯镇', cls: 'btn-danger', handler: () => {
+      body: `<section class="scene-dialogue"><i aria-hidden="true">🛡️</i><div><h3>守卫在入城簿空白处写下「淫秽妨碍通行」，把绳子一松，却没有把衣服还给你。</h3><p>“这种小罪不进监狱，也犯不上绞刑架。罚款一百金币，外加厕所的入场管理费。付不起就去公共厕所赚。赚够之前不许出城。债清了，再全裸回旧桥把货车和人找回来。再被这样牵回来，就按卖淫收监。”</p></div></section>
+        <section class="p-hall-order"><span>判决</span><blockquote>衣物不还。先去厕所把罚款赚出来，再回旧桥抵罪。</blockquote></section>`,
+      actions: [{ label: '被押去公共厕所还债', cls: 'btn-danger', handler: () => {
+        const fee = window.CampSystem && CampSystem.gloryFee ? CampSystem.gloryFee : 0
         state._pDefeatDispatchPending = false
-        EventBus.emit('ui:log', { text: '⚖️ Bellamy 命你恢复体力后返回旧桥，寻找失踪车队与活口。', type: 'warning' })
+        state._gloryDebt = Math.max(0, Number(state._gloryDebt) || 0) + 100 + fee
+        state._gloryByGuard = true
+        EventBus.emit('ui:log', { text: `🚻 守卫以淫秽妨碍罚你 ${state._gloryDebt}G。赚够之前不能出城，债清后仍要全裸回旧桥抵罪。`, type: 'danger' })
         EventBus.emit('state:changed', state)
         State.save()
         Dialog.close()
@@ -586,25 +835,66 @@ window.CommissionSystem = (function () {
     return resumeDefeatDispatch()
   }
 
+  async function collectBanditBridgeToll () {
+    const state = State.get()
+    if (!state._pBanditBridgeToll) { GameFlow.afterEvent(); return }
+    const debt = Math.max(0, Number(state._pBanditRansomDebt) || 0)
+    const actions = []
+    if (debt > 0 && state.gold >= debt) {
+      actions.push({ label: `付清 ${debt}G`, cls: 'btn-primary', handler: () => settleBanditRansomDebt(debt) })
+    }
+    actions.push({ label: '交过路费', cls: 'btn-danger', handler: async () => {
+      Dialog.close()
+      await runBanditTask('☠️ 劫货强盗头目', '欠债口交', `先把${banditOrifice('oral')}送上去。`, { bpm: 110, seconds: 30 })
+      await runBanditTask('☠️ 劫货强盗头目', '欠债深喉', '按住后脑做深喉，停在最深处。', { bpm: 90, seconds: 30 })
+      await runBanditTask('☠️ 劫货强盗头目', '欠债肛交', `再把${banditOrifice('anal')}交给他。`, { bpm: 140, seconds: 30 })
+      await runBanditTask('☠️ 劫货强盗头目', '欠债性交', `最后操进${banditOrifice('vagina')}。债还没清，下次过桥还要再交。`, { bpm: 130, seconds: 30 })
+      EventBus.emit('ui:log', { text: `🧾 过桥路费交完。${debt}G 的欠条还在。`, type: 'danger' })
+      GameFlow.afterEvent()
+    } })
+    Dialog.show({
+      title: '🌉 旧桥 · 欠债路费',
+      className: 'commission-bridge-modal',
+      body: `<section class="scene-dialogue"><i aria-hidden="true">🧾</i><div><h3>头目的人还守在断桥边。</h3><p>欠款还剩 <b>${debt}G</b>。你可以付清欠款；钱不够时，只能按约定交过路费。</p></div></section>`,
+      actions,
+    })
+  }
+
+  function settleBanditRansomDebt (amount) {
+    const state = State.get()
+    const debt = Math.max(0, Number(state._pBanditRansomDebt) || 0)
+    const payment = Math.min(debt, Math.max(0, Number(amount) || 0))
+    if (!payment || state.gold < payment) return
+    state.gold -= payment
+    state._pBanditRansomDebt = Math.max(0, debt - payment)
+    state._pBanditBridgeToll = state._pBanditRansomDebt > 0
+    EventBus.emit('ui:log', { text: `💰 你付清了 ${payment}G，桥洞欠条被销毁。`, type: 'good' })
+    EventBus.emit('state:changed', state); State.save(); Dialog.close()
+    GameFlow.afterEvent()
+  }
+
   function afterDefeat (result) {
     if (result && result.storyDefeat && result.enemyId === 'p_bandit_leader' && result.story === 'commission-bandits') {
       const state = State.get()
+      const taken = state.gold
+      state.gold = 0
       state._wrongCommissionStage = 6
       state._pBanditDefeatCount = (state._pBanditDefeatCount || 0) + 1
       state._pBanditDefeatResult = {
-        goldLost: Math.max(0, Number(result.goldLost) || 0),
+        goldLost: taken,
         livingCrew: Math.max(0, Math.min(2, Number(result.banditLivingCrew) || 0)),
       }
-      state._pBanditAftermath = state._pBanditDefeatCount === 1 ? 'defeat-verify' : 'defeat-rotate'
-      state._pBanditDefeatScene = state._pBanditDefeatCount === 1 ? 1 : 2
+      lockBanditClothes()
+      state._pBanditAftermath = 'defeat-toy'
+      state._pBanditDefeatScene = 0
       EventBus.emit('state:changed', state)
       State.save()
-      if (state._pBanditDefeatCount === 1) playFirstBanditDefeat()
-      else playRepeatBanditDefeat()
+      playBanditToyDefeat(state._pBanditDefeatCount > 1)
       return true
     }
     if (!result || !result.storyDefeat || result.enemyId !== 'p_caravan_guard') return false
     const state = State.get()
+    resetPostPrologueState(state)
     state._wrongCommissionStage = 5
     state._wrongCommissionBattle = null
     state._wrongCommissionCaptured = true
@@ -650,6 +940,10 @@ window.CommissionSystem = (function () {
       enterBanditHideout()
       return
     }
+    if (state._pBanditBridgeToll && stage >= 7) {
+      collectBanditBridgeToll()
+      return
+    }
 
     if (stage < 2) {
       EventBus.emit('ui:log', { text: '🌉 雾从旧桥的断栏间穿过。桥板上有新车辙，但你暂时不知道它们属于谁。', type: 'dim' })
@@ -661,23 +955,53 @@ window.CommissionSystem = (function () {
     GameFlow.afterEvent()
   }
 
+  function visitBanditCamp () {
+    const state = State.get()
+    const stage = state._wrongCommissionStage || 0
+    if (stage < 5) {
+      Dialog.show({
+        title: '🔥 旧桥下 · 封死的营地',
+        className: 'commission-bridge-modal',
+        body: '<section class="scene-dialogue"><i aria-hidden="true">🔥</i><div><h3>桥墩下有一条被碎木和湿泥遮住的斜坡。</h3><p>下面隐约有旧营火的气味，但入口还被倒塌的货箱封着。没有车队留下的痕迹，现在贸然下去只会在暗沟里绕圈。</p></div></section>',
+        actions: [{ kind: 'navigation', label: '返回旧桥', handler: () => { Dialog.close(); GameFlow.afterEvent() } }],
+      })
+      return
+    }
+    if (stage === 5) {
+      inspectCaravanWreck()
+      return
+    }
+    if (stage === 6) {
+      enterBanditHideout()
+      return
+    }
+    if (state._pBanditBridgeToll) {
+      collectBanditBridgeToll()
+      return
+    }
+    EventBus.emit('ui:log', { text: '🔥 强盗营地只剩熄灭的火堆、空货箱和被雨水冲淡的脚印。', type: 'dim' })
+    GameFlow.afterEvent()
+  }
+
   function letterAfterText (state = State.get()) {
     const leads = state._wrongCommissionLeads || {}
     const stage = state._wrongCommissionStage || 0
-    if (stage >= 10) return '证人、账本和口供证明镇长早已与 Pike 合作。Bellamy 与 Murphy 已开始在城门执行新制度。'
+    if (stage >= 10) return '证人、账本和口供证明镇长早已与派克合作。贝拉米与墨菲已开始在城门执行新制度。'
     if (stage === 9) return '城门、商会与居民的口供已经齐全。现在必须带着证据向镇长复命。'
     if (stage === 8) return '获救的记账员已经作证。镇长要求继续核对城门记录、商会账本和居民传闻。'
     if (stage === 7) return '强盗头目已经倒下，车队记账员蕾娜带着半张合作名单活了下来。'
     if (stage === 6) return '失事车队旁的拖拽痕迹钻进旧桥洞；一个知道真相的活口仍被关在那里。'
     if (stage === 5) return state._pBridgePermitAcquired
       ? '旧桥许可盖着镇务厅印章，桥栏外的血迹说明车队残骸就在桥下。'
-      : '你没有抢到许可，却从押送和城门放行中确认车队受雾灯镇庇护。Bellamy 命你返回旧桥寻找失踪车辆。'
+      : state._pFourfoldEscortCompleted
+        ? '看守给你安了非法卖淫的罪名。贝拉米与墨菲使用过你，守卫把你关进监狱服役。出来以后仍要回旧桥找回货车与活口。'
+        : '你被全裸牵到城门，罪名定为淫秽妨碍通行。守卫罚你去公共厕所把罚款赚出来，债清后才能出城回旧桥抵罪。'
     if (stage === 4) return '老板娘与铁匠都承认车队持有正式许可；车夫把许可皮卷遗失在旧桥。'
     if (stage === 3 && leads.barkeep) return '老板娘承认车队在后巷拆过货。铁匠铺仍值得调查。'
     if (stage === 3 && leads.blacksmith) return '铁匠承认改装过一批约束锁具。酒馆后门仍值得调查。'
     if (stage === 3) return '旧桥上的车辙、麦秸和锁环证明两批货物都已经进入雾灯镇。'
-    return '货单要求两批约束器具经旧桥送入雾灯镇。签收人是酒馆与铁匠，真正的委托人只留下字母 P。'
+    return '货单要求两批约束器具经旧桥送入雾灯镇。签收人是酒馆与铁匠，真正的委托人只留下字母派克。'
   }
 
-  return { visitBridge, inspectCaravanWreck, enterBanditHideout, afterBattle, afterDefeat, resumeCaravanEscort, resumeDefeatDispatch, resumeCampStory, resumePending, letterAfterText }
+  return { visitBridge, visitBanditCamp, inspectCaravanWreck, enterBanditHideout, afterBattle, afterDefeat, resumeCaravanEscort, resumeDefeatDispatch, resumeCampStory, resumePending, letterAfterText }
 })()
