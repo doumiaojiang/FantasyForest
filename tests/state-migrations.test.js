@@ -62,22 +62,6 @@ const once = JSON.stringify(migrated)
 State.migrate(migrated)
 assert.equal(JSON.stringify(migrated), once, '迁移流水线必须保持幂等')
 
-const oldChapter = JSON.parse(JSON.stringify(fresh))
-oldChapter.systems.pStory.revision = 2
-oldChapter.systems.pStory.mainlineStage = 6
-oldChapter.systems.pStory.role = 'slaver'
-oldChapter.systems.pStory.chapterOneLocked = false
-oldChapter.systems.pStory.routeLocked = true
-oldChapter.systems.pStory.dayaOutcome = 'slaver_training'
-oldChapter.systems.pStory.commissionStage = 10
-const rewoundChapter = State.migrate(oldChapter)
-assert.equal(rewoundChapter._pStoryRevision, 3)
-assert.equal(rewoundChapter._pMainlineStage, 1)
-assert.equal(rewoundChapter._pRole, null)
-assert.equal(rewoundChapter._pChapterOneLocked, false)
-assert.equal(rewoundChapter._pRouteLocked, false)
-assert.equal(rewoundChapter._pDayaOutcome, null)
-
 const currentChoice = JSON.parse(JSON.stringify(fresh))
 currentChoice.systems.pStory.revision = 2
 currentChoice.systems.pStory.mainlineStage = 2

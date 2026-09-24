@@ -10,6 +10,8 @@ const legacy = {
   _glorySettings: { footService: false },
   _inPrison: true,
   _prisonPoints: 180,
+  _prisonCharge: '野外非法卖淫',
+  _prisonCaravanBindings: [{ stage: 1, slot: 'arms', borrowed: true, original: { id: 'rope_cuffs', slot: 'arms' } }],
   _tavernGuest: 17,
   _tavernWorkUnlocked: true,
   _prostituteLicensed: true,
@@ -38,6 +40,8 @@ assert.equal(legacy.systems.glory.debt, 75)
 assert.equal(legacy.systems.glory.settings.footService, false)
 assert.equal(legacy.systems.prison.active, true)
 assert.equal(legacy.systems.prison.points, 180)
+assert.equal(legacy.systems.prison.charge, '野外非法卖淫')
+assert.equal(legacy.systems.prison.caravanBindings[0].original.id, 'rope_cuffs')
 assert.equal(legacy.systems.tavern.guestGold, 17)
 assert.equal(legacy.systems.tavern.workUnlocked, true)
 assert.equal(legacy.systems.prostitute.licensed, true)
@@ -76,6 +80,8 @@ const roundTrip = JSON.parse(serialized)
 StateSchema.prepare(roundTrip)
 assert.equal(roundTrip._gloryDebt, 40)
 assert.equal(roundTrip._prisonPoints, 220)
+assert.equal(roundTrip._prisonCharge, '野外非法卖淫')
+assert.equal(roundTrip._prisonCaravanBindings[0].slot, 'arms')
 assert.equal(roundTrip._tavernGuest, 17)
 assert.equal(roundTrip._prostituteLevel, 34)
 assert.equal(roundTrip._mercenaryContract.debt, 120)

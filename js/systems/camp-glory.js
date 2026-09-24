@@ -452,7 +452,6 @@ window.TownGlorySystem = (function () {
     // 还清欠款：出城时根据来源触发——卫兵放行嘲笑 / 队长羞辱
     if (repaid > 0 && state._gloryDebt === 0 && (state._gloryByGuard || state._gloryByCaptain)) {
       state._gloryJustCleared = true
-      state._gloryByGuard = false
     }
     if (event.free) state._gloryFreeService = true
     if (window.MercenaryContractSystem) MercenaryContractSystem.recordService('glory')
@@ -462,7 +461,7 @@ window.TownGlorySystem = (function () {
     EventBus.emit('ui:log', { text: `🎲 Z=${event.z}：${wasFree && event.tip > 0 ? event.msg.replace(/小费|金币/g, '') : event.msg}`, type: event.tip > 0 && !wasFree ? 'good' : 'dim' })
     EventBus.emit('state:changed', state)
     // 无证卖淫：危险值处理（管理员使用 -10，否则 +2），越高越容易被抓
-    if (!state._prostituteLicensed && !wasFree) {
+    if (!state._prostituteLicensed && !wasFree && !state._gloryByGuard) {
       if (event.z === 1) {
         state._gloryWanted = Math.max(0, (state._gloryWanted || 0) - 10)
         EventBus.emit('ui:log', { text: `👮 管理员刚刚「使用」过你，给你罩着点，危险值 -10（现 ${state._gloryWanted}%）。`, type: 'good' })
@@ -473,13 +472,16 @@ window.TownGlorySystem = (function () {
       EventBus.emit('state:changed', state)
     }
     const forced = state._gloryDebt > 0 || state._gloryFreeService
+    const guardDebtCleared = !forced && !!state._gloryJustCleared && !!state._gloryByGuard
     campShow({
       title: '🍑 服务完成', className: 'glory-result-modal',
       body: `<div class="glory-result"><strong>${totalEarn > 0 ? `赚了 ${totalEarn}G` : '白干了一场'}</strong><p>${wasFree && event.tip > 0 ? event.msg.replace(/小费|金币/g, '') : event.msg}</p>${repaid > 0 ? `<span>还债 ${repaid}G · 还欠 ${state._gloryDebt}G</span>` : ''}${state._gloryFreeService ? '<span class="danger">还有个免费的得做完才能走</span>' : ''}</div>`,
-      actions: [
-        { label: forced ? '继续服务' : '继续接客', cls: 'btn-primary', handler: () => { Dialog.close(); rerender() } },
-        ...(!forced ? [{ kind: 'navigation', label: '返回营地', handler: () => { Dialog.close(); gloryClearedLeave() } }] : []),
-      ],
+      actions: guardDebtCleared
+        ? [{ kind: 'navigation', label: '还清欠款，返回营地', cls: 'btn-primary', handler: () => { Dialog.close(); gloryClearedLeave() } }]
+        : [
+            { label: forced ? '继续服务' : '继续接客', cls: 'btn-primary', handler: () => { Dialog.close(); rerender() } },
+            ...(!forced ? [{ kind: 'navigation', label: '返回营地', handler: () => { Dialog.close(); gloryClearedLeave() } }] : []),
+          ],
     })
   }
 
@@ -594,7 +596,6 @@ window.TownGlorySystem = (function () {
     state.gold += totalEarn - repaid
     if (repaid > 0 && state._gloryDebt === 0 && (state._gloryByGuard || state._gloryByCaptain)) {
       state._gloryJustCleared = true
-      state._gloryByGuard = false
     }
     if (event.free) state._gloryFreeService = true
     if (window.MercenaryContractSystem) MercenaryContractSystem.recordService('foot')
@@ -608,7 +609,7 @@ window.TownGlorySystem = (function () {
     State.save()
 
     // 无证卖淫危险值
-    if (!state._prostituteLicensed) {
+    if (!state._prostituteLicensed && !state._gloryByGuard) {
       if (event.z === 1) {
         state._gloryWanted = Math.max(0, (state._gloryWanted || 0) - 10)
         EventBus.emit('ui:log', { text: `👮 管理员刚刚「使用」过你，给你罩着点，危险值 -10（现 ${state._gloryWanted}%）。`, type: 'good' })
@@ -620,6 +621,7 @@ window.TownGlorySystem = (function () {
     }
 
     const forced = state._gloryDebt > 0 || state._gloryFreeService
+    const guardDebtCleared = !forced && !!state._gloryJustCleared && !!state._gloryByGuard
     const shoeRow = shoeStolen
       ? `<span class="danger">🏃 ${heelDef ? heelDef.name : '高跟鞋'}已被客人拿走</span>`
       : (heelLocked && shoeInside) ? '<span>🔒 上锁的高跟鞋没被扯走</span>' : ''
@@ -634,10 +636,12 @@ window.TownGlorySystem = (function () {
         ${tax > 0 ? `<span>税费 ${tax}G</span>` : ''}
         ${shoeRow}
         ${state._gloryFreeService ? '<span class="danger">还有个免费的得做完才能走</span>' : ''}</div>`,
-      actions: [
-        { label: forced ? '继续服务' : '继续接客', cls: 'btn-primary', handler: () => { Dialog.close(); rerender() } },
-        ...(!forced ? [{ kind: 'navigation', label: '返回营地', handler: () => { Dialog.close(); gloryClearedLeave() } }] : []),
-      ],
+      actions: guardDebtCleared
+        ? [{ kind: 'navigation', label: '还清欠款，返回营地', cls: 'btn-primary', handler: () => { Dialog.close(); gloryClearedLeave() } }]
+        : [
+            { label: forced ? '继续服务' : '继续接客', cls: 'btn-primary', handler: () => { Dialog.close(); rerender() } },
+            ...(!forced ? [{ kind: 'navigation', label: '返回营地', handler: () => { Dialog.close(); gloryClearedLeave() } }] : []),
+          ],
     })
   }
 
@@ -714,7 +718,7 @@ window.TownGlorySystem = (function () {
   /** 仅在离开荣耀洞时判定一次，服务过程中不再反复抓捕。 */
   function gloryClearedLeave () {
     const state = State.get()
-    if (!state._prostituteLicensed) {
+    if (!state._prostituteLicensed && !state._gloryByGuard) {
       const chance = gloryArrestChance(state._gloryWanted || 0)
       if (chance > 0 && Math.random() * 100 < chance) {
         if (state._prisonPardon) {
@@ -736,7 +740,10 @@ window.TownGlorySystem = (function () {
     const state = State.get()
     if (!state._gloryJustCleared) { open(); return }
     state._gloryJustCleared = false
+    const clearedGuardDebt = !!state._gloryByGuard
+    if (clearedGuardDebt) state._gloryByGuard = false
     EventBus.emit('state:changed', state)
+    State.save()
     if (state._gloryByCaptain) {
       state._gloryByCaptain = false
       EventBus.emit('state:changed', state)

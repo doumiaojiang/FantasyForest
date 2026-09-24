@@ -9,7 +9,7 @@ window.TownTavernSystem = (function () {
   const townPrice = (price, category) => CampSystem.townPrice(price, category)
   const routeTownService = part => CampSystem.routeTownService(part)
   const townServiceDesc = (part, actor) => CampSystem.townServiceDesc(part, actor)
-  const wrongCommissionLead = kind => CampSystem.recordCommissionLead(kind)
+  const wrongCommissionLead = kind => PrologueSystem.recordLead(kind)
 
   function tavern () {
     setCampPhase()
@@ -161,4 +161,3 @@ window.TownTavernSystem = (function () {
     openDreamShop: () => TownTavernPatronsSystem.openDreamShop(),
   }
 })()
-

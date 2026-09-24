@@ -74,6 +74,7 @@ window.State = (function () {
       _pendingGuardianTreasure: null,   // 守卫宝箱待领取 { id, gold, isFinal? }
       _pendingGuardianGold: null,       // 旧版守卫宝箱金币兼容
       _godMode: false,                  // 无敌模式（作弊）
+      _noEnemyEncounters: false,        // 避敌模式：跳过普通怪物与伏击
       _pendingLootEvent: null,          // 特殊掉落事件（断触手/狼人/魔女）持久化
       _pendingBossAttack: null,         // Boss 召唤攻击持久化（任务中刷新不丢失）
       _profile: null,                    // 任务记录、战斗统计与成就领奖状态（由 StatsSystem 初始化）

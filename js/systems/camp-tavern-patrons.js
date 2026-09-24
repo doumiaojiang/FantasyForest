@@ -8,7 +8,7 @@ window.TownTavernPatronsSystem = (function () {
   const townPrice = (price, category) => CampSystem.townPrice(price, category)
   const routeTownService = part => CampSystem.routeTownService(part)
   const townServiceDesc = (part, actor) => CampSystem.townServiceDesc(part, actor)
-  const wrongCommissionLead = kind => CampSystem.recordCommissionLead(kind)
+  const wrongCommissionLead = kind => PrologueSystem.recordLead(kind)
 
   function tavernBarkeep () {
     const state = State.get()
@@ -44,21 +44,21 @@ window.TownTavernPatronsSystem = (function () {
 
   function barkeepWrongCommission () {
     const state = State.get()
+    const copy = PROLOGUE_CONTENT.investigation.tavern
     const asked = !!(state._wrongCommissionLeads && state._wrongCommissionLeads.barkeep)
     if (asked) {
       campShow({
-        title: '💃 老板娘 · 后巷', className: 'camp-tavern-modal wrong-letter-reaction-modal',
-        body: `<section class="scene-dialogue"><i aria-hidden="true">💃</i><div><h3>“车队已经走了，真正收货的也不是我。”</h3><p>老板娘承认车夫在旧桥弄断了轮轴，还把装许可的皮卷落在桥下。她催你别再问，因为镇里的监督官也在找它。</p></div></section>`,
+        title: copy.revisit.title, className: 'camp-tavern-modal wrong-letter-reaction-modal prologue-scene-modal',
+        body: `<section class="scene-dialogue"><i aria-hidden="true">💃</i><div><p>${copy.revisit.text}</p></div></section><section class="p-hall-order"><span>${copy.revisit.speaker}</span><blockquote>${copy.revisit.line}</blockquote></section>`,
         actions: [{ kind: 'navigation', label: '换个话题', handler: tavernBarkeep }],
       })
       return
     }
     campShow({
-      title: '💃 酒馆 · 吧台', className: 'camp-tavern-modal wrong-letter-reaction-modal',
-      body: `<section class="scene-dialogue"><i aria-hidden="true">✉️</i><div><h3>你把派克的货单推过吧台，又放下一把桥边的麦秸。</h3><p>老板娘认出了仓库垫货用的草料。她的笑容没有消失，手却已经悄悄扣住通往后巷的门闩。</p></div></section>
+      title: copy.intro.title, className: 'camp-tavern-modal wrong-letter-reaction-modal prologue-scene-modal',
+      body: `<section class="scene-dialogue"><i aria-hidden="true">✉️</i><div><h3>${copy.intro.heading}</h3><p>${copy.intro.text}</p></div></section>
         <div class="scene-choice-list wrong-letter-choices">
-          <button data-barkeep-letter="door"><i>▸</i><span><b>“夜里的货车停在后门做什么？”</b><small>追问第一批货物的去向</small></span><em>追问</em></button>
-          <button data-barkeep-letter="permit"><i>▸</i><span><b>“派克是谁？谁准许车队进镇？”</b><small>追查货单背后的委托人</small></span><em>查证</em></button>
+          ${Object.entries(copy.choices).map(([key, item]) => `<button data-barkeep-letter="${key}"><i>▸</i><span><b>${item.label}</b><small>${item.hint}</small></span><em>${item.tag}</em></button>`).join('')}
         </div>`,
       actions: [{ kind: 'navigation', label: '把信收回来', handler: tavernBarkeep }],
     })
@@ -69,15 +69,18 @@ window.TownTavernPatronsSystem = (function () {
 
   function finishBarkeepWrongCommission (choice) {
     const state = State.get()
+    const copy = PROLOGUE_CONTENT.investigation.tavern.result(choice)
+    const shared = PROLOGUE_CONTENT.investigation.shared
     if (!state._pInvestigationChoices || typeof state._pInvestigationChoices !== 'object') state._pInvestigationChoices = {}
     state._pInvestigationChoices.barkeep = choice
     const complete = wrongCommissionLead('barkeep')
     EventBus.emit('ui:log', { text: '🍺 老板娘承认派克的车队在后巷卸过货，而且持有镇方许可。', type: 'warning' })
     campShow({
-      title: '💃 老板娘 · 夜间卸货', className: 'camp-tavern-modal wrong-letter-reaction-modal',
-      body: `<section class="scene-dialogue"><i aria-hidden="true">💃</i><div><h3>“他们只借后巷拆货。真正签收的人来自镇务厅。”</h3><p>${choice === 'permit' ? '她说卫兵亲自检查过盖章许可，然后替车队打开了侧门。' : '她承认货箱里装着成批的项圈、腕铐和编号牌，天亮前便被运走。'}</p></div></section>
-        <div class="wrong-letter-evidence is-found"><span>车夫遗失的东西</span><p>车队在旧桥换过断裂的轮轴，装着正式许可的皮卷就是在那里丢的。</p></div>
-        ${complete ? '<p class="wrong-letter-after">酒馆和铁匠的说法终于对上了：派克的车队持有镇方许可，而能证明这一点的皮卷还遗落在旧桥。</p>' : ''}`,
+      title: copy.title, className: 'camp-tavern-modal wrong-letter-reaction-modal prologue-scene-modal',
+      body: `<section class="scene-dialogue"><i aria-hidden="true">💃</i><div><p>${copy.text}</p></div></section>
+        <section class="p-hall-order"><span>${copy.speaker}</span><blockquote>${copy.line}</blockquote></section>
+        <div class="wrong-letter-evidence is-found"><span>车夫遗失的东西</span><p>${shared.lostPermit}</p></div>
+        ${complete ? `<p class="wrong-letter-after">${shared.complete}</p>` : ''}`,
       actions: [{ kind: 'navigation', label: '收起信件', handler: tavernBarkeep }],
     })
   }

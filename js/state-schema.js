@@ -27,6 +27,8 @@ window.StateSchema = (function () {
       chastity: false,
       waistPrev: null,
       mouthPrev: null,
+      charge: null,
+      caravanBindings: [],
     },
     tavern: {
       guestGold: 50,
@@ -202,8 +204,6 @@ window.StateSchema = (function () {
       mDayaChoice: null,
       mChapterCompleted: false,
       gateChoices: [],
-      dayaOutcome: null,
-      routeLocked: false,
     },
   }
 
@@ -226,6 +226,8 @@ window.StateSchema = (function () {
     _prisonChastity: ['prison', 'chastity'],
     _prisonWaistPrev: ['prison', 'waistPrev'],
     _prisonMouthPrev: ['prison', 'mouthPrev'],
+    _prisonCharge: ['prison', 'charge'],
+    _prisonCaravanBindings: ['prison', 'caravanBindings'],
     _tavernGuest: ['tavern', 'guestGold'],
     _tavernDebt: ['tavern', 'debt'],
     _tavernWorkUnlocked: ['tavern', 'workUnlocked'],
@@ -318,6 +320,11 @@ window.StateSchema = (function () {
     _pMChapterAttitude: ['pStory', 'mChapterAttitude'],
     _pMWakeResist: ['pStory', 'mWakeResist'],
     _pMSpankStack: ['pStory', 'mSpankStack'],
+    _pMStage2000SlapCount: ['pStory', 'mStage2000SlapCount'],
+    _pMStage2000SlapPending: ['pStory', 'mStage2000SlapPending'],
+    _pMStage2000SlapReturn: ['pStory', 'mStage2000SlapReturn'],
+    _pMStage2500GearConfirmStep: ['pStory', 'mStage2500GearConfirmStep'],
+    _pMStage2500GearConfirming: ['pStory', 'mStage2500GearConfirming'],
     _pMWakeGearEscrow: ['pStory', 'mWakeGearEscrow'],
     _pMChapterFailures: ['pStory', 'mChapterFailures'],
     _pMChapterEscrow: ['pStory', 'mChapterEscrow'],
@@ -330,9 +337,9 @@ window.StateSchema = (function () {
     _pMMarketResponse: ['pStory', 'mMarketResponse'],
     _pMDayaChoice: ['pStory', 'mDayaChoice'],
     _pMChapterCompleted: ['pStory', 'mChapterCompleted'],
+    _pMEscortMode: ['pStory', 'mEscortMode'],
+    _pMEscort: ['pStory', 'mEscort'],
     _pGateChoices: ['pStory', 'gateChoices'],
-    _pDayaOutcome: ['pStory', 'dayaOutcome'],
-    _pRouteLocked: ['pStory', 'routeLocked'],
   }
 
   function clone (value) {

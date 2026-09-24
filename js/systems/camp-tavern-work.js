@@ -8,7 +8,7 @@ window.TownTavernWorkSystem = (function () {
   const townPrice = (price, category) => CampSystem.townPrice(price, category)
   const routeTownService = part => CampSystem.routeTownService(part)
   const townServiceDesc = (part, actor) => CampSystem.townServiceDesc(part, actor)
-  const wrongCommissionLead = kind => CampSystem.recordCommissionLead(kind)
+  const wrongCommissionLead = kind => PrologueSystem.recordLead(kind)
   const serviceGearNames = entries => TownGlorySystem.serviceGearNames(entries)
 
   function tavernWork () {
@@ -857,4 +857,3 @@ window.TownTavernWorkSystem = (function () {
     openDrink: tavernDrink,
   }
 })()
-

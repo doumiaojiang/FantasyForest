@@ -132,7 +132,7 @@ window.CampSystem = (function () {
     }
     // 序章结束后的首次城门换岗属于关键演出，优先于可重复的厕所/酒馆追债。
     if ((state._wrongCommissionStage || 0) >= 10 && (state._pMainlineStage || 0) < 2) {
-      PTownSystem.showPGateChapter()
+      PrologueSystem.showPGateChapter()
       return
     }
     // 未完成的强制流程会持久化；若装备锁死服务部位，先允许在营地内寻找解锁办法，避免软锁。
@@ -149,9 +149,9 @@ window.CampSystem = (function () {
       prostitute()
       return
     }
-    // 第二次带戴蒙德面见派克的场景可存档恢复。
-    if (state._pMainlineStage === 5 && state.phase !== 'battle') {
-      PTownSystem.showPikeSecondAudience()
+    // 奴隶线第一章 Stage 9500 的第二次派克会面可存档恢复。
+    if (state._pRole === 'slave' && state._pMChapterStage === 9500 && !state._pMChapterCompleted && state.phase !== 'battle') {
+      PMEnslavementSystem.open()
       return
     }
     // 仅地图移动进入营地时触发城门检查
@@ -182,8 +182,7 @@ window.CampSystem = (function () {
         <div class="camp-grid">
           ${state._wrongCommissionStage >= 7 && state._wrongCommissionStage <= 9 ? `<button class="camp-opt camp-opt-clue" data-opt="p-townhall"><i>⚖️</i><span><b>镇务厅</b><small>${state._wrongCommissionStage === 7 ? '带蕾娜与名单前去作证' : state._wrongCommissionStage === 8 ? '镇长正在等待更多口供' : '带齐证词向镇长复命'}</small></span><em>主线</em></button>` : ''}
           ${state._wrongCommissionStage === 8 ? '<button class="camp-opt camp-opt-clue" data-opt="p-guard"><i>🛡️</i><span><b>城门值守</b><small>核对车队入城记录</small></span><em>调查</em></button><button class="camp-opt camp-opt-clue" data-opt="p-merchant"><i>📦</i><span><b>商会柜台</b><small>追查器具订单与付款人</small></span><em>调查</em></button><button class="camp-opt camp-opt-clue" data-opt="p-citizen"><i>👥</i><span><b>街口人群</b><small>确认新制度的传闻</small></span><em>调查</em></button>' : ''}
-          ${state._pMainlineStage === 2 && state._pChapterOneLocked ? (state._pRole === 'slave' ? `<button class="camp-opt camp-opt-clue" data-opt="p-m-chapter"><i>⛓️</i><span><b>奴役线第一章 · 入库</b><small>${(state._pMChapterStage || 0) === 0 ? '从城门登记后的失去意识开始' : (state._pMChapterStage || 0) === 3000 && (state._pMChapterStep || 0) >= 3 ? '当前开放至初见派克' : '继续未完成的入库流程'}</small></span><em>${(state._pMChapterStage || 0) === 3000 && (state._pMChapterStep || 0) >= 3 ? '已完成' : '主线'}</em></button>` : '<button class="camp-opt" disabled><i>🏛️</i><span><b>自由身第一章</b><small>后续章节尚在制作中</small></span><em>未开放</em></button>') : [2, 4].includes(state._pMainlineStage) ? `<button class="camp-opt camp-opt-clue p-hall-entry" data-opt="p-hall"><i>🏛️</i><span><b>商团会馆</b><small>${state._pMainlineStage === 2 ? '派克正在长厅等你' : '把戴蒙德带回派克面前'}</small></span><em>主线</em></button>` : ''}
-          ${state._pMainlineStage === 3 ? '<button class="camp-opt camp-opt-clue" data-opt="p-gate-return"><i>⛓️</i><span><b>城门外岗哨</b><small>按派克的命令去找贝拉米与戴蒙德</small></span><em>主线</em></button>' : ''}
+          ${state._pMainlineStage === 2 && state._pChapterOneLocked ? (state._pRole === 'slave' ? `<button class="camp-opt camp-opt-clue" data-opt="p-m-chapter"><i>${state._pMEscort && state._pMEscort.started && !state._pMEscort.completed ? '🏙️' : '⛓️'}</i><span><b>奴隶线·第一章</b><small>${state._pMEscort && state._pMEscort.started && !state._pMEscort.completed ? `继续九格押送 · ${(state._pMEscort.position || 0) + 1}/9` : (state._pMChapterStage || 0) === 0 ? '从城门登记后的失去意识开始' : (state._pMChapterStage || 0) === 3000 && (state._pMChapterStep || 0) >= 3 ? '当前开放至初见派克' : '继续第一章剧情'}</small></span><em>${(state._pMChapterStage || 0) === 3000 && (state._pMChapterStep || 0) >= 3 ? '已完成' : '主线'}</em></button>` : '<button class="camp-opt" disabled><i>🏛️</i><span><b>自由身第一章</b><small>后续章节尚在制作中</small></span><em>未开放</em></button>') : ''}
           <button class="camp-opt camp-opt-tavern${state._wrongCommissionStage === 3 && !wrongCommissionLeads.barkeep ? ' camp-opt-clue' : ''}" data-opt="tavern"><i>🍺</i><span><b>雾灯酒馆</b><small>${state._wrongCommissionStage === 3 && !wrongCommissionLeads.barkeep ? '桥边麦秸指向酒馆后门' : '摇骰子、买酒'}</small></span><em>${state._wrongCommissionStage === 3 && !wrongCommissionLeads.barkeep ? '有线索' : '营业中'}</em></button>
           <button class="camp-opt camp-opt-blacksmith${state._wrongCommissionStage === 3 && !wrongCommissionLeads.blacksmith ? ' camp-opt-clue' : ''}" data-opt="blacksmith"><i>🔨</i><span><b>铁匠铺</b><small>${state._wrongCommissionStage === 3 && !wrongCommissionLeads.blacksmith ? '桥边锁环带着新锉痕' : '武器与饰品'}</small></span><em>${state._wrongCommissionStage === 3 && !wrongCommissionLeads.blacksmith ? '有线索' : '营业中'}</em></button>
           <button class="camp-opt camp-opt-potion" data-opt="potion"><i>🧪</i><span><b>道具商</b><small>药品与旅途补给</small></span><em>营业中</em></button>
@@ -205,14 +204,10 @@ window.CampSystem = (function () {
           TownShopSystem.openPotionShop()
         } else if (opt === 'p-m-chapter') {
           PMEnslavementSystem.open()
-        } else if (opt === 'p-hall') {
-          PTownSystem.enterPHall()
         } else if (opt === 'p-townhall') {
-          PTownSystem.pTownHall()
+          PrologueSystem.pTownHall()
         } else if (opt === 'p-guard' || opt === 'p-merchant' || opt === 'p-citizen') {
-          PTownSystem.investigatePTown(opt.slice(2))
-        } else if (opt === 'p-gate-return') {
-          PTownSystem.returnToBellamy()
+          PrologueSystem.investigatePTown(opt.slice(2))
         } else if (opt === 'blacksmith') {
           TownShopSystem.openBlacksmith()
         } else if (opt === 'glory') TownGlorySystem.open()
@@ -231,45 +226,45 @@ window.CampSystem = (function () {
   /** 原版序章式错投事件：神秘的派克把运输货单送错了人。 */
   function receiveWrongCommission () {
     const state = State.get()
+    const copy = PROLOGUE_CONTENT.letter
     state._wrongCommissionStage = 1
     EventBus.emit('ui:log', { text: '📖 主线开启：欲缚镇 · 序章', type: 'good' })
     EventBus.emit('ui:log', { text: '✉️ 一个陌生信使把署名派克的货单按进你手里。', type: 'warning' })
     EventBus.emit('state:changed', state)
     State.save()
     campShow({
-      title: '雾灯镇 · 巷口',
-      className: 'camp-tavern-modal wrong-letter-modal',
+      title: copy.arrival.title,
+      className: 'camp-tavern-modal wrong-letter-modal prologue-scene-modal',
       body: `<section class="wrong-letter-arrival">
           <i aria-hidden="true">✉️</i>
-          <div><p>一个披着湿斗篷的人从巷子里撞出来，扫了一眼你的行装，便把一封信按进你手里。</p>
-          <blockquote>“北路来的搬运人？派克先生等这张回执很久了。”</blockquote>
-          <p>他的手还按在信封上，显然把你的沉默当成了默认。</p></div>
+          <div><p>${copy.arrival.text}</p></div>
         </section>
-        <div class="wrong-letter-envelope"><span>收件人</span><b>北路搬运人</b><em>封口只有一个压得很深的名字：派克。</em></div>`,
+        <section class="p-hall-order"><span>${copy.arrival.speaker}</span><blockquote>${copy.arrival.line}</blockquote></section>
+        <div class="wrong-letter-envelope"><span>${copy.envelope.label}</span><b>${copy.envelope.recipient}</b><em>${copy.envelope.seal}</em></div>`,
       actions: [
-        { label: '拆开看看', cls: 'btn-primary', handler: readWrongCommission },
-        { label: '“我不是北路来的。”', handler: denyWrongCommission },
-        { kind: 'navigation', label: '先收进口袋', handler: () => pocketWrongCommission(false) },
+        { label: copy.arrival.open, cls: 'btn-primary', handler: readWrongCommission },
+        { label: copy.arrival.deny, handler: denyWrongCommission },
+        { kind: 'navigation', label: copy.arrival.pocket, handler: () => pocketWrongCommission(false) },
       ],
     })
   }
 
   /** 否认身份也不会拆信，信使看过封口就把货单留下。 */
   function denyWrongCommission () {
+    const copy = PROLOGUE_CONTENT.letter
     EventBus.emit('ui:log', { text: '✉️ 信使不肯听解释，把派克的货单留在你手里后钻进了雾里。', type: 'warning' })
     campShow({
-      title: '雾灯镇 · 巷口',
-      className: 'camp-tavern-modal wrong-letter-modal',
+      title: copy.denied.title,
+      className: 'camp-tavern-modal wrong-letter-modal prologue-scene-modal',
       body: `<section class="wrong-letter-arrival">
           <i aria-hidden="true">✉️</i>
-          <div><p>你说自己不是北路来的搬运人。信使只低头看了一眼封口，就打断了你。</p>
-          <blockquote>“封口是派克的，北路上就你一个。回执交到手里，我的事就完了。”</blockquote>
-          <p>他松开信封，穿过酒馆旁的小巷，消失在雾里。信还在你手里，封口没有拆开。</p></div>
+          <div><p>${copy.denied.text}</p></div>
         </section>
-        <div class="wrong-letter-envelope"><span>收件人</span><b>北路搬运人</b><em>封口只有一个压得很深的名字：派克。</em></div>`,
+        <section class="p-hall-order"><span>${copy.denied.speaker}</span><blockquote>${copy.denied.line}</blockquote></section>
+        <div class="wrong-letter-envelope"><span>${copy.envelope.label}</span><b>${copy.envelope.recipient}</b><em>${copy.envelope.seal}</em></div>`,
       actions: [
-        { label: '拆开看看', cls: 'btn-primary', handler: readWrongCommission },
-        { kind: 'navigation', label: '先收进口袋', handler: () => pocketWrongCommission(true) },
+        { label: copy.arrival.open, cls: 'btn-primary', handler: readWrongCommission },
+        { kind: 'navigation', label: copy.arrival.pocket, handler: () => pocketWrongCommission(true) },
       ],
     })
   }
@@ -292,17 +287,17 @@ window.CampSystem = (function () {
 
   function showWrongCommissionLetter () {
     const state = State.get()
+    const copy = PROLOGUE_CONTENT.letter.document
     campShow({
-      title: '派克的货单',
-      className: 'camp-tavern-modal wrong-letter-modal',
+      title: copy.title,
+      className: 'camp-tavern-modal wrong-letter-modal prologue-scene-modal',
       body: `<section class="wrong-letter-paper" aria-label="错投的委托信">
-          <p>北路搬运人：</p>
-          <p>货物已经装车。第一批约束器具留在雾灯酒馆后门，第二批锁具交给镇上的铁匠改装。空车从旧桥返回。</p>
-          <p>款项已经收齐。不要拆封，不要耽误交付。失败不在约定之内。</p>
-          <footer>——派克</footer>
+          <p>${copy.greeting}</p>
+          ${copy.paragraphs.map(text => `<p>${text}</p>`).join('')}
+          <footer>${copy.sign}</footer>
         </section>
-        <p class="wrong-letter-after">${CommissionSystem.letterAfterText(state)}</p>`,
-      actions: [{ kind: 'navigation', label: '收起信件', handler: open }],
+        <p class="wrong-letter-after">${PrologueSystem.letterAfterText(state)}</p>`,
+      actions: [{ kind: 'navigation', label: copy.close, handler: open }],
     })
   }
 

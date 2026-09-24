@@ -20,6 +20,10 @@ window.RestraintSystem = (function () {
     low: { label: '低档', icon: '〰️', serviceRate: 0.25, distraction: 0.05, escapePenalty: 0.05 },
     high: { label: '高档', icon: '⚡', serviceRate: 0.50, distraction: 0.15, escapePenalty: 0.15 },
   }
+  const INSERT_ATTACHMENTS = {
+    prostitute_tag: { name: '妓女牌', icon: '🏷️', desc: '连接在插入装备外侧的身份挂牌。' },
+    bell: { name: '铃铛挂饰', icon: '🔔', desc: '连接在插入装备尾端，走动时会发出声响。' },
+  }
 
   function raw () { return State.get()._restraints || {} }
   function get (slot) { return raw()[slot] || null }
@@ -97,14 +101,16 @@ window.RestraintSystem = (function () {
       charge: Math.max(0, Math.min(insertChargeMax(def, device), Math.floor(Number(device.charge) || 0))),
       count: def.stackable ? Math.max(1, Math.floor(Number(device.count) || 1)) : 1,
       vibrationMode: def.vibrate && VIBRATION_MODES[device.vibrationMode] ? device.vibrationMode : 'off',
+      attachment: INSERT_ATTACHMENTS[device.attachment] ? device.attachment : null,
     })
     pool[device.id] = list
   }
 
   function insertSizeText (def) {
     if (!def || !Number.isFinite(def.sizeCm)) return '未标注'
-    if (def.id.includes('butt_plug') || def.dildo) return `${def.sizeCm} cm${def.sizeCm >= 5.2 ? '以上' : '以下'}`
-    return `${def.sizeCm} cm`
+    const code = def.sizeCode ? `${def.sizeCode}码 · ` : ''
+    if (def.id.includes('butt_plug') || def.dildo) return `${code}${def.sizeCm} cm${def.sizeCm >= 5.2 ? '以上' : '以下'}`
+    return `${code}${def.sizeCm} cm`
   }
 
   function insertDetailsHtml (def, charge, device) {
@@ -116,12 +122,15 @@ window.RestraintSystem = (function () {
       <b>${VIBRATION_MODES[vibration.mode].icon} 震动：${VIBRATION_MODES[vibration.mode].label}${vibration.controlEnabled ? '' : '（MCM 已暂停）'}</b>
       <small>${vibration.mode === 'off' ? '无额外收益或战斗影响' : `服务额外 +${vibration.serviceExtra}G · 攻击分心 ${Math.round(vibration.distractionChance * 100)}% · 逃跑 -${Math.round(vibration.escapePenalty * 100)}%`}${vibration.locked ? ' · 上锁后无法调档' : ''}</small>
     </span>` : ''
+    const attachment = device && INSERT_ATTACHMENTS[device.attachment]
+    const attachmentHtml = attachment ? `<span class="rpg-gear-special"><em>连接挂饰</em><strong>${attachment.icon} ${attachment.name}</strong></span><small class="rpg-gear-hint">${attachment.desc}</small>` : ''
     return `<span class="rpg-gear-details">
       <span class="rpg-gear-kicker">插入装备 · ${slotLabel}</span>
       <span class="rpg-gear-stat"><em>尺寸</em><strong>${insertSizeText(def)}</strong></span>
       <span class="rpg-gear-stat"><em>防护充能</em><strong>可充能 ${chargeLimit}</strong></span>
       <small class="rpg-gear-hint">每点充能完全抵挡一次对应部位的攻击：0 伤害、0 效果</small>
       <span class="rpg-gear-special"><em>特殊</em><strong>酒馆妓女：+${bonus}</strong></span>
+      ${attachmentHtml}
       <span class="rpg-gear-warning">🔒 上锁后：酒馆妓女与荣耀洞均不可用</span>
       <span class="restr-charge${charge.current <= 0 ? ' is-empty' : ''}">⚡ 当前充能 ${charge.current}/${charge.max}${charge.current < charge.max ? ' · 去酒馆找附魔师' : ''}</span>
       ${vibrationHtml}
@@ -215,6 +224,8 @@ window.RestraintSystem = (function () {
       jammed: !!opts.jammed,
       count: def.stackable ? Math.max(1, Math.min(ownedCount(id), Math.floor(Number(opts.count) || storedCount || 1))) : 1,
     }
+    const requestedAttachment = opts.attachment || (storedInsertion && storedInsertion.attachment)
+    if (def.insert && INSERT_ATTACHMENTS[requestedAttachment]) device.attachment = requestedAttachment
     if (def.vibrate) {
       const savedMode = opts.vibrationMode || (storedInsertion && storedInsertion.vibrationMode)
       device.vibrationMode = VIBRATION_MODES[savedMode] ? savedMode : 'off'
@@ -1288,8 +1299,9 @@ window.RestraintSystem = (function () {
         : ''
       const serviceHtml = !def.insert ? serviceDetailsHtml(def) : ''
       const tone = def.insert ? 'insert' : gearTone(def)
+      const attachment = d.attachment && INSERT_ATTACHMENTS[d.attachment]
       const quickState = charge
-        ? `⚡ 防护 ${charge.current}/${charge.max}${d.locked ? ' · 已上锁' : ''}`
+        ? `⚡ 防护 ${charge.current}/${charge.max}${attachment ? ` · ${attachment.icon} ${attachment.name}` : ''}${d.locked ? ' · 已上锁' : ''}`
         : `${SLOT_NAMES[slot]} · ${d.locked ? '无法自行脱下' : '可以随时取下'}`
       return `<div class="restr-card rpg-equipped-card rpg-gear-${tone}"><i>${SLOT_ICONS[slot]}</i><span class="restr-card-main"><b class="rpg-gear-name">${def.name}${countLabel}</b><small class="restr-quick-state">${quickState}</small><details class="gear-card-details"><summary>查看装备效果</summary>${def.insert ? chargeHtml : serviceHtml}</details></span>${lockTag}${actionsHtml}</div>`
     }).join('')
@@ -1349,7 +1361,7 @@ window.RestraintSystem = (function () {
     hasGag, hasHandcuffs, hasLegCuffs, hasCollar, hasArmbinder, hasBlindfold, hasWaistChastity, hasHandsBlocked,
     hasNipple, hasCorset, hasAnkleChains, hasDevice, ownedCount, grant, adjustStack,
     allowedSlotsOf, canEquip, insertionDevice, insertionBlocks, insertionCharge, setInsertionCharge, insertionProstituteBonus, lockedInsertionDevices, lockedServiceDevices, resolveMonsterOrifice, resolveServiceOrifice,
-    VIBRATION_MODES, vibrationInfo, setVibrationMode, vibrationServiceBonus, vibrationDistraction, vibrationEscapePenalty,
+    VIBRATION_MODES, INSERT_ATTACHMENTS, vibrationInfo, setVibrationMode, vibrationServiceBonus, vibrationDistraction, vibrationEscapePenalty,
     effectiveMaxOwn, wornCountOf,
     settings, chargeNoticeText, toggleTrap, removeAllUnlocked, bodyDiagram,
     openManage, openSettings,

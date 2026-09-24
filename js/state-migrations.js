@@ -14,6 +14,7 @@ window.StateMigrations = (function () {
       state.genderLabel = state.gender === 'male' ? '男性' : '女性'
     } else {
       state.genderLabel = String(state.genderLabel).slice(0, 8)
+      if (['男性', '女性'].includes(state.genderLabel)) state.genderLabel = state.gender === 'male' ? '男性' : '女性'
     }
     state.maxHp = Math.max(1, finite(state.maxHp, def.maxHp))
     state.hp = Math.min(state.maxHp, Math.max(0, finite(state.hp, def.hp)))
@@ -65,9 +66,9 @@ window.StateMigrations = (function () {
     if (state._pendingGuardianTreasure === undefined) state._pendingGuardianTreasure = null
     if (state._pendingGuardianGold === undefined) state._pendingGuardianGold = null
     if (state._godMode === undefined) state._godMode = false
+    if (state._noEnemyEncounters === undefined) state._noEnemyEncounters = false
     if (state._pendingLootEvent === undefined) state._pendingLootEvent = null
     if (state._pendingBossAttack === undefined) state._pendingBossAttack = null
-    const previousPStoryRevision = Math.floor(finite(state._pStoryRevision, 1))
     state._wrongCommissionStage = Math.max(0, Math.min(10, Math.floor(finite(state._wrongCommissionStage, 0))))
     if (!state._wrongCommissionLeads || typeof state._wrongCommissionLeads !== 'object' || Array.isArray(state._wrongCommissionLeads)) {
       state._wrongCommissionLeads = { barkeep: false, blacksmith: false }
@@ -115,6 +116,9 @@ window.StateMigrations = (function () {
       state._pBanditDefeatResult = {
         goldLost: Math.max(0, Math.min(9999, Math.floor(finite(state._pBanditDefeatResult.goldLost, 0)))),
         livingCrew: Math.max(0, Math.min(2, Math.floor(finite(state._pBanditDefeatResult.livingCrew, 0)))),
+        livingCrewIds: Array.isArray(state._pBanditDefeatResult.livingCrewIds)
+          ? [...new Set(state._pBanditDefeatResult.livingCrewIds.filter(id => ['bandit-lookout', 'bandit-cutpurse'].includes(id)))]
+          : [],
       }
     } else state._pBanditDefeatResult = null
     state._pBanditClothesLocked = !!state._pBanditClothesLocked
@@ -182,7 +186,7 @@ window.StateMigrations = (function () {
       state.inventory.consumables.raven_latch = Math.max(1, state.inventory.consumables.raven_latch || 0)
     }
     state._pMainlineStage = Math.max(0, Math.min(6, Math.floor(finite(state._pMainlineStage, 0))))
-    if (!['slaver', 'free', 'slave'].includes(state._pRole)) state._pRole = null
+    if (!['free', 'slave'].includes(state._pRole)) state._pRole = null
     state._pChapterOneLocked = !!state._pChapterOneLocked
     state._pMChapterStage = [0, 500, 1000, 1500, 2000, 2500, 3000, 3500, 4000, 9500, 10000].includes(Math.floor(finite(state._pMChapterStage, 0))) ? Math.floor(finite(state._pMChapterStage, 0)) : 0
     state._pMChapterStep = Math.max(0, Math.min(8, Math.floor(finite(state._pMChapterStep, 0))))
@@ -193,6 +197,11 @@ window.StateMigrations = (function () {
     if (!['spank', 'oral', 'spread'].includes(state._pMChapterAttitude)) state._pMChapterAttitude = null
     state._pMWakeResist = Math.max(0, Math.min(3, Math.floor(finite(state._pMWakeResist, 0))))
     state._pMSpankStack = Math.max(1, Math.floor(finite(state._pMSpankStack, 1)))
+    state._pMStage2000SlapCount = Math.max(0, Math.floor(finite(state._pMStage2000SlapCount, 0)))
+    state._pMStage2000SlapPending = !!state._pMStage2000SlapPending
+    if (!['start', 'beg2', 'beg3'].includes(state._pMStage2000SlapReturn)) state._pMStage2000SlapReturn = null
+    state._pMStage2500GearConfirmStep = Math.max(0, Math.min(3, Math.floor(finite(state._pMStage2500GearConfirmStep, 0))))
+    state._pMStage2500GearConfirming = !!state._pMStage2500GearConfirming
     if (!state._pMWakeGearEscrow || typeof state._pMWakeGearEscrow !== 'object' || Array.isArray(state._pMWakeGearEscrow)) state._pMWakeGearEscrow = null
     state._pMChapterFailures = Math.max(0, Math.min(99, Math.floor(finite(state._pMChapterFailures, 0))))
     if (state._pMChapterEscrow && typeof state._pMChapterEscrow === 'object' && !Array.isArray(state._pMChapterEscrow)) {
@@ -212,32 +221,33 @@ window.StateMigrations = (function () {
     if (!['endure', 'shield', 'defy'].includes(state._pMMarketResponse)) state._pMMarketResponse = null
     if (!['protect', 'self', 'obey'].includes(state._pMDayaChoice)) state._pMDayaChoice = null
     state._pMChapterCompleted = !!state._pMChapterCompleted
+    if (!['bellamy', 'solo'].includes(state._pMEscortMode)) state._pMEscortMode = 'bellamy'
+    if (state._pMEscort && typeof state._pMEscort === 'object' && !Array.isArray(state._pMEscort)) {
+      const escort = state._pMEscort
+      const forcedTiles = Array.isArray(escort.forcedTiles)
+        ? [...new Set(escort.forcedTiles.map(value => Math.floor(finite(value, -1))).filter(value => value === 2 || value === 6))]
+        : []
+      state._pMEscort = {
+        started: !!escort.started,
+        gateDone: !!escort.gateDone,
+        mode: escort.mode === 'solo' ? 'solo' : 'bellamy',
+        position: Math.max(0, Math.min(8, Math.floor(finite(escort.position, 0)))),
+        currentType: ['event', 'guard'].includes(escort.currentType) ? escort.currentType : null,
+        currentId: typeof escort.currentId === 'string' && /^[a-z_]{1,30}$/.test(escort.currentId) ? escort.currentId : null,
+        currentStep: Math.max(0, Math.min(30, Math.floor(finite(escort.currentStep, 0)))),
+        forcedTiles,
+        publicNotice: !!escort.publicNotice,
+        completed: !!escort.completed,
+        entryStep: Math.max(0, Math.min(10, Math.floor(finite(escort.entryStep, 0)))),
+        entryEvent: ['bellamy_pass', 'bellamy_oral', 'bellamy_anal', 'solo_pass', 'solo_oral', 'solo_anal', 'solo_both', 'solo_denied'].includes(escort.entryEvent) ? escort.entryEvent : null,
+        hallArrive: !!escort.hallArrive,
+        gagRemovedAtHall: !!escort.gagRemovedAtHall,
+      }
+      if (!state._pMEscort.currentType) state._pMEscort.currentId = null
+    } else state._pMEscort = null
     state._pGateChoices = Array.isArray(state._pGateChoices)
       ? [...new Set(state._pGateChoices.filter(choice => ['work', 'question', 'refuse', 'cautious', 'defiant', 'slave', 'free'].includes(choice)))].slice(0, 6)
       : []
-    if (!['registered', 'helped', 'refused', 'assault_win', 'assault_loss', 'slaver_training', 'free_observer', 'slave_training', 'm_intake_complete'].includes(state._pDayaOutcome)) state._pDayaOutcome = null
-    state._pRouteLocked = !!state._pRouteLocked || state._pMainlineStage >= 6
-    // 旧版把“发现许可”后到初见派克的整段内容压缩掉了。未锁定路线的旧档回退到
-    // 车队残骸阶段，避免刷新后继续进入已经废弃的登记页四选一。
-    if (previousPStoryRevision < 2 && !state._pRouteLocked && state._wrongCommissionStage >= 6) {
-      state._wrongCommissionStage = 5
-      state._wrongCommissionOutcome = 'permit'
-      state._pMainlineStage = 0
-      state._pRole = null
-      state._pGateChoices = []
-      state._pDayaOutcome = null
-    }
-    // v3 暂停在城门身份选择：旧版已经进入第一章或 S 路线的存档，
-    // 回到城门重新选择目前开放的 M / 自由身路线。已按新规则完成选择的存档保持不动。
-    const enteredUnreleasedChapter = state._pMainlineStage > 2 || state._pRole === 'slaver' || (state._pMainlineStage === 2 && !state._pChapterOneLocked)
-    if (previousPStoryRevision < 3 && enteredUnreleasedChapter && state._wrongCommissionStage >= 10) {
-      state._pMainlineStage = 1
-      state._pRole = null
-      state._pChapterOneLocked = false
-      state._pRouteLocked = false
-      state._pGateChoices = []
-      state._pDayaOutcome = null
-    }
     state._pStoryRevision = 3
     state._gloryDebt = Math.max(0, Math.min(9999, Math.floor(finite(state._gloryDebt, 0))))
     state._gloryFreeService = !!state._gloryFreeService
@@ -253,6 +263,19 @@ window.StateMigrations = (function () {
     state._prisonLife = !!state._prisonLife
     state._prisonChastity = !!state._prisonChastity
     if (state._prisonMouthPrev === undefined) state._prisonMouthPrev = null
+    state._prisonCharge = typeof state._prisonCharge === 'string' && state._prisonCharge.trim()
+      ? state._prisonCharge.trim().slice(0, 40)
+      : null
+    state._prisonCaravanBindings = Array.isArray(state._prisonCaravanBindings)
+      ? state._prisonCaravanBindings.filter(binding => binding && typeof binding.slot === 'string').map(binding => ({
+          stage: Math.max(0, Math.min(3, Math.floor(finite(binding.stage, 0)))),
+          slot: binding.slot,
+          borrowed: !!binding.borrowed,
+          original: binding.original && typeof binding.original === 'object' && !Array.isArray(binding.original)
+            ? { ...binding.original }
+            : null,
+        })).slice(0, 4)
+      : []
     state._wanted = !!state._wanted
     if (typeof window.TELEPORTS !== 'undefined' && Array.isArray(state._teleports)) {
       state._teleports = state._teleports.filter(id => TELEPORTS.some(t => t.id === id))
@@ -415,6 +438,7 @@ window.StateMigrations = (function () {
         const defn = worn && RESTRAINTS.find(item => item.id === worn.id)
         if (defn && defn.vibrate) worn.vibrationMode = ['off', 'low', 'high'].includes(worn.vibrationMode) ? worn.vibrationMode : 'off'
         else if (worn) delete worn.vibrationMode
+        if (worn && (!defn || !defn.insert || !['prostitute_tag', 'bell'].includes(worn.attachment))) delete worn.attachment
       })
     } else {
       state._restraints = {}
@@ -435,6 +459,7 @@ window.StateMigrations = (function () {
           charge: Math.max(0, Math.min(max, Math.floor(finite(record && record.charge, 0)))),
           count,
           vibrationMode: defn.vibrate && ['off', 'low', 'high'].includes(record && record.vibrationMode) ? record.vibrationMode : 'off',
+          attachment: ['prostitute_tag', 'bell'].includes(record && record.attachment) ? record.attachment : null,
         }
       })
       if (!state._storedInsertionCharges[id].length) delete state._storedInsertionCharges[id]

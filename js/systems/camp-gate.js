@@ -396,6 +396,7 @@ window.TownGateSystem = (function () {
   }
 
   async function runGuardSearchTask (direction, seconds) {
+    let skipped = !!(State.get()._guardSearchPending && State.get()._guardSearchPending.skipped)
     if (typeof BattleUI !== 'undefined' && BattleUI.showTaskDialog) {
       await BattleUI.showTaskDialog({
         enemyName: '🛡️ 城门卫兵',
@@ -405,7 +406,15 @@ window.TownGateSystem = (function () {
         seconds,
         dmg: 0,
         noDamage: true,
-        allowSkip: false,
+        allowSkip: true,
+        skipWarning: '跳过搜身有 50% 几率被卫兵栽赃，“搜出”价值 20–300G 的赃物并当场罚没金币。请确认后再点击。',
+        onSkip: () => {
+          skipped = true
+          const pending = State.get()._guardSearchPending
+          if (pending) pending.skipped = true
+          EventBus.emit('state:changed', State.get())
+          State.save()
+        },
         showFailure: false,
         completeLabel: '✅ 检查结束',
         dialogClass: 'guard-search-task-modal',
@@ -415,24 +424,54 @@ window.TownGateSystem = (function () {
       State.get()._guardSearchPending = null
       EventBus.emit('state:changed', State.get())
     }
-    resolveGuardSearch(direction)
+    resolveGuardSearch(direction, { skipped })
   }
 
   /** 搜身结算：按设置决定是否没收开锁工具（只没收 1 个），然后放行 */
-  function resolveGuardSearch (direction) {
+  function resolveGuardSearch (direction, options = {}) {
     const state = State.get()
     const s = guardSettings()
+    const framed = !!options.skipped && Math.random() < 0.5
+    const framedValue = framed ? 20 + Math.floor(Math.random() * 281) : 0
+    const confiscatedGold = framed ? Math.min(Math.max(0, Number(state.gold) || 0), framedValue) : 0
+    const framedDebt = framed ? Math.max(0, framedValue - confiscatedGold) : 0
+    if (confiscatedGold > 0) state.gold -= confiscatedGold
+    if (framedDebt > 0) {
+      state._gloryDebt = Math.max(0, Number(state._gloryDebt) || 0) + framedDebt
+      state._gloryByGuard = true
+    }
     const confiscated = s.confiscateLockpick && (state.inventory.consumables.lockpick || 0) > 0
     if (confiscated) {
       state.inventory.consumables.lockpick--
       EventBus.emit('ui:log', { text: '🛡️ 卫兵搜出并没收了 1 个开锁工具。', type: 'danger' })
       EventBus.emit('state:changed', state)
     }
+    if (framed) {
+      EventBus.emit('ui:log', { text: `🛡️ 你跳过了例行搜身，卫兵随即栽赃了一包价值 ${framedValue}G 的赃物，当场罚没 ${confiscatedGold}G${framedDebt > 0 ? `，剩余 ${framedDebt}G 转为厕所欠债` : ''}。`, type: 'danger' })
+      EventBus.emit('state:changed', state)
+    }
+    const resultTitle = framed ? '“赃物搜到了。还想走得这么快？”' : confiscated ? '“开锁工具？我可记下了。”' : '“没发现违禁品。走吧，别在门口磨蹭。”'
+    const resultText = framed
+      ? `卫兵从自己袖口里抖出一包“赃物”，当众说它价值 ${framedValue}G，并从你身上罚没了 ${confiscatedGold}G。${framedDebt > 0 ? `还差的 ${framedDebt}G 被记成欠债，卫兵要把你直接送去公共厕所赚回来。` : ''}`
+      : confiscated ? '卫兵把搜出的开锁工具收进口袋，侧身让你过去。' : '卫兵收起打量的目光，侧身让开道。'
     Dialog.show({
       title: '🛡️ 城门检查 · 卫兵',
       className: 'guard-search-modal inventory-modal restraint-modal',
-      body: `<div class="guard-search-hero"><i>🛡️</i><div><small>检查结果</small><b>${confiscated ? '“开锁工具？我可记下了。”' : '“没发现违禁品。走吧，别在门口磨蹭。”'}</b><p>${confiscated ? '卫兵把搜出的开锁工具收进口袋，侧身让你过去。' : '卫兵收起打量的目光，侧身让开道。'}</p></div>${guardDeviceComment()}</div>`,
-      actions: [{ label: direction === 'enter' ? '✅ 进城' : '✅ 出城', cls: 'btn-primary', handler: () => { Dialog.close(); finishGuardPass(direction, true) } }],
+      body: `<div class="guard-search-hero"><i>🛡️</i><div><small>${framed ? '跳过检查 · 被栽赃' : '检查结果'}</small><b>${resultTitle}</b><p>${resultText}</p></div>${guardDeviceComment()}</div>`,
+      actions: [{
+        label: framedDebt > 0 ? `🚻 去公共厕所还 ${framedDebt}G` : direction === 'enter' ? '✅ 进城' : '✅ 出城',
+        cls: framedDebt > 0 ? 'btn-danger' : 'btn-primary',
+        handler: () => {
+          Dialog.close()
+          if (framedDebt > 0) {
+            state._guardCheckedThisVisit = true
+            EventBus.emit('town:guardCheck', { direction })
+            EventBus.emit('state:changed', state)
+            State.save()
+            showGloryWork()
+          } else finishGuardPass(direction, true)
+        },
+      }],
     })
   }
 
@@ -481,7 +520,7 @@ window.TownGateSystem = (function () {
     if (remaining <= 0) {
       state._guardSearchPending = null
       EventBus.emit('state:changed', state)
-      resolveGuardSearch(pending.direction)
+      resolveGuardSearch(pending.direction, { skipped: !!pending.skipped })
     } else {
       runGuardSearchTask(pending.direction, remaining)
     }

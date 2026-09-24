@@ -63,6 +63,12 @@ window.NodeEvents = {
 
     switch (tile.type) {
       case TILE.MONSTER:
+        if (state._noEnemyEncounters) {
+          if (hint) hint.textContent = '🚶 避敌模式：已绕过怪物'
+          EventBus.emit('ui:log', { text: '🚶 避敌模式跳过了一次普通怪物遭遇。', type: 'dim' })
+          GameFlow.afterEvent()
+          return
+        }
         if (hint) hint.textContent = '⚔️ 遭遇敌人！'
         startRandomBattle()
         return   // 战斗接管流程
@@ -73,6 +79,12 @@ window.NodeEvents = {
         return
 
       case TILE.AMBUSH:
+        if (state._noEnemyEncounters) {
+          if (hint) hint.textContent = '🚶 避敌模式：已避开伏击'
+          EventBus.emit('ui:log', { text: '🚶 避敌模式跳过了伏击。', type: 'dim' })
+          GameFlow.afterEvent()
+          return
+        }
         if (hint) hint.textContent = '🌫️ 你被伏击了！'
         EventBus.emit('ui:log', { text: '🌫️ 你被伏击了！', type: 'danger' })
         AmbushSystem.trigger()
@@ -129,8 +141,8 @@ window.NodeEvents = {
         return
 
       case TILE.BRIDGE:
-        if (typeof CommissionSystem !== 'undefined' && CommissionSystem.visitBridge) {
-          CommissionSystem.visitBridge()
+        if (typeof PrologueSystem !== 'undefined' && PrologueSystem.visitBridge) {
+          PrologueSystem.visitBridge()
         } else {
           GameFlow.afterEvent()
         }
@@ -138,8 +150,8 @@ window.NodeEvents = {
 
       case TILE.BANDIT_CAMP:
         if (hint) hint.textContent = '🔥 进入桥下强盗营地……'
-        if (typeof CommissionSystem !== 'undefined' && CommissionSystem.visitBanditCamp) {
-          CommissionSystem.visitBanditCamp()
+        if (typeof PrologueSystem !== 'undefined' && PrologueSystem.visitBanditCamp) {
+          PrologueSystem.visitBanditCamp()
         } else {
           GameFlow.afterEvent()
         }
@@ -170,6 +182,11 @@ window.NodeEvents = {
 
 /** 掷 Z 随机遭遇怪物 */
 function startRandomBattle () {
+  if (State.get()._noEnemyEncounters) {
+    EventBus.emit('ui:log', { text: '🚶 避敌模式跳过了一次随机怪物遭遇。', type: 'dim' })
+    GameFlow.afterEvent()
+    return
+  }
   const z = Dice.rollZ()
   const pool = CONFIG.monsters.randomPool || ['tentacle', 'orc', 'sorceress', 'succubus', 'goblins', 'werewolf']
   const idx = Math.min(z - 1, pool.length - 1)
@@ -217,6 +234,14 @@ function ambushTaskTiming (attack) {
 window.AmbushSystem = {
   async trigger () {
     const state = State.get()
+    if (state._noEnemyEncounters) {
+      state.phase = 'idle'
+      state._ambush = null
+      EventBus.emit('ui:log', { text: '🚶 避敌模式跳过了伏击。', type: 'dim' })
+      EventBus.emit('state:changed', state)
+      GameFlow.afterEvent()
+      return false
+    }
     state.phase = 'ambush'
     const insertionBlocks = typeof RestraintSystem !== 'undefined' ? RestraintSystem.insertionBlocks() : { anal: 0, vagina: 0 }
     state._ambush = { blocked: (insertionBlocks.anal || 0) + (insertionBlocks.vagina || 0), insertionBlocks, reflectTurns: 0 }

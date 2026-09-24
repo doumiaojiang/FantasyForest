@@ -6,7 +6,17 @@
  */
 window.PMEnslavementSystem = (function () {
   const openCamp = () => CampSystem.open()
+  const escapeHtml = value => String(value == null ? '' : value).replace(/[&<>'"]/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' })[ch])
+  const dialogueNames = { '贝': '贝拉米', '墨': '墨菲', '派': '派克', '戴': '戴蒙德', '卫': '值守卫兵', '路': '路人' }
+  const normalizeDialogue = html => typeof html === 'string'
+    ? html.replace(/<section class="p-hall-order"><span>([^<]+)<\/span>/g, (match, name) => {
+        const isPlayer = name === '你' || name === '玩家'
+        const fullName = isPlayer ? (State.get().playerName || '玩家') : (dialogueNames[name] || name)
+        return `<section class="p-hall-order gal-dialogue"><span class="${isPlayer ? 'is-player' : 'is-npc'}">${escapeHtml(fullName)}</span>`
+      })
+    : html
   const show = options => {
+    options.body = normalizeDialogue(options.body)
     options.actions = (options.actions || []).map(action => {
       const normalized = { ...action }
       delete normalized.cls
@@ -59,7 +69,7 @@ window.PMEnslavementSystem = (function () {
       taskSteps: options.steps || [],
       dmg: 0,
       noDamage: true,
-      completeLabel: options.completeLabel || '完成这一段',
+      completeLabel: options.completeLabel || '完成',
       dialogClass: 'p-m-enslavement-task-modal',
     })
   }
@@ -181,7 +191,7 @@ window.PMEnslavementSystem = (function () {
       title: '⛓️ 收容笼 · 眼罩',
       className: 'camp-tavern-modal wrong-letter-reaction-modal p-m-chapter-modal',
       body: '<section class="scene-dialogue"><i aria-hidden="true">🌑</i><div><p>在你还没醒来时，一条厚皮带覆住双眼，绕到脑后收紧。最后一点光被完全挡住。</p></div></section>',
-      actions: [{ label: '眼前只剩黑暗', cls: 'btn-primary', handler: showWakeGagEquip }],
+      actions: [{ label: '确认眼罩已佩戴', cls: 'btn-primary', handler: showWakeGagEquip }],
     })
   }
 
@@ -191,7 +201,7 @@ window.PMEnslavementSystem = (function () {
       title: '⛓️ 收容笼 · 口塞',
       className: 'camp-tavern-modal wrong-letter-reaction-modal p-m-chapter-modal',
       body: '<section class="scene-dialogue"><i aria-hidden="true">🤐</i><div><p>球形口塞被压进嘴里，扣带紧贴脸颊系好。你尚未恢复意识，嘴已经无法合上。</p></div></section>',
-      actions: [{ label: '呼吸变得沉重', cls: 'btn-primary', handler: showWakeCuffsEquip }],
+      actions: [{ label: '确认球形口塞已佩戴', cls: 'btn-primary', handler: showWakeCuffsEquip }],
     })
   }
 
@@ -201,7 +211,7 @@ window.PMEnslavementSystem = (function () {
       title: '⛓️ 收容笼 · 手铐',
       className: 'camp-tavern-modal wrong-letter-reaction-modal p-m-chapter-modal',
       body: '<section class="scene-dialogue"><i aria-hidden="true">⛓️</i><div><p>双臂被拉到身后。铁环依次扣住手腕，中间的短链只留下很小的活动余地。</p></div></section>',
-      actions: [{ label: '手臂被锁在身后', cls: 'btn-primary', handler: showWakeLegCuffsEquip }],
+      actions: [{ label: '确认反铐手铐已佩戴', cls: 'btn-primary', handler: showWakeLegCuffsEquip }],
     })
   }
 
@@ -211,7 +221,7 @@ window.PMEnslavementSystem = (function () {
       title: '⛓️ 收容笼 · 脚镣',
       className: 'camp-tavern-modal wrong-letter-reaction-modal p-m-chapter-modal',
       body: '<section class="scene-dialogue"><i aria-hidden="true">🔗</i><div><p>两枚脚镣在脚踝上合拢，短链垂到冰冷的石板上。你被放成跪姿，四件临时束缚到此全部扣好。</p></div></section>',
-      actions: [{ label: '意识开始恢复……', cls: 'btn-primary', handler: showHeadache }],
+      actions: [{ label: '确认短链脚镣已佩戴', cls: 'btn-primary', handler: showHeadache }],
     })
   }
 
@@ -846,7 +856,7 @@ window.PMEnslavementSystem = (function () {
         <section class="p-hall-order"><span>贝</span><blockquote>“会的。路上还会碰到想强奸你的男人。这就是规矩。男人被吩咐先干奴隶。你现在就是其中一个。习惯吧。”</blockquote></section>`,
       actions: [
         { label: '我习惯不了。', tone: 'submit', handler: () => { setStage(2000); open() } },
-        { label: '那你别带我上街。你留下陪她。', handler: showStage1500Alone },
+        { label: '（贝拉米会留在这里，不会跟你一起进城）那你别带我上街，你留下陪她，我自己去。', handler: showStage1500Alone },
       ],
     })
   }
@@ -855,8 +865,12 @@ window.PMEnslavementSystem = (function () {
     show({
       title: '⛓️ 城门 · 验收凳',
       className: 'camp-tavern-modal wrong-letter-reaction-modal p-m-chapter-modal',
-      body: `<section class="p-hall-order"><span>贝</span><blockquote>“你自己去会馆。我留在这儿，陪戴蒙德。”</blockquote></section>`,
-      actions: [{ label: '自己去见派克。', cls: 'btn-danger', handler: () => { setStage(3000); open() } }],
+      body: `<section class="p-hall-order"><span>贝</span><blockquote>“你自己去会馆。我会留在这儿，陪戴蒙德。”</blockquote></section>`,
+      actions: [{ label: '（贝拉米会留在这里，不会跟你一起进城）继续完成登记。', cls: 'btn-danger', handler: () => {
+        state()._pMEscortMode = 'solo'
+        setStage(2000)
+        open()
+      } }],
     })
   }
 
@@ -864,8 +878,8 @@ window.PMEnslavementSystem = (function () {
     show({
       title: '⛓️ 城门 · 验收凳',
       className: 'camp-tavern-modal wrong-letter-reaction-modal p-m-chapter-modal',
-      body: `<section class="p-hall-order"><span>贝</span><blockquote>“什么东西？那是鸡巴。大的、硬的，我的鸡巴。说。我用什么干的你？”</blockquote></section>`,
-      actions: [{ label: '一根……大鸡巴。可是太大了。', cls: 'btn-danger', handler: showStage1500Cock2 }],
+      body: `<section class="p-hall-order"><span>贝</span><blockquote>“什么东西？那是鸡巴。一根大的、硬的大鸡巴。懂了吗？说。我用什么干的你？”</blockquote></section>`,
+      actions: [{ label: '一根……大鸡巴。可是那太大了。', cls: 'btn-danger', handler: showStage1500Cock2 }],
     })
   }
 
@@ -873,7 +887,7 @@ window.PMEnslavementSystem = (function () {
     show({
       title: '⛓️ 城门 · 验收凳',
       className: 'camp-tavern-modal wrong-letter-reaction-modal p-m-chapter-modal',
-      body: `<section class="p-hall-order"><span>贝</span><blockquote>“再说一遍。男人有什么？”</blockquote></section>`,
+      body: `<section class="p-hall-order"><span>贝</span><blockquote>“别说废话，快！再说一遍。男人有什么？”</blockquote></section>`,
       actions: [{ label: '鸡巴。大鸡巴。', cls: 'btn-danger', handler: showStage1500Cock3 }],
     })
   }
@@ -882,12 +896,12 @@ window.PMEnslavementSystem = (function () {
     show({
       title: '⛓️ 城门 · 验收凳',
       className: 'camp-tavern-modal wrong-letter-reaction-modal p-m-chapter-modal',
-      body: `<section class="p-hall-order"><span>贝</span><blockquote>“我有什么？”</blockquote></section>`,
-      actions: [{ label: '一根很大、很硬的鸡巴。', cls: 'btn-danger', handler: () => {
+      body: `<section class="p-hall-order"><span>贝</span><blockquote>“接着说，我有什么？”</blockquote></section>`,
+      actions: [{ label: '一根很大、很硬的鸡巴！！！', cls: 'btn-danger', handler: () => {
         show({
           title: '⛓️ 城门 · 验收凳',
           className: 'camp-tavern-modal wrong-letter-reaction-modal p-m-chapter-modal',
-          body: `<section class="p-hall-order"><span>贝</span><blockquote>“记住。很多硬鸡巴会干你的穴。你会学会喜欢。”</blockquote></section>`,
+          body: `<section class="p-hall-order"><span>贝</span><blockquote>“记住，你的穴就是拿来装男人的鸡巴的物品罢了，你要学会喜欢鸡巴在里面搅动的感觉。”</blockquote></section>`,
           actions: [{ label: '……', cls: 'btn-primary', handler: () => { setStage(2000); open() } }],
         })
       } }],
@@ -910,26 +924,63 @@ window.PMEnslavementSystem = (function () {
     const step = state()._pMChapterStep || 0
     if (step >= 2) { showStage2000After(); return }
     if (step >= 1) { showStage2000Punish(); return }
+    if (state()._pMStage2000SlapPending) { showStage2000Beg1(); return }
     show({
       title: '⛓️ 城门 · 登记桌',
       className: 'camp-tavern-modal wrong-letter-reaction-modal p-m-chapter-modal',
-      body: `<section class="scene-dialogue"><i aria-hidden="true">◆</i><div><p>贝拉米把短链牵到登记桌前。</p></div></section>
-        <section class="p-hall-order"><span>你</span><blockquote>“这太羞辱了。我不是个性奴隶。”</blockquote></section>
-        <section class="p-hall-order"><span>贝</span><blockquote>“你现在还不是。那是派克决定的。可就算是劳役奴隶，每个男人也可以强奸你。现在说。求我让你给我口交。”</blockquote></section>`,
+      body: `<section class="scene-dialogue"><i aria-hidden="true">◆</i><div><p>贝拉米牵我的短链后，拉着我走到登记桌前。</p></div></section>
+        <section class="p-hall-order"><span>你</span><blockquote>“这太羞辱了，我不是个性奴隶。”</blockquote></section>
+        <section class="p-hall-order"><span>贝</span><blockquote>“是啊，你现在确实还不是。因为你是不是奴隶是由派克决定的，我说了可不算～。
+        但是可就算是劳役奴隶，每个男人也都可以强奸你。别废话了，你现在快求我让你给我口交。”</blockquote></section>`,
       actions: [
-        { label: '可是我不想。', tone: 'resist', handler: showStage2000Beg1 },
-        { label: '我能给你口交吗？', tone: 'submit', handler: showStage2000Beg2 },
+        { label: '我可以拒绝吗。', tone: 'resist', handler: () => startStage2000Refusal('start') },
+        { label: '嗯姆……我……我能给你口交吗？', tone: 'submit', handler: showStage2000Beg2 },
       ],
     })
+  }
+
+  function startStage2000Refusal (returnTo = 'start') {
+    const s = state()
+    s._pMStage2000SlapCount = Math.max(0, Number(s._pMStage2000SlapCount) || 0) + 5
+    s._pMStage2000SlapPending = true
+    s._pMStage2000SlapReturn = ['beg2', 'beg3'].includes(returnTo) ? returnTo : 'start'
+    save()
+    showStage2000Beg1()
   }
 
   function showStage2000Beg1 () {
     show({
       title: '⛓️ 城门 · 登记桌',
       className: 'camp-tavern-modal wrong-letter-reaction-modal p-m-chapter-modal',
-      body: `<section class="p-hall-order"><span>贝</span><blockquote>“没人在乎你想不想。你是欲缚镇的奴隶。你的用处就是让男人干，听话，怎么用都行。现在求我。求我让你给我口交。”</blockquote></section>`,
-      actions: [{ label: '我……可以给你口交吗？', tone: 'submit', handler: showStage2000Beg2 }],
+      body: `<section class="scene-dialogue"><i aria-hidden="true">✋</i><div><p>你没有照他说的回答。贝拉米扯紧短链，把你的脸转了回来。</p></div></section>
+        <section class="p-hall-order"><span>贝</span><blockquote>“这次 ${state()._pMStage2000SlapCount || 5} 下。挨完重新回答。下次还敢拒绝，再加五下。”</blockquote></section>`,
+      actions: [{ label: '把脸转回来。', tone: 'resist', handler: runStage2000RefusalSlap }],
     })
+  }
+
+  async function runStage2000RefusalSlap () {
+    Dialog.close()
+    const s = state()
+    let failed = true
+    while (failed) {
+      const hits = Math.max(5, Number(s._pMStage2000SlapCount) || 5)
+      failed = await task({
+        actor: '贝拉米', name: '拒答惩罚', count: hits, tool: '手掌',
+        desc: `把脸转回来，左右扇 ${hits} 下，一下一声报数。完成后重新回答刚才的问题。`,
+        completeLabel: '挨完了',
+      })
+      if (!failed) break
+      s._pMStage2000SlapCount = hits + 10
+      save()
+      EventBus.emit('ui:log', { text: `✋ 贝拉米：“没完成？再加十下。现在是 ${s._pMStage2000SlapCount} 下。”`, type: 'danger' })
+    }
+    const returnTo = s._pMStage2000SlapReturn
+    s._pMStage2000SlapPending = false
+    s._pMStage2000SlapReturn = null
+    save()
+    if (returnTo === 'beg3') showStage2000Beg3()
+    else if (returnTo === 'beg2') showStage2000Beg2()
+    else showStage2000()
   }
 
   function showStage2000Beg2 () {
@@ -937,7 +988,10 @@ window.PMEnslavementSystem = (function () {
       title: '⛓️ 城门 · 登记桌',
       className: 'camp-tavern-modal wrong-letter-reaction-modal p-m-chapter-modal',
       body: `<section class="p-hall-order"><span>贝</span><blockquote>“太差。求我。叫我先生。求我射在你脸上。”</blockquote></section>`,
-      actions: [{ label: '求您，先生，我可以给您口交吗？', tone: 'submit', handler: showStage2000Beg3 }],
+      actions: [
+        { label: '我不想这样说。', tone: 'resist', handler: () => startStage2000Refusal('beg2') },
+        { label: '求您，先生，我可以给您口交吗？您可以射在我的脸上。', tone: 'submit', handler: showStage2000Beg3 },
+      ],
     })
   }
 
@@ -946,7 +1000,10 @@ window.PMEnslavementSystem = (function () {
       title: '⛓️ 城门 · 登记桌',
       className: 'camp-tavern-modal wrong-letter-reaction-modal p-m-chapter-modal',
       body: `<section class="p-hall-order"><span>贝</span><blockquote>“看见了吗，你学得会。再来一遍。求我干你的嘴。求我的精液。”</blockquote></section>`,
-      actions: [{ label: '求您让我含您的鸡巴。求您射在我脸上，先生。', tone: 'submit', handler: showStage2000Beg4 }],
+      actions: [
+        { label: '我拒绝再说。', tone: 'resist', handler: () => startStage2000Refusal('beg3') },
+        { label: '求您让我含您的鸡巴。求您射在我脸上，先生。', tone: 'submit', handler: showStage2000Beg4 },
+      ],
     })
   }
 
@@ -1018,7 +1075,7 @@ window.PMEnslavementSystem = (function () {
       title: '⛓️ 城门 · 登记桌',
       className: 'camp-tavern-modal wrong-letter-reaction-modal p-m-chapter-modal',
       body: `<section class="scene-dialogue"><i aria-hidden="true">◆</i><div><p>贝拉米甩了甩手。墨菲把这一栏画上勾，合上登记册。</p></div></section>
-        <section class="p-hall-order"><span>贝</span><blockquote>“起来。去见派克。”</blockquote></section>`,
+        <section class="p-hall-order"><span>贝</span><blockquote>“起来。”</blockquote></section>`,
       actions: [{ label: '……', cls: 'btn-danger', handler: () => { setStage(2500); open() } }],
     })
   }
@@ -1030,24 +1087,54 @@ window.PMEnslavementSystem = (function () {
     const s = state()
     let changed = false
     const anal = RestraintSystem.get('anal')
-    if (!anal || anal.id !== 'medium_butt_plug' || anal.source !== 'p_m_intake') {
-      RestraintSystem.equip('anal', 'medium_butt_plug', { locked: true, lockType: 'story', source: 'p_m_intake', difficulty: 5 }, true)
+    if (!anal || anal.id !== 'medium_butt_plug' || anal.source !== 'p_m_intake' || anal.attachment !== 'prostitute_tag') {
+      RestraintSystem.equip('anal', 'medium_butt_plug', { locked: true, lockType: 'story', source: 'p_m_intake', difficulty: 5, attachment: 'prostitute_tag' }, true)
       changed = true
     }
     if (s.gender !== 'male') {
       const vagina = RestraintSystem.get('vagina')
-      if (!vagina || vagina.id !== 'small_dildo' || vagina.source !== 'p_m_intake') {
-        RestraintSystem.equip('vagina', 'small_dildo', { locked: true, lockType: 'story', source: 'p_m_intake', difficulty: 5 }, true)
+      if (!vagina || vagina.id !== 'vibrating_dildo' || vagina.source !== 'p_m_intake' || vagina.attachment !== 'bell') {
+        RestraintSystem.equip('vagina', 'vibrating_dildo', { locked: true, lockType: 'story', source: 'p_m_intake', difficulty: 5, attachment: 'bell', vibrationMode: 'low' }, true)
+        changed = true
+      }
+    } else {
+      const vagina = RestraintSystem.get('vagina')
+      if (vagina && vagina.source === 'p_m_intake') {
+        RestraintSystem.remove('vagina', true)
         changed = true
       }
     }
     if (changed) {
-      EventBus.emit('ui:log', { text: s.gender === 'male' ? '🔒 挂着妓女牌的肛塞已锁进妖缚栏。' : '🔒 挂着妓女牌的肛塞与带铃假阳具已锁进妖缚栏。', type: 'danger' })
+      EventBus.emit('ui:log', { text: s.gender === 'male' ? '🔒 M码肛塞已连上妓女牌并锁进妖缚栏。' : '🔒 M码肛塞与M码震动棒已锁进妖缚栏，妓女牌与铃铛挂饰已连接。', type: 'danger' })
       save()
     }
   }
 
+  function installEscortGag () {
+    if (!window.RestraintSystem) return
+    const current = RestraintSystem.get('mouth')
+    if (current && current.id === 'leather_gag' && current.source === 'p_m_intake') return
+    RestraintSystem.equip('mouth', 'leather_gag', {
+      locked: true,
+      lockType: 'story',
+      source: 'p_m_intake',
+      difficulty: 5,
+    }, true)
+    EventBus.emit('ui:log', { text: '🤐 贝拉米重新扣紧球形口塞；抵达派克面前以前无法正常说话。', type: 'danger' })
+    save()
+  }
+
+  function removeEscortGag () {
+    if (!window.RestraintSystem) return
+    const current = RestraintSystem.get('mouth')
+    if (!current || current.id !== 'leather_gag' || current.source !== 'p_m_intake') return
+    RestraintSystem.remove('mouth', true)
+    EventBus.emit('ui:log', { text: '🔓 派克摘下了入库口塞，开始检查牙齿与舌头。', type: 'warning' })
+    save()
+  }
+
   function showStage2500 () {
+    if (state()._pMStage2500GearConfirming) { showStage2500Leave(); return }
     if ((state()._pMChapterStep || 0) >= 1) { installStage2500Devices(); showStage2500Talk(); return }
     show({
       title: '⛓️ 城门 · 登记桌',
@@ -1087,7 +1174,7 @@ window.PMEnslavementSystem = (function () {
         <section class="p-hall-order"><span>贝</span><blockquote>“哦，你还想让我再干一次你的屁眼？我看你喜欢我的大鸡巴捅进去。”</blockquote></section>`,
       actions: [
         { label: '我的菊穴被你操裂了,哦哦哦哦。fuck!', tone: 'resist', handler: showStage2500Angry },
-        { label: '后面好疼。求你别再罚了，先生。', tone: 'submit', handler: showStage2500Beg },
+        { label: '菊穴好疼。求你别再惩罚了，先生。', tone: 'submit', handler: showStage2500Beg },
         thirdChoice,
       ],
     })
@@ -1181,26 +1268,166 @@ window.PMEnslavementSystem = (function () {
   }
 
   function showStage2500Leave () {
+    const s = state()
+    if (!s._pMStage2500GearConfirming) {
+      s._pMStage2500GearConfirming = true
+      s._pMStage2500GearConfirmStep = 0
+      save()
+    }
+    installStage2500Devices()
+    const step = Math.max(0, Number(s._pMStage2500GearConfirmStep) || 0)
+    if (step < 1) {
+      show({
+        title: '⛓️ 登记桌 · 插入装备',
+        className: 'camp-tavern-modal wrong-letter-reaction-modal p-m-chapter-modal',
+        body: `<section class="scene-dialogue"><i aria-hidden="true">🏷️</i><div><h3>M码肛塞已佩戴</h3><p>菊穴被塞入M码肛塞，外端连接着妓女牌挂饰；锁扣已经闭合。</p></div></section>`,
+        actions: [{ label: '确认M码肛塞已佩戴', cls: 'btn-primary', handler: () => { s._pMStage2500GearConfirmStep = 1; save(); showStage2500Leave() } }],
+      })
+      return
+    }
+    if (s.gender !== 'male' && step < 2) {
+      show({
+        title: '⛓️ 登记桌 · 插入装备',
+        className: 'camp-tavern-modal wrong-letter-reaction-modal p-m-chapter-modal',
+        body: `<section class="scene-dialogue"><i aria-hidden="true">🔔</i><div><h3>M码震动棒已佩戴</h3><p>小穴被塞入M码震动棒，尾端连接着铃铛挂饰；震动档位保持在低档。</p></div></section>`,
+        actions: [{ label: '确认M码震动棒已佩戴', cls: 'btn-primary', handler: () => { s._pMStage2500GearConfirmStep = 2; save(); showStage2500Leave() } }],
+      })
+      return
+    }
+    if (s.gender === 'male' && step < 2) {
+      s._pMStage2500GearConfirmStep = 2
+      save()
+    }
+    if ((s._pMStage2500GearConfirmStep || 0) < 3) {
+      installEscortGag()
+      show({
+        title: '⛓️ 登记桌 · 口部束缚',
+        className: 'camp-tavern-modal wrong-letter-reaction-modal p-m-chapter-modal',
+        body: `<section class="scene-dialogue"><i aria-hidden="true">🤐</i><div><h3>球形口塞已佩戴</h3><p>球体被压入口中，皮带绕到脑后扣紧；抵达派克面前以前无法正常说话。</p></div></section>`,
+        actions: [{ label: '确认球形口塞已佩戴', cls: 'btn-primary', handler: () => { s._pMStage2500GearConfirmStep = 3; save(); showStage2500Leave() } }],
+      })
+      return
+    }
+    s._pMStage2500GearConfirming = false
+    save()
+    showStage2500Departure()
+  }
+
+  function showStage2500Departure () {
+    const solo = state()._pMEscortMode === 'solo'
     show({
       title: '⛓️ 城门 · 登记桌',
       className: 'camp-tavern-modal wrong-letter-reaction-modal p-m-chapter-modal',
-      body: `<section class="p-hall-order"><span>贝</span><blockquote>“真有意思。我回城门。你自己上台阶。慢了，就有更多男人把你当成新的精盆。去会馆大厅，派克在左边。告诉他，你是我们新收的货。”</blockquote></section>`,
-      actions: [{ label: '去见派克。', cls: 'btn-danger', handler: () => { setStage(3000); open() } }],
+      body: `<section class="scene-dialogue"><i aria-hidden="true">🤐</i><div><p>插入装备与口球都已锁好。你试着出声，只剩含混的呜咽。</p></div></section>
+        <section class="p-hall-order"><span>贝</span><blockquote>${solo ? '“我留下。牵引链给你。自己穿过街面去会馆。有人问，就给他看牌子；你不需要替自己解释。”' : '“起来。我可以押你走到会馆。要是你非想自己走，就拿好牵引链；进了街面可没人替你回答。”'}</blockquote></section>`,
+      actions: solo
+        ? [{ label: '拿着牵引链，独自离开登记桌', cls: 'btn-primary', handler: () => beginStage2500Escort('solo') }]
+        : [
+            { label: '跟着贝拉米前往会馆', cls: 'btn-primary', handler: () => beginStage2500Escort('bellamy') },
+            { label: '摇头，拿过牵引链自己走', handler: () => beginStage2500Escort('solo') },
+          ],
+    })
+  }
+
+  function beginStage2500Escort (mode) {
+    const s = state()
+    s._pMEscortMode = mode === 'solo' ? 'solo' : 'bellamy'
+    save()
+    if (window.PMEscortSystem) PMEscortSystem.start({ mode: s._pMEscortMode })
+  }
+
+  function finishEscort () {
+    const s = state()
+    s._pMChapterStage = 3000
+    s._pMChapterStep = 0
+    if (s._pMEscort) s._pMEscort.hallArrive = false
+    save()
+    showArriveAtHall()
+  }
+
+  function showArriveAtHall () {
+    const solo = state()._pMEscortMode === 'solo'
+    show({
+      title: '🏛️ 商团会馆 · 台阶',
+      className: 'camp-tavern-modal wrong-letter-reaction-modal p-hall-modal p-m-chapter-modal',
+      body: `<section class="scene-dialogue"><i aria-hidden="true">🏛️</i><div><p>你登上会馆台阶。门开着，里面是长厅。派克的桌子在左边。${solo ? '你握着牵引链还走到了门口。' : '你跟着贝拉米走到门口。'}</p></div></section>`,
+      actions: [{ label: '走进长厅。', cls: 'btn-primary', handler: () => {
+        const s = state()
+        if (s._pMEscort) s._pMEscort.hallArrive = true
+        save()
+        showStage3000()
+      } }],
     })
   }
 
   /* ==================== Stage 3000 · 初见派克 ==================== */
 
   function showStage3000 () {
-    if ((state()._pMChapterStep || 0) >= 3) { showStage3000ReleaseEnd(); return }
+    const e = state()._pMEscort
+    if (e && e.completed && e.hallArrive === false) { showArriveAtHall(); return }
+    const step = state()._pMChapterStep || 0
+    if (step >= 4) { showStage3000ReleaseEnd(); return }
+    if (step >= 3) { showPikeVerdict(); return }
+    if (step >= 1) { runStage3000(); return }
+    if (e && e.gagRemovedAtHall) { showPikeAfterGag('派克已经摘下口塞，正等你回答。'); return }
+    const solo = state()._pMEscortMode === 'solo'
+    const escortNote = solo
+      ? '你把牵引链攥在自己手里，一路上的锁响还没停。你抬起登记牌，朝派克含混地呜了一声。'
+      : '贝拉米把链子递到桌边，自己替你报上编号：“城门新登记的，送来验收。”'
     show({
       title: '🏛️ 商团会馆 · 长厅',
       className: 'camp-tavern-modal wrong-letter-reaction-modal p-hall-modal p-m-chapter-modal',
-      body: `<section class="scene-dialogue"><i aria-hidden="true">🏛️</i><div><p>派克没有抬头，只把登记册翻到有你编号的那页。</p></div></section>
-        <section class="p-hall-order"><span>派</span><blockquote>“走近些。”</blockquote></section>
-        <section class="scene-dialogue"><i aria-hidden="true">🏛️</i><div><p>等你站到桌前，他才抬眼。</p></div></section>
-        <section class="p-hall-order"><span>派</span><blockquote>“转身。”</blockquote></section>
-        <section class="scene-dialogue"><i aria-hidden="true">⛓️</i><div><p>贝拉米立刻收紧了牵引链。</p></div></section>`,
+      body: `<section class="scene-dialogue"><i aria-hidden="true">🏛️</i><div><p>派克把登记册翻到有你编号的那页。${escortNote}</p></div></section>
+        <section class="p-hall-order"><span>派</span><blockquote>“新收的货？不错。贝拉米准备得很好。抬头。”</blockquote></section>
+        <section class="p-hall-order"><span>你</span><blockquote>“唔……嗯……”</blockquote></section>`,
+      actions: [
+        { label: '点头', tone: 'submit', handler: () => showPikeRemoveGag('obey') },
+        { label: '摇头', tone: 'resist', handler: () => showPikeRemoveGag('resist') },
+        { label: '含着口塞发出呜咽', handler: () => showPikeRemoveGag('muffle') },
+      ],
+    })
+  }
+
+  function showPikeRemoveGag (response) {
+    removeEscortGag()
+    const reaction = response === 'obey'
+      ? '你点了点头。派克捏住口塞前端，把扣带从脑后解开。'
+      : response === 'resist'
+        ? '你摇头后退。派克抓住项圈把你拉回桌前，亲手解开口塞。'
+        : '含混的声音没有组成一句话。派克抬起你的下巴，解开口塞。'
+    const e = state()._pMEscort
+    if (e) e.gagRemovedAtHall = true
+    save()
+    showPikeAfterGag(reaction)
+  }
+
+  function showPikeAfterGag (reaction) {
+    show({
+      title: '🏛️ 商团会馆 · 长厅',
+      className: 'camp-tavern-modal wrong-letter-reaction-modal p-hall-modal p-m-chapter-modal',
+      body: `<section class="scene-dialogue"><i aria-hidden="true">🤐</i><div><p>${reaction}</p><p>球形口塞离开嘴后，派克没有让你休息，只用拇指压住下唇检查牙齿与舌头。</p></div></section>
+        <section class="p-hall-order"><span>派</span><blockquote>“嘴张开。让我看看牙齿和舌头。然后告诉我：知不知道自己现在是什么？”</blockquote></section>`,
+      actions: [
+        { label: '“是……我知道。”', tone: 'submit', handler: showPikeObey },
+        { label: '“您不能这样。我们可以谈条件。”', tone: 'resist', handler: showPikeHaggle },
+      ],
+    })
+  }
+
+  function showPikeObey () {
+    show({
+      title: '🏛️ 商团会馆 · 长厅',
+      className: 'camp-tavern-modal wrong-letter-reaction-modal p-hall-modal p-m-chapter-modal',
+      body: `<section class="p-hall-order"><span>派</span><blockquote>“好。从现在起叫我奴隶主，其他男人叫先生。我要检查你值多少。别动，别反抗，不然罚得很重。让我看看你的穴和后面进过几根。”</blockquote></section>`,
+      actions: [{ label: '……', cls: 'btn-danger', handler: runStage3000 }],
+    })
+  }
+
+  function showPikeHaggle () {
+    show({
+      title: '🏛️ 商团会馆 · 长厅',
+      className: 'camp-tavern-modal wrong-letter-reaction-modal p-hall-modal p-m-chapter-modal',
+      body: `<section class="p-hall-order"><span>派</span><blockquote>“贱货，你还敢跟我谈条件。你没有权利，只会服从。从现在起叫我奴隶主，其他男人叫先生。我要检查你值多少。这次你不会喜欢，也没人在乎。让我看看你的穴和后面进过几根。”</blockquote></section>`,
       actions: [{ label: '……', cls: 'btn-danger', handler: runStage3000 }],
     })
   }
@@ -1210,8 +1437,8 @@ window.PMEnslavementSystem = (function () {
     let s = state()
     if ((s._pMChapterStep || 0) < 1) {
       const failed = await task({
-        actor: '派克', name: '身体检查', seconds: 25,
-        desc: `派克先检查胸、臀和锁具留下的痕迹，最后检查${hole()}。双手放在背后，按他的指令依次转身、弯腰和保持姿势。`,
+        actor: '派克', name: '张开嘴', seconds: 15,
+        desc: '嘴张开。派克看牙齿和舌头。双手放在背后，不要合上。',
       })
       recordFailure(failed)
       state()._pMChapterStep = 1; save()
@@ -1219,23 +1446,46 @@ window.PMEnslavementSystem = (function () {
     s = state()
     if ((s._pMChapterStep || 0) < 2) {
       const failed = await task({
-        actor: '派克', name: '派克验收', bpm: 110, seconds: 30,
-        desc: `检查结束后，派克亲自验证${hole()}是否会按命令迎合。按 110 BPM 操你的穴三十秒；`,
+        actor: '派克', name: '身体检查', seconds: 25,
+        desc: `派克检查胸、臀和锁具留下的痕迹，再检查${hole()}。双手放在背后，按他的指令转身、弯腰。`,
       })
       recordFailure(failed)
       state()._pMChapterStep = 2; save()
     }
-    const latest = state()
-    latest._pMChapterStage = 3000
-    latest._pMChapterStep = 3
-    save()
-    if (window.PTownSystem && PTownSystem.showPikeFirstAudience) PTownSystem.showPikeFirstAudience({ stopAtStage3000: true })
-    else showStage3000ReleaseEnd()
+    s = state()
+    if ((s._pMChapterStep || 0) < 3) {
+      const failed = await task({
+        actor: '派克', name: '派克验收', bpm: 110, seconds: 30,
+        desc: `检查结束后，派克亲自验证${hole()}会不会按命令迎合。按 110 BPM 做三十秒。`,
+      })
+      recordFailure(failed)
+      state()._pMChapterStep = 3; save()
+    }
+    showPikeVerdict()
+  }
+
+  function showPikeVerdict () {
+    const male = state().gender === 'male'
+    const chest = male
+      ? '身体结实，脸也干净。你现在几乎不会用。至少身体会配合，这个能练。'
+      : '胸不大，身体结实，脸很干净。你现在几乎不会用。至少很容易湿，这个能练。'
+    show({
+      title: '🏛️ 商团会馆 · 长厅',
+      className: 'camp-tavern-modal wrong-letter-reaction-modal p-hall-modal p-m-chapter-modal',
+      body: `<section class="p-hall-order"><span>你</span><blockquote>“……奴隶主，您看出来了吗？”</blockquote></section>
+        <section class="p-hall-order"><span>派</span><blockquote>“身体还行。可以卖给农户干活，也可以卖给镇上当佣人。我先留下。训练完再看能卖什么价，适合当性奴隶还是劳役奴隶。${chest}详细评估完会给你出一份奴隶证明。”</blockquote></section>`,
+      actions: [{ label: '……', cls: 'btn-primary', handler: () => {
+        const s = state()
+        s._pMChapterStep = 4
+        save()
+        showStage3000ReleaseEnd()
+      } }],
+    })
   }
 
   function showStage3000ReleaseEnd () {
     show({
-      title: '🏛️ 奴役线第一章 · 当前进度',
+      title: '🏛️ 奴隶线·第一章 · 当前进度',
       className: 'camp-tavern-modal wrong-letter-reaction-modal p-hall-modal p-m-chapter-modal',
       body: '<section class="scene-dialogue"><i aria-hidden="true">🏛️</i><div><h3>初见派克已经完成。</h3><p>当前版本的奴役线开放到 Stage 3000。返回城门、戴蒙德押送与后续入库流程将在后续内容完成后开放。</p></div></section>',
       actions: [{ label: '返回欲缚镇', handler: openCamp }],
@@ -1366,10 +1616,28 @@ window.PMEnslavementSystem = (function () {
     latest._pMChapterStep = 0
     latest._pMainlineStage = 5
     save()
-    if (window.PTownSystem) PTownSystem.showPikeSecondAudience()
+    showPikeSecondAudience()
   }
 
   /* ==================== 章节结束与统一入口 ==================== */
+
+  /** Stage 9500：奴隶线第一章专属的第二次派克会面。 */
+  function showPikeSecondAudience () {
+    const s = state()
+    if (s._pRole !== 'slave' || s._pMChapterStage !== 9500 || s._pMainlineStage !== 5) { openCamp(); return }
+    const assessment = s._pMDayaChoice === 'protect'
+      ? '戴蒙德主动替你报上了最后一段押送记录。派克看得出你在市场替她挡过处罚，便把“会保护同链者”写进评估。'
+      : s._pMDayaChoice === 'obey'
+        ? '贝拉米对你的服从没有异议，戴蒙德却始终没有看你。派克在评估上写下“服从快，不会照顾同链者”。'
+        : '你与戴蒙德各自保全了自己，也把距离一直留到会馆。派克把这点记为“会判断，不会付出”。'
+    show({
+      title: '🏛️ 商团会馆 · 第二次会面',
+      className: 'camp-tavern-modal wrong-letter-reaction-modal p-hall-modal p-m-chapter-modal',
+      body: `<section class="scene-dialogue"><i aria-hidden="true">⛓️</i><div><h3>你与戴蒙德被同一条腰链带到派克面前，新的印记还没有冷透。</h3><p>${assessment}</p></div></section>
+        <section class="p-hall-order"><span>派克</span><blockquote>“戴蒙德只是命令的一部分。真正送到我面前的，是你选择成为的那个人。”</blockquote></section>`,
+      actions: [{ label: '完成入库，领取第一册记录', cls: 'btn-danger', handler: completeChapter }],
+    })
+  }
 
   function completeChapter () {
     const s = state()
@@ -1378,9 +1646,7 @@ window.PMEnslavementSystem = (function () {
     s._pMChapterEscrow = null
     s._pMainlineStage = 6
     s._pChapterOneLocked = true
-    s._pRouteLocked = true
-    s._pDayaOutcome = 'm_intake_complete'
-    EventBus.emit('ui:log', { text: '📕 奴役线第一章《入库》完成。下一任务是寻找伊凡娜；基础奴隶训练尚未开始。', type: 'warning' })
+    EventBus.emit('ui:log', { text: '📕 奴隶线·第一章完成。下一任务是寻找伊凡娜；基础奴隶训练尚未开始。', type: 'warning' })
     save()
     show({
       title: '📕 商团会馆 · 长厅',
@@ -1395,6 +1661,10 @@ window.PMEnslavementSystem = (function () {
     const s = state()
     if (!eligible()) { openCamp(); return }
     if (!s._pMConfiscated) confiscateOnKnockout()
+    if (s._pMEscort && s._pMEscort.started && !s._pMEscort.completed && window.PMEscortSystem) {
+      PMEscortSystem.resume()
+      return
+    }
     switch (Number(s._pMChapterStage) || 0) {
       case 0: showStage0(); break
       case 500: runStage500(); break
@@ -1406,12 +1676,11 @@ window.PMEnslavementSystem = (function () {
       case 3500: returnToBellamy(); break
       case 4000: returnToHall(); break
       case 9500:
-        if (window.PTownSystem) PTownSystem.showPikeSecondAudience()
-        else openCamp()
+        showPikeSecondAudience()
         break
       default: openCamp()
     }
   }
 
-  return { open, returnToBellamy, returnToHall, completeChapter, eligible }
+  return { open, finishEscort, eligible }
   })()

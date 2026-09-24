@@ -384,6 +384,9 @@
   }
 
   function showGameScreen () {
+    // 标题页不会销毁游戏 DOM。删除旧存档后若直接新建角色，营地、监狱等
+    // 页面可能仍残留在 camp-panel 中；先恢复地图，再由读档流程按新状态重建。
+    if (window.CampSystem && CampSystem.closeScene) CampSystem.closeScene()
     titleScreen.classList.add('screen-hidden')
     gameScreen.classList.remove('screen-hidden')
     // 进入游戏：显示顶栏

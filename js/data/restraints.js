@@ -136,7 +136,7 @@ window.RESTRAINTS = [
   },
   {
     id: 'medium_butt_plug', name: '中肛塞', slot: 'anal', allowedSlots: ['anal'], material: 'silicone', price: 80, difficulty: 1,
-    insert: true, sizeCm: 3.5, block: 2, prostituteBonus: 15,
+    insert: true, sizeCode: 'M', sizeCm: 3.5, block: 2, prostituteBonus: 15, attachmentSocket: true,
     desc: '3.5 cm · 菊穴装备：防护充能上限 2 点；每点抵挡 1 次菊穴攻击及其效果，可找附魔师或在野外使用灵魂石补充；插入类接客 +15G。',
     effect: 'insert_block',
   },
@@ -160,7 +160,7 @@ window.RESTRAINTS = [
   },
   {
     id: 'vibrating_dildo', name: '震动棒', slot: 'vagina', allowedSlots: ['vagina'], material: 'silicone', price: 130, difficulty: 2,
-    insert: true, femaleOnly: true, sizeCm: 3.8, block: 3, prostituteBonus: 20, vibrate: true,
+    insert: true, femaleOnly: true, sizeCode: 'M', sizeCm: 3.8, block: 3, prostituteBonus: 20, vibrate: true, attachmentSocket: true,
     desc: '3.8 cm · 女性专用小穴装备：防护充能上限 3 点；支持关闭/低档/高档震动，档位越高服务收入越高，但更容易战斗分心且更难逃跑。',
     effect: 'insert_block',
   },

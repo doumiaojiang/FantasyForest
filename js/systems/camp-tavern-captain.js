@@ -8,7 +8,7 @@ window.TownTavernCaptainSystem = (function () {
   const townPrice = (price, category) => CampSystem.townPrice(price, category)
   const routeTownService = part => CampSystem.routeTownService(part)
   const townServiceDesc = (part, actor) => CampSystem.townServiceDesc(part, actor)
-  const wrongCommissionLead = kind => CampSystem.recordCommissionLead(kind)
+  const wrongCommissionLead = kind => PrologueSystem.recordLead(kind)
 
   function tavernCaptain () {
     const state = State.get()
@@ -494,4 +494,3 @@ window.TownTavernCaptainSystem = (function () {
     showGloryHumiliation: captainGloryHumiliation,
   }
 })()
-

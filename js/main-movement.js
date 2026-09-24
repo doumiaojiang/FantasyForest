@@ -507,6 +507,10 @@ window.MovementController = (function () {
 
     // 伏击经过即触发（反复掷骰直到双数）
     if (tile.type === TILE.AMBUSH) {
+      if (state._noEnemyEncounters) {
+        EventBus.emit('ui:log', { text: '🚶 避敌模式让你安全穿过伏击区。', type: 'dim' })
+        return 'continue'
+      }
       await AmbushSystem.trigger()
       return 'ambush'
     }
@@ -541,7 +545,7 @@ window.MovementController = (function () {
     if (tile.type === TILE.BANDIT_CAMP) {
       hint.textContent = '🔥 进入桥下强盗营地……'
       _isWalking = false
-      if (typeof CommissionSystem !== 'undefined' && CommissionSystem.visitBanditCamp) CommissionSystem.visitBanditCamp()
+      if (typeof PrologueSystem !== 'undefined' && PrologueSystem.visitBanditCamp) PrologueSystem.visitBanditCamp()
       else GameFlow.afterEvent()
       return 'stopped'
     }
@@ -559,7 +563,7 @@ window.MovementController = (function () {
             { label: (state._wrongCommissionStage || 0) === 6 ? '下桥进入据点' : (state._wrongCommissionStage || 0) === 2 ? '核对桥上的车辙' : '停下查看旧桥', cls: 'btn-primary', handler: () => {
               Dialog.close()
               _isWalking = false
-              if (typeof CommissionSystem !== 'undefined' && CommissionSystem.visitBridge) CommissionSystem.visitBridge()
+              if (typeof PrologueSystem !== 'undefined' && PrologueSystem.visitBridge) PrologueSystem.visitBridge()
               else GameFlow.afterEvent()
               resolve('stopped')
             } },
@@ -650,6 +654,33 @@ window.MovementController = (function () {
     return false
   }
 
+  /** 剧情节点主动撤回进入前一格，并结束本次掷骰移动。 */
+  function retreatToPrevious () {
+    const state = State.get()
+    const saved = state && state._moveState && state._moveState.prevPos
+    const back = saved && Number.isFinite(saved.x) && Number.isFinite(saved.y)
+      ? { x: saved.x, y: saved.y }
+      : _prevPos && _prevPos.x >= 0 && _prevPos.y >= 0
+        ? { x: _prevPos.x, y: _prevPos.y }
+        : null
+    if (!state || !back || !MapLib.isWalkable(back.x, back.y)) return false
+
+    state.position = back
+    state.phase = 'idle'
+    state._moveState = null
+    state.visited.push({ x: back.x, y: back.y })
+    _prevPos = { x: -1, y: -1 }
+    _stepsRemaining = 0
+    _turning = false
+    _isWalking = false
+    _moveLocked = false
+    EventBus.emit('ui:mapUpdate', {})
+    EventBus.emit('state:changed', state)
+    State.save()
+    readyToRoll()
+    return true
+  }
+
   function handleResize () {
     const st = State.get()
     if (!st) return
@@ -661,5 +692,5 @@ window.MovementController = (function () {
     readyToRoll(_turning)
   }
 
-  return { readyToRoll, restore, handleResize, showActionBar }
+  return { readyToRoll, restore, retreatToPrevious, handleResize, showActionBar }
 })()

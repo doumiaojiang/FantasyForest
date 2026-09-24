@@ -1237,6 +1237,20 @@ body:has(.modal-box.boss-ending-modal) #topbar {
 #action-buttons #btn-defend { border-color: rgba(107,255,155,.25); background: rgba(35,92,57,.48); }
 #action-buttons #btn-flee { border-color: rgba(255,107,107,.25); color: #ffc0c0; }
 #action-buttons #btn-skip { color: var(--text-dim); }
+#action-buttons #btn-caravan-struggle {
+  flex: 1 1 220px;
+  min-height: 48px;
+  flex-direction: column;
+  gap: 2px;
+  white-space: normal;
+  line-height: 1.15;
+  text-align: center;
+}
+#action-buttons #btn-caravan-struggle small {
+  color: rgba(255,255,255,.72);
+  font-size: .68rem;
+  font-weight: 500;
+}
 
 /* 战斗时操作栏固定底部（含 Safari 安全区适配） */
 #action-bar.fixed {
@@ -2267,6 +2281,9 @@ body:has(.modal-box.boss-ending-modal) #topbar {
   #action-hint { min-width: 100%; max-width: none; font-size: .72rem; }
   #action-buttons { width: 100%; flex-wrap: nowrap; gap: 5px; }
   #action-buttons .btn { min-width: 0; flex: 1 1 0; padding: 8px 4px; font-size: .67rem; white-space: nowrap; }
+  #action-buttons:has(#btn-caravan-struggle) { flex-wrap: wrap; }
+  #action-buttons:has(#btn-caravan-struggle) #btn-caravan-struggle { flex: 1 1 100%; width: 100%; }
+  #screen-game.has-fixed-bar:has(#btn-caravan-struggle) .game-body { padding-bottom: calc(165px + env(safe-area-inset-bottom, 0px)); }
   #action-buttons:has([data-target]) { flex-wrap: wrap; }
   #action-buttons:has([data-target]) .btn { flex: 1 1 calc(33.333% - 5px); white-space: normal; }
   #action-buttons:has([data-target]) #btn-cancel-target { flex-basis: 100%; padding-block: 6px; }
@@ -2390,6 +2407,47 @@ body:has(.modal-box.boss-ending-modal) #topbar {
 }
 .btn-cheat:hover {
   background: rgba(255, 107, 107, .15) !important;
+}
+.cheat-modal { max-width:620px; }
+.cheat-menu { display:grid; gap:14px; }
+.cheat-warning { display:flex; flex-direction:column; gap:4px; padding:11px 13px; border:1px solid rgba(255,107,107,.25); border-radius:11px; background:rgba(126,43,55,.1); }
+.cheat-warning b { color:#f19aa3; font-size:.76rem; }
+.cheat-warning span { color:var(--text-dim); font-size:.69rem; line-height:1.55; }
+.cheat-section { overflow:hidden; border:1px solid var(--border); border-radius:13px; background:rgba(255,255,255,.018); }
+.cheat-section > summary { min-height:52px; display:grid; grid-template-columns:28px minmax(0,1fr) auto; align-items:center; gap:10px; padding:9px 12px; background:linear-gradient(90deg,rgba(127,82,168,.13),transparent); cursor:pointer; list-style:none; }
+.cheat-section > summary::-webkit-details-marker { display:none; }
+.cheat-section > summary > i { width:28px; font-size:1rem; font-style:normal; text-align:center; }
+.cheat-section > summary > span { display:grid; gap:1px; }
+.cheat-section > summary b { color:var(--text); font-size:.82rem; }
+.cheat-section > summary small { color:var(--text-dim); font-size:.58rem; }
+.cheat-section > summary em { display:flex; align-items:center; gap:7px; color:#a999b2; font-size:.59rem; font-style:normal; white-space:nowrap; }
+.cheat-section > summary em::after { content:'⌄'; color:#c49bd8; font-size:.85rem; transition:transform .18s ease; }
+.cheat-section[open] > summary { border-bottom:1px solid var(--border); }
+.cheat-section[open] > summary em::after { transform:rotate(180deg); }
+.cheat-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); }
+.cheat-action { min-width:0; min-height:60px; display:grid; grid-template-columns:30px minmax(0,1fr); align-items:center; gap:9px; padding:9px 11px; border:0; border-right:1px solid var(--border); border-bottom:1px solid var(--border); background:transparent; color:var(--text); font:inherit; text-align:left; cursor:pointer; }
+.cheat-action:nth-child(2n) { border-right:0; }
+.cheat-action:hover { background:rgba(143,95,186,.1); }
+.cheat-action > i { font-size:1.05rem; font-style:normal; text-align:center; }
+.cheat-action > span { min-width:0; display:grid; gap:3px; }
+.cheat-action b { overflow:hidden; color:#e8ddea; font-size:.75rem; text-overflow:ellipsis; white-space:nowrap; }
+.cheat-action small { color:var(--text-dim); font-size:.58rem; line-height:1.35; }
+.cheat-action.btn-cheat { background:rgba(126,43,55,.035); }
+.cheat-stage-intro { display:grid; gap:3px; margin-bottom:12px; padding:11px 13px; border-left:3px solid #a875c1; background:rgba(134,83,163,.08); }
+.cheat-stage-intro b { color:#eadcf0; font-size:.8rem; }
+.cheat-stage-intro span { color:var(--text-dim); font-size:.66rem; line-height:1.55; }
+.cheat-stage-list { display:grid; gap:7px; }
+.cheat-stage-list > button { min-height:68px; display:grid; grid-template-columns:38px minmax(0,1fr) auto; align-items:center; gap:11px; padding:10px 12px; border:1px solid var(--border); border-radius:11px; background:linear-gradient(90deg,rgba(128,82,158,.08),rgba(255,255,255,.015)); color:var(--text); font:inherit; text-align:left; cursor:pointer; }
+.cheat-stage-list > button:hover { border-color:rgba(184,127,211,.48); background:rgba(137,83,164,.13); transform:translateX(2px); }
+.cheat-stage-list > button > i { font-size:1.25rem; font-style:normal; text-align:center; }
+.cheat-stage-list > button > span { min-width:0; display:grid; gap:2px; }
+.cheat-stage-list small { color:#9a839f; font-size:.52rem; letter-spacing:.06em; }
+.cheat-stage-list b { color:#eddfef; font-size:.79rem; }
+.cheat-stage-list em { overflow:hidden; color:var(--text-dim); font-size:.62rem; font-style:normal; text-overflow:ellipsis; white-space:nowrap; }
+.cheat-stage-list strong { color:#c69ada; font-size:.62rem; white-space:nowrap; }
+@media (max-width:520px) {
+  .cheat-grid { grid-template-columns:1fr; }
+  .cheat-action,.cheat-action:nth-child(2n) { border-right:0; }
 }
 .cheat-mob-modal {
   max-width: 480px;
@@ -3210,7 +3268,142 @@ body:has(.age-gate:not(.age-gate-hidden)) { overflow: hidden; }
 .scene-dialogue { display:grid; grid-template-columns:42px minmax(0,1fr); align-items:start; gap:11px; padding:8px 2px 16px; }
 .scene-dialogue > :is(i,span):first-child { display:grid; place-items:center; width:38px; height:38px; font-size:1.25rem; font-style:normal; }
 .scene-dialogue h3 { margin:0 0 5px; color:var(--text); font-size:.88rem; line-height:1.5; }
-.scene-dialogue p { margin:0; color:var(--text-dim); font-size:.68rem; line-height:1.65; }
+.scene-dialogue p { margin:0; color:#bdb0a9; font-size:.76rem; line-height:1.72; letter-spacing:.01em; }
+
+/* 欲缚镇剧情旁白：使用 Galgame 的独立旁白框，不再作为灰色辅助说明缩在角落。 */
+.p-m-chapter-modal .scene-dialogue,
+.p-m-escort-modal .scene-dialogue {
+  position:relative;
+  display:block;
+  margin:20px 2px 18px;
+  padding:25px 18px 17px;
+  border:1px solid rgba(154,116,184,.4);
+  border-radius:10px 16px 12px 16px;
+  background:
+    linear-gradient(90deg,rgba(137,86,170,.13),transparent 48%),
+    linear-gradient(150deg,rgba(39,30,48,.97),rgba(18,18,27,.98));
+  box-shadow:inset 3px 0 0 rgba(181,116,214,.7),0 12px 28px rgba(0,0,0,.2);
+}
+.p-m-chapter-modal .scene-dialogue::before,
+.p-m-escort-modal .scene-dialogue::before {
+  content:'场景';
+  position:absolute;
+  left:15px;
+  top:-13px;
+  min-width:62px;
+  height:26px;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  padding:0 12px;
+  border:1px solid rgba(181,116,214,.6);
+  border-radius:5px 10px 5px 10px;
+  background:linear-gradient(135deg,#50305f,#231c2c 78%);
+  color:#efd9fa;
+  font-size:.67rem;
+  font-weight:800;
+  letter-spacing:.12em;
+  box-shadow:0 5px 15px rgba(0,0,0,.3);
+}
+.p-m-chapter-modal .scene-dialogue > :is(i,span):first-child,
+.p-m-escort-modal .scene-dialogue > :is(i,span):first-child { display:none; }
+.p-m-chapter-modal .scene-dialogue h3,
+.p-m-escort-modal .scene-dialogue h3 { margin:0 0 7px; color:#f2e8f5; font-size:1rem; line-height:1.55; }
+.p-m-chapter-modal .scene-dialogue p,
+.p-m-escort-modal .scene-dialogue p { margin:0; color:#eee5ed; font-size:.9rem; line-height:1.9; letter-spacing:.015em; }
+.p-m-chapter-modal .scene-dialogue p + p,
+.p-m-escort-modal .scene-dialogue p + p { margin-top:8px; }
+@media (max-width:620px) {
+  .p-m-chapter-modal .scene-dialogue,
+  .p-m-escort-modal .scene-dialogue { margin-top:19px; padding:23px 14px 14px; }
+  .p-m-chapter-modal .scene-dialogue p,
+  .p-m-escort-modal .scene-dialogue p { font-size:.84rem; line-height:1.82; }
+}
+
+/* 欲缚镇·序章沿用同一套 Galgame 旁白框。 */
+:is(.commission-bridge-modal,.prologue-scene-modal) .scene-dialogue {
+  position:relative;
+  display:block;
+  margin:20px 2px 18px;
+  padding:25px 18px 17px;
+  border:1px solid rgba(154,116,184,.4);
+  border-radius:10px 16px 12px 16px;
+  background:
+    linear-gradient(90deg,rgba(137,86,170,.13),transparent 48%),
+    linear-gradient(150deg,rgba(39,30,48,.97),rgba(18,18,27,.98));
+  box-shadow:inset 3px 0 0 rgba(181,116,214,.7),0 12px 28px rgba(0,0,0,.2);
+}
+:is(.commission-bridge-modal,.prologue-scene-modal) .scene-dialogue::before {
+  content:'场景';
+  position:absolute;
+  left:15px;
+  top:-13px;
+  min-width:62px;
+  height:26px;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  padding:0 12px;
+  border:1px solid rgba(181,116,214,.6);
+  border-radius:5px 10px 5px 10px;
+  background:linear-gradient(135deg,#50305f,#231c2c 78%);
+  color:#efd9fa;
+  font-size:.67rem;
+  font-weight:800;
+  letter-spacing:.12em;
+  box-shadow:0 5px 15px rgba(0,0,0,.3);
+}
+:is(.commission-bridge-modal,.prologue-scene-modal) .scene-dialogue > :is(i,span):first-child { display:none; }
+:is(.commission-bridge-modal,.prologue-scene-modal) .scene-dialogue h3 { margin:0 0 7px; color:#f2e8f5; font-size:1rem; line-height:1.55; }
+:is(.commission-bridge-modal,.prologue-scene-modal) .scene-dialogue p { margin:0; color:#eee5ed; font-size:.9rem; line-height:1.9; letter-spacing:.015em; }
+:is(.commission-bridge-modal,.prologue-scene-modal) .scene-dialogue p + p { margin-top:8px; }
+
+/* 序章第一封错信使用专门的场景容器，也改成相同的旁白层级。 */
+.wrong-letter-modal .wrong-letter-arrival {
+  position:relative;
+  display:block;
+  margin:20px 2px 18px;
+  padding:25px 18px 17px;
+  border:1px solid rgba(154,116,184,.4);
+  border-radius:10px 16px 12px 16px;
+  background:linear-gradient(150deg,rgba(39,30,48,.97),rgba(18,18,27,.98));
+  box-shadow:inset 3px 0 0 rgba(181,116,214,.7),0 12px 28px rgba(0,0,0,.2);
+  transform:none;
+}
+.wrong-letter-modal .wrong-letter-arrival::before {
+  content:'场景';
+  position:absolute;
+  left:15px;
+  top:-13px;
+  min-width:62px;
+  height:26px;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  padding:0 12px;
+  border:1px solid rgba(181,116,214,.6);
+  border-radius:5px 10px 5px 10px;
+  background:linear-gradient(135deg,#50305f,#231c2c 78%);
+  color:#efd9fa;
+  font-size:.67rem;
+  font-weight:800;
+  letter-spacing:.12em;
+}
+.wrong-letter-modal .wrong-letter-arrival > i { display:none; }
+.wrong-letter-modal .wrong-letter-arrival p { color:#eee5ed; font-size:.9rem; line-height:1.9; }
+.wrong-letter-modal .wrong-letter-arrival blockquote { color:#f0dfcf; font-size:.88rem; line-height:1.85; }
+
+/* 旁白只保留正文框，不再额外悬挂“场景”标签。 */
+:is(.p-m-chapter-modal,.p-m-escort-modal,.commission-bridge-modal,.prologue-scene-modal) .scene-dialogue::before,
+.wrong-letter-modal .wrong-letter-arrival::before { display:none; }
+:is(.p-m-chapter-modal,.p-m-escort-modal,.commission-bridge-modal,.prologue-scene-modal) .scene-dialogue,
+.wrong-letter-modal .wrong-letter-arrival { margin-top:10px; padding-top:17px; }
+@media (max-width:620px) {
+  :is(.commission-bridge-modal,.prologue-scene-modal) .scene-dialogue,
+  .wrong-letter-modal .wrong-letter-arrival { margin-top:19px; padding:23px 14px 14px; }
+  :is(.commission-bridge-modal,.prologue-scene-modal) .scene-dialogue p,
+  .wrong-letter-modal .wrong-letter-arrival p { font-size:.84rem; line-height:1.82; }
+}
 .wrong-letter-modal { --letter-ink:#dac5aa; --letter-dim:#9d8975; }
 .wrong-letter-arrival { display:grid; grid-template-columns:46px minmax(0,1fr); gap:13px; padding:4px 2px 15px; border-bottom:1px solid rgba(188,133,82,.18); }
 .wrong-letter-arrival > i { width:42px; height:42px; display:grid; place-items:center; border:1px solid rgba(188,133,82,.28); border-radius:50%; background:rgba(103,57,32,.18); font-size:1.25rem; font-style:normal; }
@@ -3236,14 +3429,57 @@ body:has(.age-gate:not(.age-gate-hidden)) { overflow: hidden; }
 .p-gate-witness p { margin:0; color:#9f9188; font-size:.69rem; line-height:1.7; }
 .tavern-card-p-story { border-color:rgba(199,143,75,.52) !important; box-shadow:inset 3px 0 0 rgba(211,156,84,.72); }
 .p-hall-entry { border-color:rgba(190,143,75,.5) !important; background:linear-gradient(135deg,rgba(90,60,34,.32),rgba(18,18,25,.86)) !important; }
-.p-hall-order { position:relative; margin:14px 2px 0; padding:15px 16px 14px 52px; border:1px solid rgba(168,121,68,.3); border-radius:3px 13px 3px 13px; background:linear-gradient(140deg,rgba(76,50,33,.38),rgba(31,25,25,.74)); }
-.p-hall-order > span { position:absolute; left:15px; top:15px; width:25px; height:25px; display:grid; place-items:center; border:2px solid rgba(141,54,55,.72); border-radius:50%; color:#c17a71; font-family:serif; font-weight:900; transform:rotate(-8deg); }
-.p-hall-order blockquote { margin:0; color:#dcc8ad; font-size:.76rem; line-height:1.85; }
+.p-hall-order {
+  --speaker:#c99a64;
+  position:relative;
+  margin:22px 2px 8px;
+  padding:23px 18px 17px;
+  border:1px solid color-mix(in srgb,var(--speaker) 38%,transparent);
+  border-radius:10px 16px 12px 16px;
+  background:
+    linear-gradient(90deg,color-mix(in srgb,var(--speaker) 11%,transparent),transparent 42%),
+    linear-gradient(150deg,rgba(48,35,32,.96),rgba(20,19,27,.97));
+  box-shadow:inset 3px 0 0 color-mix(in srgb,var(--speaker) 72%,transparent),0 12px 28px rgba(0,0,0,.18);
+}
+.p-hall-order > span {
+  position:absolute;
+  left:15px;
+  top:-13px;
+  min-width:76px;
+  height:27px;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  padding:0 13px;
+  border:1px solid color-mix(in srgb,var(--speaker) 58%,#241b22);
+  border-radius:5px 10px 5px 10px;
+  background:linear-gradient(135deg,color-mix(in srgb,var(--speaker) 34%,#211a22),#211a25 72%);
+  color:#f3dfc4;
+  font-family:inherit;
+  font-size:.7rem;
+  font-weight:800;
+  letter-spacing:.08em;
+  box-shadow:0 5px 15px rgba(0,0,0,.3);
+}
+.p-hall-order > span.is-player { --speaker:#b67ad6; color:#f0d7ff; }
+.p-hall-order > span.is-npc { --speaker:#c99a64; }
+.p-hall-order:has(> span.is-player) { --speaker:#b67ad6; }
+.p-hall-order blockquote { margin:0; color:#eadbc9; font-size:.84rem; line-height:1.9; letter-spacing:.012em; }
+@media (max-width:620px) {
+  .p-hall-order { margin-top:20px; padding:21px 14px 14px; }
+  .p-hall-order > span { left:11px; min-width:68px; height:25px; font-size:.66rem; }
+  .p-hall-order blockquote { font-size:.79rem; line-height:1.82; }
+}
 .wrong-letter-reaction-modal { --scene-divider:rgba(185,132,78,.2); }
 .wrong-letter-evidence { margin:4px 2px 10px; padding:10px 12px; border-left:2px solid rgba(171,108,64,.52); background:rgba(100,59,35,.08); }
 .wrong-letter-evidence span { display:block; margin-bottom:3px; color:#b9906b; font-size:.54rem; font-weight:800; letter-spacing:.12em; }
 .wrong-letter-evidence p { margin:0; color:#9f9086; font-size:.67rem; line-height:1.65; }
 .wrong-letter-evidence.is-found { border-left-color:rgba(204,149,78,.72); background:rgba(151,91,43,.11); }
+
+/* 序章与奴隶线第一章共用同一套阅读字号。 */
+:is(.commission-bridge-modal,.prologue-scene-modal) .wrong-letter-evidence span { font-size:.66rem; }
+:is(.commission-bridge-modal,.prologue-scene-modal) .wrong-letter-evidence p { font-size:.84rem; line-height:1.82; }
+:is(.commission-bridge-modal,.prologue-scene-modal) .wrong-letter-after { font-size:.84rem; line-height:1.82; }
 .scene-choice-list.wrong-letter-choices > button { grid-template-columns:24px minmax(0,1fr) auto !important; }
 .wrong-letter-choices > button > i { grid-column:1 !important; grid-row:1 / 3; color:#b98558; font-style:normal; }
 .wrong-letter-choices > button > span { grid-column:2; grid-row:1 / 3; min-width:0; }
@@ -4530,3 +4766,11 @@ body:has(.age-gate:not(.age-gate-hidden)) { overflow: hidden; }
   .boss-intro-modal .boss-rule-grid,.boss-intro-modal .boss-flow,.battle-rule-details .enemy-trait-list { margin-left:8px; }
   .battle-choice,.item-use-btn { min-height:60px; }
 }
+.escort-board{display:flex;align-items:center;gap:5px;overflow-x:auto;padding:14px 4px 18px;scrollbar-width:thin}
+.escort-tile{flex:0 0 72px;min-height:78px;border:1px solid var(--border);border-radius:12px;background:var(--panel-2);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;opacity:.62;position:relative}
+.escort-tile i{font-style:normal;font-size:1.25rem}.escort-tile b{font-size:.78rem}.escort-tile small{color:var(--text-dim);font-size:.65rem}
+.escort-tile.is-event{border-color:rgba(201,111,255,.5)}.escort-tile.is-guard{border-color:rgba(255,190,80,.58)}.escort-tile.is-finish{border-color:rgba(110,220,160,.55)}
+.escort-tile.is-past{opacity:.38}.escort-tile.is-current{opacity:1;box-shadow:0 0 0 2px var(--accent),0 0 18px rgba(170,95,255,.28);transform:translateY(-3px)}
+.escort-link{color:var(--text-dim);font-size:1.1rem;flex:0 0 auto}.escort-status{display:flex;justify-content:space-between;gap:12px;align-items:center;padding:11px 13px;border:1px solid var(--border);border-radius:10px;background:rgba(0,0,0,.14)}
+.escort-status b{white-space:nowrap;color:var(--gold)}.escort-status span{font-size:.78rem;color:var(--text-dim);text-align:right}
+@media(max-width:640px){.escort-tile{flex-basis:62px;min-height:70px}.escort-status{align-items:flex-start;flex-direction:column}.escort-status span{text-align:left}}

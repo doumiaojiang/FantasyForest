@@ -20,9 +20,13 @@ window.GameFlow = (function () {
     return CampSystem.open(options)
   }
 
+  function retreatToPrevious () {
+    return !!(typeof MovementController !== 'undefined' && MovementController.retreatToPrevious && MovementController.retreatToPrevious())
+  }
+
   function resumeCampStory () {
-    if (typeof CommissionSystem !== 'undefined' && CommissionSystem.resumeCampStory) {
-      return CommissionSystem.resumeCampStory()
+    if (typeof PrologueSystem !== 'undefined' && PrologueSystem.resumeCampStory) {
+      return PrologueSystem.resumeCampStory()
     }
     return false
   }
@@ -36,27 +40,23 @@ window.GameFlow = (function () {
       PMEnslavementSystem.open()
       return true
     }
-    if (typeof CommissionSystem !== 'undefined' && CommissionSystem.resumePending) {
-      return CommissionSystem.resumePending()
+    if (typeof PrologueSystem !== 'undefined' && PrologueSystem.resumePending) {
+      return PrologueSystem.resumePending()
     }
     return false
   }
 
   function handleBattleVictory (result) {
-    if (result && result.enemyId === 'p_hall_enforcers' && result.story === 'p-hall-assault') {
-      PTownSystem.resolvePHallBattle(true, result)
-      return true
-    }
-    return !!(typeof CommissionSystem !== 'undefined' && CommissionSystem.afterBattle && CommissionSystem.afterBattle(result))
+    const enemy = result && typeof DATA !== 'undefined' ? DATA.monster(result.enemyId) : null
+    if (enemy && enemy.storyHooks && typeof enemy.storyHooks.onVictory === 'function') return !!enemy.storyHooks.onVictory(result)
+    return !!(typeof PrologueSystem !== 'undefined' && PrologueSystem.afterBattle && PrologueSystem.afterBattle(result))
   }
 
   function handleBattleDefeat (result) {
-    if (result && result.enemyId === 'p_hall_enforcers' && result.story === 'p-hall-assault') {
-      PTownSystem.resolvePHallBattle(false, result)
-      return true
-    }
-    return !!(typeof CommissionSystem !== 'undefined' && CommissionSystem.afterDefeat && CommissionSystem.afterDefeat(result))
+    const enemy = result && typeof DATA !== 'undefined' ? DATA.monster(result.enemyId) : null
+    if (enemy && enemy.storyHooks && typeof enemy.storyHooks.onDefeat === 'function') return !!enemy.storyHooks.onDefeat(result)
+    return !!(typeof PrologueSystem !== 'undefined' && PrologueSystem.afterDefeat && PrologueSystem.afterDefeat(result))
   }
 
-  return { afterArrive, afterEvent, startBattle, openCamp, resumeCampStory, resumeStory, handleBattleVictory, handleBattleDefeat }
+  return { afterArrive, afterEvent, retreatToPrevious, startBattle, openCamp, resumeCampStory, resumeStory, handleBattleVictory, handleBattleDefeat }
 })()

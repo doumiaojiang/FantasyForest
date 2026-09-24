@@ -116,6 +116,26 @@ window.EnemyAbilitySystem = (function () {
     const cfg = mergeAbilities(enemy, battle)
     es.enemyTurns = Math.max(0, es.enemyTurns || 0) + 1
 
+    // 桥洞头目会反复从营地深处叫回一名倒下的喽啰；召回占用本回合，且不会重置挡刀次数。
+    const summonEvery = Math.max(0, Math.floor(Number(enemy.props?.banditSummonEvery) || 0))
+    if (summonEvery > 0 && es.enemyTurns % summonEvery === 0 && Array.isArray(enemy.props?.banditCrew)) {
+      const missing = enemy.props.banditCrew.find(member => !battle.targets.some(target => target.id === member.id))
+      if (missing) {
+        const hp = Math.max(1, Math.floor(Number(missing.hp) || 3))
+        battle.targets.push({ id: missing.id, name: missing.name, hp, maxHp: hp, type: 'bandit', dmgPerTurn: 0 })
+        EventBus.emit('ui:log', { text: `📣 ${displayName(enemy, battle)}朝桥洞深处吹响短哨，${missing.name}重新冲回战场！`, type: 'danger' })
+        EventBus.emit('state:changed', State.get())
+        return { action: 'wait', hint: `📣 ${missing.name}被重新召回！` }
+      }
+    }
+
+    // 个别剧情敌人借用狂暴前缀与血量，但不使用通用狂暴蓄力机制。
+    if (enemy.props?.disableEliteCharge) {
+      es.charging = false
+      es.chargeStrike = false
+      es.chargeDamageTaken = 0
+    }
+
     if (es.fleeing) {
       if (es.fleeAnnounced) {
         BattleSystem.enemyEscape('low_hp')
@@ -134,7 +154,7 @@ window.EnemyAbilitySystem = (function () {
       return { action: 'attack' }
     }
 
-    const every = Math.max(0, Math.floor(cfg.charge?.every || 0))
+    const every = enemy.props?.disableEliteCharge ? 0 : Math.max(0, Math.floor(cfg.charge?.every || 0))
     if (every > 0 && es.enemyTurns % every === 0) {
       es.charging = true
       EventBus.emit('ui:log', { text: `⚡ ${displayName(enemy, battle)}摆出架势开始蓄力！造成至少 ${cfg.charge.interruptDamage || 4} 点伤害即可打断。`, type: 'danger' })
@@ -198,7 +218,8 @@ window.EnemyAbilitySystem = (function () {
     const es = battle.enemyState
     const cfg = mergeAbilities(enemy, battle)
 
-    if (es.charging && result.dmg >= (cfg.charge?.interruptDamage || 4)) {
+    const hitMain = target.type === 'main' || enemy.id === 'goblins'
+    if (es.charging && hitMain && result.dmg >= (cfg.charge?.interruptDamage || 4)) {
       es.charging = false
       es.chargeStrike = false
       EventBus.emit('battle:chargeInterrupt', { enemyId: enemy.id })
@@ -214,8 +235,7 @@ window.EnemyAbilitySystem = (function () {
     }
 
     const escapeCfg = cfg.escape
-    const isMain = target.type === 'main' || enemy.id === 'goblins'
-    if (escapeCfg && isMain && !es.fleeAttempted && target.hp > 0 && target.hp / target.maxHp <= (escapeCfg.threshold || 0.25)) {
+    if (escapeCfg && hitMain && !es.fleeAttempted && target.hp > 0 && target.hp / target.maxHp <= (escapeCfg.threshold || 0.25)) {
       es.fleeing = true
       es.fleeAttempted = true
       es.fleeAnnounced = false

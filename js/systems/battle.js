@@ -156,6 +156,42 @@ window.BattleSystem = (function () {
     return b ? b.targets[0] : null
   }
 
+  /** 派克车队看守：普通战持续十回合后自动转入狂暴版，并保留此前受到的伤害。 */
+  function maybeEnrageCaravan () {
+    const state = State.get()
+    const battle = state._battle
+    if (!battle || battle.enemyId !== 'p_caravan_guard' || battle.caravanEnraged) return false
+    if (battle.story === 'commission-provoked') return false
+
+    const enemy = DATA.monster(battle.enemyId)
+    const threshold = Number(enemy?.props?.autoBerserkTurn || 0)
+    const elapsedTurns = Number(battle.enemyState?.enemyTurns || 0)
+    if (threshold <= 0 || elapsedTurns < threshold) return false
+
+    const target = battle.targets.find(entry => entry.id === 'main') || battle.targets[0]
+    if (!target || target.hp <= 0) return false
+
+    const damageTaken = Math.max(0, target.maxHp - target.hp)
+    const provokedMaxHp = Math.max(target.maxHp, Number(enemy?.props?.provokedMaxHp || target.maxHp))
+    target.maxHp = provokedMaxHp
+    target.hp = Math.max(1, provokedMaxHp - damageTaken)
+    target.name = `狂暴${enemy.name}`
+
+    battle.caravanEnraged = true
+    battle.enemyState.elite = 'berserk'
+    battle.enemyState.charging = false
+    battle.enemyState.chargeStrike = false
+    battle.enemyState.chargeDamageTaken = 0
+
+    EventBus.emit('ui:log', {
+      text: `⚡ 十回合仍未分出胜负。看守吹响车队铜哨，同伙从桥后赶来；已造成的 ${damageTaken} 点伤害保留，狂暴看守现为 ${target.hp}/${target.maxHp} HP。`,
+      type: 'danger',
+    })
+    EventBus.emit('state:changed', state)
+    State.save()
+    return true
+  }
+
   /** 所有可攻击目标 */
   function getTargets () {
     const b = State.get()._battle
@@ -600,9 +636,8 @@ window.BattleSystem = (function () {
         state.inventory.consumables['twig'] = 0
         EventBus.emit('ui:log', { text: '💔 战败中，树枝断裂了。', type: 'danger' })
       }
-      const storyDefeat = ['commission-guard', 'commission-provoked', 'commission-bandits', 'p-hall-assault'].includes(battle.story)
+      const storyDefeat = ['commission-guard', 'commission-provoked', 'commission-bandits'].includes(battle.story)
       if (storyDefeat) {
-        const hallAssault = battle.story === 'p-hall-assault'
         const banditHideout = battle.story === 'commission-bandits'
         const provoked = battle.story === 'commission-provoked'
         if (battle.enemyId === 'p_caravan_guard') {
@@ -615,23 +650,21 @@ window.BattleSystem = (function () {
           }
           secureCaravanBindings(battle)
         }
-        const goldLost = hallAssault ? 0 : Math.min(state.gold, banditHideout ? state.gold : provoked ? 30 : 12)
+        const goldLost = Math.min(state.gold, banditHideout ? state.gold : provoked ? 30 : 12)
         const displayedGoldLost = banditHideout ? state.gold : goldLost
         if (!banditHideout) state.gold -= goldLost
-        state.hp = Math.max(1, Math.ceil(state.maxHp * (hallAssault || provoked ? 0.25 : 0.5)))
-        // 剧情战各自决定失败落点：桥洞强盗只把玩家逐回旧桥，
-        // 车队与会馆失败才会把人送进雾灯镇。
+        state.hp = Math.max(1, Math.ceil(state.maxHp * (provoked ? 0.25 : 0.5)))
+        // 桥洞强盗只把玩家逐回旧桥；车队看守会把人送进雾灯镇。
         state.position = banditHideout ? { x: 10, y: 9 } : { x: 13, y: 9 }
         state._battle = null
         state.phase = 'idle'
-        EventBus.emit('ui:log', { text: hallAssault
-          ? '⛓️ 商团执法者没有杀你。他们把你拖回派克的长桌前，准备强制登记。'
-          : banditHideout
+        EventBus.emit('ui:log', { text: banditHideout
             ? `🗡️ 头目把你身上的 ${displayedGoldLost}G 全部搜走，准备把你留在桥洞里当几天飞机杯。`
             : `⛓️ 车队看守没有杀你。他们夺走 ${goldLost}G，把你捆上货车押回了雾灯镇。`, type: 'danger' })
         EventBus.emit('state:changed', state)
         State.save()
-        EventBus.emit('battle:end', { victory: false, enemyId: battle.enemyId, story: battle.story, storyDefeat: true, goldLost: displayedGoldLost, provoked, hallAssault, banditHideout, banditClothesTaken: !!battle.banditClothesTaken, banditLivingCrew: (battle.targets || []).filter(target => target.type === 'bandit' && target.hp > 0).length, caravanClothesTaken: !!battle.caravanClothesTaken, caravanFourfoldCapture: !!battle.caravanFourfoldCapture, caravanBindings: Array.isArray(battle.caravanBindings) ? battle.caravanBindings.length : 0 })
+        const livingBandits = (battle.targets || []).filter(target => target.type === 'bandit' && target.hp > 0)
+        EventBus.emit('battle:end', { victory: false, enemyId: battle.enemyId, story: battle.story, storyDefeat: true, goldLost: displayedGoldLost, provoked, banditHideout, banditClothesTaken: !!battle.banditClothesTaken, banditLivingCrew: livingBandits.length, banditLivingCrewIds: livingBandits.map(target => target.id), caravanClothesTaken: !!battle.caravanClothesTaken, caravanFourfoldCapture: !!battle.caravanFourfoldCapture, caravanBindings: Array.isArray(battle.caravanBindings) ? battle.caravanBindings.length : 0, caravanBindingRecords: Array.isArray(battle.caravanBindings) ? battle.caravanBindings.map(binding => ({ ...binding, original: binding.original ? { ...binding.original } : null })) : [] })
         return
       }
       // 你死了，佣兵也跟你一起倒下（死亡，可到商店花 50G 复活）
@@ -646,7 +679,7 @@ window.BattleSystem = (function () {
     }
   }
 
-  return { start, playerAttack, getTargets, mainTarget, removeTarget, end, defend, flee, enemyEscape, peekCaravanBinding, applyCaravanBinding, struggleCaravanBinding, tickCaravanBindings, caravanPendingBindings }
+  return { start, playerAttack, getTargets, mainTarget, removeTarget, end, defend, flee, enemyEscape, maybeEnrageCaravan, peekCaravanBinding, applyCaravanBinding, struggleCaravanBinding, tickCaravanBindings, caravanPendingBindings }
 })()
 
 /* ---------- 掷骰工具 ---------- */

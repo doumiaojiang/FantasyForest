@@ -36,6 +36,51 @@ window.TownPrisonSystem = (function () {
     return true
   }
 
+  /** 收监时接管车队临时锁具；保留战前装备快照，释放或越狱时归还。 */
+  function preparePrisonCaravanBindings (records) {
+    if (typeof RestraintSystem === 'undefined') return false
+    const state = State.get()
+    const supplied = Array.isArray(records) ? records : []
+    const custody = supplied.filter(binding => binding && binding.slot).map(binding => ({
+      stage: Math.max(0, Math.min(3, Math.floor(Number(binding.stage) || 0))),
+      slot: binding.slot,
+      borrowed: !!binding.borrowed,
+      original: binding.original ? { ...binding.original } : null,
+    }))
+
+    // 兼容已经走到收监页的旧档：至少移除仍标记为车队来源的临时锁具。
+    if (!custody.length) {
+      ;(RestraintSystem.SLOT_ORDER || []).forEach(slot => {
+        const current = RestraintSystem.get(slot)
+        if (current && current.source === 'p_caravan_guard') custody.push({ stage: 0, slot, borrowed: false, original: null })
+      })
+    }
+    if (!custody.length) return false
+
+    custody.forEach(binding => {
+      const current = RestraintSystem.get(binding.slot)
+      if (current && current.source === 'p_caravan_guard') RestraintSystem.restore(binding.slot, null)
+    })
+    state._prisonCaravanBindings = custody
+    state._pDefeatCaravanBindings = null
+    EventBus.emit('ui:log', { text: '🔐 收监检查解除并扣押了车队临时锁具；战前原装备将在离开监狱时归还。', type: 'dim' })
+    return true
+  }
+
+  function restorePrisonCaravanBindings () {
+    if (typeof RestraintSystem === 'undefined') return false
+    const state = State.get()
+    const records = Array.isArray(state._prisonCaravanBindings) ? state._prisonCaravanBindings : []
+    state._prisonCaravanBindings = []
+    if (!records.length) return false
+    records.forEach(binding => {
+      if (!binding || !binding.slot || !binding.borrowed || !binding.original) return
+      RestraintSystem.restore(binding.slot, { ...binding.original })
+    })
+    EventBus.emit('ui:log', { text: '🔓 守卫归还了被车队封条覆盖前的原装备。', type: 'dim' })
+    return true
+  }
+
   /** 监狱大门（平时查看） */
   function prisonDoor () {
     const state = State.get()
@@ -54,23 +99,28 @@ window.TownPrisonSystem = (function () {
   }
 
   /** 被抓进监狱：无证卖淫的惩罚，需按难度攒积分出狱 */
-  function enterPrison () {
+  function enterPrison (options = {}) {
     const state = State.get()
     const wasInPrison = !!state._inPrison
+    const charge = typeof options.charge === 'string' && options.charge.trim()
+      ? options.charge.trim()
+      : (state._prisonCharge || '无证营业')
     const prisonDevice = state.gender === 'male' ? '贞操锁' : '贞操带'
     const lockedPart = state.gender === 'male' ? '生殖器' : '小穴'
     state._inPrison = true
     state._prisonPoints = 0
     state._wanted = false   // 已被收监，不再通缉
+    state._prisonCharge = charge
     state.phase = 'camp'
     if (!wasInPrison && window.TownReputationSystem) {
-      TownReputationSystem.addScore(-3, '因无证营业被收监')
+      TownReputationSystem.addScore(-3, `因${charge}被收监`)
       TownReputationSystem.addFame(3, '入狱消息传遍雾灯镇')
     }
     EventBus.emit('state:changed', state)
     // 监狱专用贞操带/贞操锁：小穴被锁死（作为装备 + 妖缚腰部槽剧情锁）
     state._prisonChastity = true
     if (typeof RestraintSystem !== 'undefined') {
+      preparePrisonCaravanBindings(options.caravanBindings)
       // 记录入狱前的腰部装置（已是监狱锁则不记录），出狱时还原；监狱锁强制戴上
       const curWaist = RestraintSystem.get('waist')
       if (curWaist && curWaist.id !== 'prison_chastity' && !state._prisonWaistPrev) state._prisonWaistPrev = { ...curWaist }
@@ -82,7 +132,7 @@ window.TownPrisonSystem = (function () {
     campShow({
       title: '⛓️ 收监', className: 'prison-modal prison-story-page-modal',
       body: `<div class="prison-narrative is-confined"><div class="prison-scene-mark" aria-hidden="true">🔒</div>
-        <p>手腕上的绳索被解开时，铁门已经在身后合拢。守卫把你推到灯下，念出册子上的罪名：<b>无证营业</b>。</p>
+        <p>手腕上的车队锁具被收走时，铁门已经在身后合拢。守卫把你推到灯下，念出册子上的罪名：<b>${charge}</b>。</p>
         <p>冰冷的${prisonDevice}扣住你的${lockedPart}，钥匙则被扔进守卫腰间的皮袋。他在墙上划下第一道痕迹。</p>
         <blockquote><b>牢房守卫</b>“这面墙记满 <strong>${target}</strong> 道，门才会开。至于怎么记——里面的人会教你。”</blockquote>
       </div>`,
@@ -184,6 +234,8 @@ window.TownPrisonSystem = (function () {
         TownReputationSystem.addFame(15, '成为监狱通缉犯')
       }
       restorePrisonMouth()
+      restorePrisonCaravanBindings()
+      state._prisonCharge = null
       EventBus.emit('state:changed', state)
       Dialog.show({
         title: '🪓 越狱成功', className: 'prison-modal prison-story-page-modal',
@@ -520,6 +572,7 @@ window.TownPrisonSystem = (function () {
   /** 出狱 */
   function prisonRelease () {
     const state = State.get()
+    const charge = state._prisonCharge || '无证营业'
     const prisonDevice = state.gender === 'male' ? '贞操锁' : '贞操带'
     const completedTarget = prisonTarget()
     state._inPrison = false
@@ -537,14 +590,16 @@ window.TownPrisonSystem = (function () {
       if (prev) RestraintSystem.restore('waist', prev)   // 还原入狱前的腰部装置
       else if (RestraintSystem.get('waist') && RestraintSystem.get('waist').id === 'prison_chastity') RestraintSystem.remove('waist')
       restorePrisonMouth()
+      restorePrisonCaravanBindings()
     }
+    state._prisonCharge = null
     if (StatusSystem.has('chastity')) StatusSystem.remove('chastity')
     EventBus.emit('state:changed', state)
     campShow({
       title: '⛓️ 监狱 · 释放', className: 'prison-modal prison-story-page-modal',
       body: `<div class="prison-narrative"><div class="prison-scene-mark" aria-hidden="true">🔓</div>
         <p>你终于攒够了 <b>${completedTarget} 积分</b>，守卫解开了你的${prisonDevice}。</p>
-        <p>"出去吧。下次再敢无证卖淫，可就不是蹲几天这么简单了。"</p>
+        <p>“出去吧。下次再犯${charge}，可就不是蹲几天这么简单了。”</p>
         <p>你拖着酸软的膝盖爬出牢房，重见天日。</p></div>`,
       actions: [
         { kind: 'navigation', label: '回到营地', cls: 'btn-primary', handler: () => { open() } },
@@ -765,4 +820,3 @@ window.TownPrisonSystem = (function () {
     resume: prisonWork,
   }
 })()
-

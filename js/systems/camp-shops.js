@@ -7,7 +7,7 @@ window.TownShopSystem = (function () {
   const setCampPhase = () => CampSystem.ensurePhase()
   const routeTownService = part => CampSystem.routeTownService(part)
   const townServiceDesc = (part, actor) => CampSystem.townServiceDesc(part, actor)
-  const wrongCommissionLead = kind => CampSystem.recordCommissionLead(kind)
+  const wrongCommissionLead = kind => PrologueSystem.recordLead(kind)
 
   function blacksmith () {
     const state = State.get()
@@ -203,22 +203,22 @@ window.TownShopSystem = (function () {
 
   function blacksmithWrongCommission () {
     const state = State.get()
+    const copy = PROLOGUE_CONTENT.investigation.blacksmith
     const asked = !!(state._wrongCommissionLeads && state._wrongCommissionLeads.blacksmith)
     if (asked) {
       campShow({
-        title: '🔨 铁匠 · 运货锁具', className: 'blacksmith-modal wrong-letter-reaction-modal',
-        body: `<section class="scene-dialogue"><i aria-hidden="true">🔨</i><div><h3>“我只负责改锁，不负责问货给谁用。”</h3><p>铁匠压低声音提醒你：车夫在旧桥换轮轴时丢了一只装许可的皮卷。镇里的监督官正在派人回去寻找。</p></div></section>`,
+        title: copy.revisit.title, className: 'blacksmith-modal wrong-letter-reaction-modal prologue-scene-modal',
+        body: `<section class="scene-dialogue"><i aria-hidden="true">🔨</i><div><p>${copy.revisit.text}</p></div></section><section class="p-hall-order"><span>${copy.revisit.speaker}</span><blockquote>${copy.revisit.line}</blockquote></section>`,
         actions: [{ kind: 'navigation', label: '不再追问', handler: blacksmithShop }],
       })
       return
     }
     campShow({
-      title: '🔨 铁匠铺 · 钳台', className: 'blacksmith-modal wrong-letter-reaction-modal',
-      body: `<section class="scene-dialogue"><i aria-hidden="true">✉️</i><div><h3>你把派克的货单和桥边捡到的锁环放上铁砧。</h3><p>铁匠只看了一眼锉口，就知道已经无法否认。这些锁出自他的钳台，而且并不是给箱子用的。</p></div></section>
-        <div class="wrong-letter-evidence"><span>锁环内侧</span><p>尺寸与妖缚项圈和腕铐完全一致；其中几枚还预留了统一编号的位置。</p></div>
+      title: copy.intro.title, className: 'blacksmith-modal wrong-letter-reaction-modal prologue-scene-modal',
+      body: `<section class="scene-dialogue"><i aria-hidden="true">✉️</i><div><h3>${copy.intro.heading}</h3><p>${copy.intro.text}</p></div></section>
+        <div class="wrong-letter-evidence"><span>锁环内侧</span><p>${copy.evidence}</p></div>
         <div class="scene-choice-list wrong-letter-choices">
-          <button data-smith-letter="direct"><i>▸</i><span><b>“这些锁是给谁准备的？”</b><small>追问真正的订货人</small></span><em>追问</em></button>
-          <button data-smith-letter="permit"><i>▸</i><span><b>“车队凭什么能直接进镇？”</b><small>询问运输许可的来源</small></span><em>查证</em></button>
+          ${Object.entries(copy.choices).map(([key, item]) => `<button data-smith-letter="${key}"><i>▸</i><span><b>${item.label}</b><small>${item.hint}</small></span><em>${item.tag}</em></button>`).join('')}
         </div>`,
       actions: [{ kind: 'navigation', label: '先不声张', handler: blacksmithShop }],
     })
@@ -229,15 +229,18 @@ window.TownShopSystem = (function () {
 
   function finishBlacksmithWrongCommission (choice) {
     const state = State.get()
+    const copy = PROLOGUE_CONTENT.investigation.blacksmith.result(choice)
+    const shared = PROLOGUE_CONTENT.investigation.shared
     if (!state._pInvestigationChoices || typeof state._pInvestigationChoices !== 'object') state._pInvestigationChoices = {}
     state._pInvestigationChoices.blacksmith = choice
     const complete = wrongCommissionLead('blacksmith')
     EventBus.emit('ui:log', { text: '🔨 铁匠承认改装过派克送来的约束锁具，订单由镇方许可。', type: 'warning' })
     campShow({
-      title: '🔨 铁匠 · 订单', className: 'blacksmith-modal wrong-letter-reaction-modal',
-      body: `<section class="scene-dialogue"><i aria-hidden="true">🔨</i><div><h3>“锁是镇里订的。派克出钱，我照图改装，仅此而已。”</h3><p>${choice === 'permit' ? '他承认车队拿着正式许可，因此卫兵没有检查货箱。' : '他说锁具已经被人取走，送往城门旁的新仓库。'}</p></div></section>
-        <div class="wrong-letter-evidence is-found"><span>车夫遗失的东西</span><p>车队在旧桥更换过断裂的轮轴，装着正式许可的皮卷就是在那里丢的。</p></div>
-        ${complete ? '<p class="wrong-letter-after">酒馆和铁匠的说法终于对上了：派克的车队持有镇方许可，而能证明这一点的皮卷还遗落在旧桥。</p>' : ''}`,
+      title: copy.title, className: 'blacksmith-modal wrong-letter-reaction-modal prologue-scene-modal',
+      body: `<section class="scene-dialogue"><i aria-hidden="true">🔨</i><div><p>${copy.text}</p></div></section>
+        <section class="p-hall-order"><span>${copy.speaker}</span><blockquote>${copy.line}</blockquote></section>
+        <div class="wrong-letter-evidence is-found"><span>车夫遗失的东西</span><p>${shared.lostPermit}</p></div>
+        ${complete ? `<p class="wrong-letter-after">${shared.complete}</p>` : ''}`,
       actions: [{ kind: 'navigation', label: '离开钳台', handler: blacksmithShop }],
     })
   }
@@ -387,4 +390,3 @@ window.TownShopSystem = (function () {
     openPotionShop: potionShop,
   }
 })()
-

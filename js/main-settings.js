@@ -119,7 +119,7 @@ window.AppSettings = (function () {
       bind('set-records', () => { Dialog.close(); AchievementsUI.open() })
       bind('set-changelog', () => { Dialog.close(); hooks.showChangelog() })
       bind('set-privacy', () => { Dialog.close(); hooks.showPrivacyNotice() })
-      if (DEBUG_ENABLED) bind('set-cheat', () => { Dialog.close(); showCheatGate() })
+      if (DEBUG_ENABLED) bind('set-cheat', () => { Dialog.close(); showCheatMenu() })
       bind('set-menu', () => { Dialog.close(); hooks.backToTitle() })
       bind('set-delete', () => {
         // 确认删除
@@ -143,73 +143,55 @@ window.AppSettings = (function () {
 
   /* ============ 新游戏 / 读档 ============ */
 
-  /** 前端假密码只作为彩蛋门槛；真正的权限控制不能依赖浏览器端代码。 */
-  const CHEAT_PASSWORD = 'DMJ666'
-  function showCheatGate () {
-    if (!DEBUG_ENABLED || !State.get()) return
-    const verify = () => {
-      const input = document.getElementById('cheat-password')
-      const error = document.getElementById('cheat-password-error')
-      if (String(input && input.value || '').trim().toUpperCase() === CHEAT_PASSWORD) {
-        Dialog.close()
-        showCheatMenu()
-        return
-      }
-      if (error) error.textContent = '密码不正确，请重新输入。'
-      if (input) { input.select(); input.focus() }
-    }
-
-    Dialog.show({
-      title: '🔒 作弊入口',
-      className: 'cheat-gate-modal',
-      body: `
-        <p style="color:var(--text-dim);font-size:.82rem;margin-bottom:10px">输入管理员密码以打开作弊 / 调试菜单。</p>
-        <label for="cheat-password" style="display:block;color:var(--text-dim);font-size:.72rem;margin-bottom:5px">管理员密码</label>
-        <input type="password" id="cheat-password" placeholder="请输入密码" autocomplete="off"
-          style="width:100%;min-height:44px;padding:10px 12px;border:1px solid var(--border);border-radius:8px;background:var(--panel-2);color:var(--text);font-size:1rem" />
-        <p id="cheat-password-error" role="alert" aria-live="polite" style="min-height:1.5em;margin-top:6px;color:var(--danger);font-size:.75rem"></p>`,
-      actions: [
-        { label: '取消', handler: () => Dialog.close() },
-        { label: '进入', cls: 'btn-primary', handler: verify },
-      ],
-    })
-    requestAnimationFrame(() => {
-      const input = document.getElementById('cheat-password')
-      if (!input) return
-      input.focus()
-      input.addEventListener('keydown', event => {
-        if (event.key === 'Enter') { event.preventDefault(); verify() }
-      })
-    })
-  }
-
   /** 作弊菜单（分类面板） */
   function showCheatMenu () {
     const state = State.get()
     if (!state) return
 
-    const sect = (title, btns) => `
-      <div style="margin-bottom:14px">
-        <div style="font-size:.78rem;color:var(--text-dim);margin-bottom:6px">${title}</div>
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px">${btns}</div>
-      </div>`
+    const sect = (icon, title, note, count, btns) => `
+      <details class="cheat-section">
+        <summary><i>${icon}</i><span><b>${title}</b><small>${note}</small></span><em>${count} 项</em></summary>
+        <div class="cheat-grid">${btns}</div>
+      </details>`
 
-    const cheatBtn = (id, label, cls = '') =>
-      `<button class="btn ${cls}" data-cheat="${id}" style="font-size:.8rem;padding:8px 6px">${label}</button>`
+    const cheatBtn = (id, icon, label, note, cls = '') =>
+      `<button class="cheat-action ${cls}" data-cheat="${id}"><i>${icon}</i><span><b>${label}</b><small>${note}</small></span></button>`
 
     Dialog.show({
-      title: '🎮 作弊',
+      title: '🎮 作弊与剧情调试',
       className: 'cheat-modal',
-      body: `
-        <div style="background:var(--panel-2);border:1px solid var(--border);border-radius:10px;padding:10px;margin-bottom:12px">
-          <div style="font-size:.78rem;color:var(--danger);margin-bottom:4px">⚠️ 作弊会影响游戏平衡</div>
-          <div style="font-size:.8rem;color:var(--text-dim)">作弊会立即生效并自动存档，建议备份存档后再用。</div>
-        </div>
-        ${sect('🧭 基础资源', cheatBtn('cheat-hp', '❤️ 回满 HP') + cheatBtn('cheat-gold', '💰 金币 +500') + cheatBtn('cheat-supply', '🎒 全补给 ×5') + cheatBtn('cheat-clear-status', '✨ 清除状态'))}
-        ${sect('⚔️ 战斗', cheatBtn('cheat-kill', '💀 击杀当前敌人') + cheatBtn('cheat-win', '🏆 直接通关') + cheatBtn('cheat-god', '🛡️ 无敌模式', 'btn-cheat') + cheatBtn('cheat-orb', '🔮 力量宝珠') )}
-        ${sect('🧰 装备', cheatBtn('cheat-weapons', '⚔️ 全部武器') + cheatBtn('cheat-accessories', '📿 全部饰品') + cheatBtn('cheat-items', '🧪 全部消耗品') + cheatBtn('cheat-material', '🔧 升级材料 ×3'))}
-        ${sect('🔧 调试', cheatBtn('cheat-goto', '📍 移动到坐标') + cheatBtn('cheat-mob', '👺 遭遇怪物') + cheatBtn('cheat-boss', '👑 遭遇 BOSS') + cheatBtn('cheat-bandit-victory', '☠️ 桥洞胜利预览', 'btn-cheat') + cheatBtn('cheat-m-intake', '⛓️ 入库开场预览', 'btn-cheat') + cheatBtn('cheat-position', '📌 查看坐标') + cheatBtn('cheat-merc-debt', '💸 佣兵债务 +100') + cheatBtn('cheat-merc-clear', '✓ 清除佣兵债务'))}
-      `,
+      body: `<div class="cheat-menu">
+        <aside class="cheat-warning"><b>⚠️ 会修改当前存档</b><span>操作会立即生效并自动保存，测试剧情前建议先导出存档。</span></aside>
+        ${sect('🧭', '资源与状态', '角色资源、装备与债务', 11,
+          cheatBtn('cheat-hp', '❤️', '回满生命', '恢复至最大生命') +
+          cheatBtn('cheat-gold', '💰', '金币 +500', '直接加入钱袋') +
+          cheatBtn('cheat-supply', '🎒', '全补给 ×5', '加入常用消耗品') +
+          cheatBtn('cheat-clear-status', '✨', '清除状态', '移除临时状态') +
+          cheatBtn('cheat-weapons', '⚔️', '全部武器', '解锁武器收藏') +
+          cheatBtn('cheat-accessories', '📿', '全部饰品', '解锁饰品收藏') +
+          cheatBtn('cheat-items', '🧪', '全部消耗品', '补齐背包物品') +
+          cheatBtn('cheat-material', '🔧', '升级材料 ×3', '加入锻造材料') +
+          cheatBtn('cheat-orb', '🔮', '力量宝珠', '强化下一次攻击') +
+          cheatBtn('cheat-merc-debt', '💸', '佣兵债务 +100', '测试债务系统') +
+          cheatBtn('cheat-merc-clear', '✓', '清除佣兵债务', '归零现有债务'))}
+        ${sect('⚔️', '地图与战斗', '移动、遭遇与战斗控制', 8,
+          cheatBtn('cheat-goto', '📍', '移动到坐标', '指定地图位置') +
+          cheatBtn('cheat-position', '📌', '查看坐标', '查看相邻地图格') +
+          cheatBtn('cheat-mob', '👺', '遭遇怪物', '选择普通或精英敌人') +
+          cheatBtn('cheat-boss', '👑', '遭遇 BOSS', '直接挑战森林之灵') +
+          cheatBtn('cheat-kill', '💀', '击杀当前敌人', '仅在战斗中生效') +
+          cheatBtn('cheat-win', '🏆', '直接通关', '完成森林主流程') +
+          cheatBtn('cheat-no-enemy', '🚶', state._noEnemyEncounters ? '关闭避敌模式' : '开启避敌模式', state._noEnemyEncounters ? '当前：不遇普通敌人' : '跳过普通怪物与伏击', state._noEnemyEncounters ? 'btn-cheat is-active' : 'btn-cheat') +
+          cheatBtn('cheat-god', '🛡️', '无敌模式', '切换伤害免疫', 'btn-cheat'))}
+        ${sect('📜', '欲缚镇·序章', '序章战斗与结算预览', 4,
+          cheatBtn('cheat-prologue-stages', '📜', '序章阶段预览', '从收信到城门接管', 'btn-cheat') +
+          cheatBtn('cheat-caravan-battle', '🌉', '车队看守战', '选择落单或挑衅版本', 'btn-cheat') +
+          cheatBtn('cheat-bandit-defeat', '🍑', '桥洞战败预览', '从被强盗头目扣留开始', 'btn-cheat') +
+          cheatBtn('cheat-bandit-victory', '☠️', '桥洞胜利预览', '从击败强盗头目后开始', 'btn-cheat'))}
+        ${sect('⛓️', '欲缚镇·奴隶线·第一章', '第一章剧情与押送测试', 2,
+          cheatBtn('cheat-m-stages', '⛓️', '章节阶段预览', '选择 Stage 0—3000', 'btn-cheat') +
+          cheatBtn('cheat-m-escort', '🏙️', '九格押送预览', '选择性别与押送方式', 'btn-cheat'))}
+      </div>`,
       actions: [{ label: '关闭', handler: () => Dialog.close() }],
     })
 
@@ -221,8 +203,13 @@ window.AppSettings = (function () {
           if (id === 'cheat-goto') { cheatGoto(); return }
           if (id === 'cheat-mob') { cheatEncounter(); return }
           if (id === 'cheat-boss') { cheatBoss(); return }
+          if (id === 'cheat-prologue-stages') { cheatPrologueStages(); return }
+          if (id === 'cheat-caravan-battle') { cheatCaravanBattle(); return }
+          if (id === 'cheat-bandit-defeat') { cheatBanditDefeat(); return }
           if (id === 'cheat-bandit-victory') { cheatBanditVictory(); return }
           if (id === 'cheat-m-intake') { cheatMIntake(); return }
+          if (id === 'cheat-m-stages') { cheatMStages(); return }
+          if (id === 'cheat-m-escort') { cheatMEscort(); return }
           if (id === 'cheat-position') { cheatPosition(); return }
           const msg = runCheat(id)
           if (msg) EventBus.emit('ui:log', { text: msg, type: 'good' })
@@ -233,9 +220,99 @@ window.AppSettings = (function () {
     })
   }
 
+  function cheatPrologueStages () {
+    const stages = [
+      [0, '序章开始', '雾灯镇巷口收到派克的错信'],
+      [2, '拆开货单', '查看货单后去旧桥核对车辙'],
+      [3, '镇内查证', '调查酒馆与铁匠铺'],
+      [4, '车队看守', '返回旧桥抢回遗失许可'],
+      [5, '桥下残骸', '拿到许可后调查失事车队'],
+      [6, '强盗据点', '进入桥洞营地救记账员'],
+      [7, '护送蕾娜', '带证人和残页前往镇务厅'],
+      [8, '三方口供', '城门、商会与街口调查'],
+      [9, '向镇长复命', '带齐证据质问镇长'],
+      [10, '城门接管', '贝拉米与墨菲执行新制度'],
+    ]
+    Dialog.show({
+      title: '📜 欲缚镇·序章 · 阶段预览',
+      className: 'cheat-modal prologue-stage-cheat-modal',
+      body: `<aside class="cheat-warning"><b>⚠️ 会覆盖当前序章进度</b><span>角色、背包和其他系统保留，序章分支状态会重置到所选阶段。</span></aside><div class="scene-choice-list">${stages.map(([stage, name, note]) => `<button data-prologue-stage="${stage}"><i>${stage === 0 ? '✉️' : stage < 4 ? '🔎' : stage < 7 ? '⚔️' : '🏛️'}</i><span><b>${name}</b><small>${note}</small></span><em>Stage ${stage}</em></button>`).join('')}</div>`,
+      actions: [{ kind: 'navigation', label: '返回作弊菜单', handler: showCheatMenu }],
+    })
+    Dialog.onMount(root => {
+      root.querySelectorAll('[data-prologue-stage]').forEach(btn => {
+        btn.onclick = () => startPrologueStage(Number(btn.dataset.prologueStage))
+      })
+    })
+  }
+
+  function startPrologueStage (stage) {
+    const state = State.get()
+    if (!state || typeof PrologueSystem === 'undefined') return
+    Dialog.close()
+    state._battle = null
+    state._ambush = null
+    state.phase = 'idle'
+    state._moveState = null
+    state._wrongCommissionStage = stage
+    state._wrongCommissionOutcome = null
+    state._wrongCommissionBattle = null
+    state._wrongCommissionCaptured = false
+    state._wrongCommissionLeads = { barkeep: stage >= 4, blacksmith: stage >= 4 }
+    state._pBridgePermitAcquired = stage >= 5
+    state._pBridgeAftermath = null
+    state._pCaravanTrailSeen = stage >= 6
+    state._pCaravanClothesAwaitingRecovery = false
+    state._pCaravanEscortStage = 0
+    state._pCaravanEscortResult = null
+    state._pDefeatDispatchPending = false
+    state._pBanditAftermath = null
+    state._pBanditDefeatCount = 0
+    state._pBanditClothesLocked = false
+    state._pBanditWitnessBegged = false
+    state._pTownInquiry = { guard: stage >= 9, merchant: stage >= 9, citizen: stage >= 9 }
+    state._pMainlineStage = 0
+    state._pRole = null
+    state._pChapterOneLocked = false
+    if (stage >= 5) state.inventory.consumables.raven_latch = Math.max(1, state.inventory.consumables.raven_latch || 0)
+    state.position = stage >= 2 && stage <= 6 ? { x: 10, y: 9 } : { x: 13, y: 9 }
+    EventBus.emit('ui:log', { text: `📜 调试：已跳到欲缚镇·序章 Stage ${stage}。`, type: 'good' })
+    EventBus.emit('ui:mapUpdate', {})
+    EventBus.emit('state:changed', state)
+    State.save()
+    if ([2, 4, 5, 6].includes(stage)) PrologueSystem.visitBridge()
+    else CampSystem.open()
+  }
+
+  function cheatCaravanBattle () {
+    const state = State.get()
+    if (!state || typeof PrologueSystem === 'undefined') return
+    Dialog.close()
+    state._battle = null
+    state._ambush = null
+    state.phase = 'idle'
+    state.position = { x: 10, y: 9 }
+    state._moveState = null
+    state._wrongCommissionStage = 4
+    state._wrongCommissionBattle = null
+    state._wrongCommissionOutcome = null
+    state._pBridgePermitAcquired = false
+    state._pCaravanEscortStage = 0
+    state._pCaravanEscortResult = null
+    state._pDefeatDispatchPending = false
+    state._pDefeatPunished = false
+    state._pDefeatSentenced = false
+    state._pDefeatPunishmentStep = 0
+    EventBus.emit('ui:log', { text: '🌉 调试：已进入车队看守战的战前选择。', type: 'good' })
+    EventBus.emit('ui:mapUpdate', {})
+    EventBus.emit('state:changed', state)
+    State.save()
+    PrologueSystem.visitBridge()
+  }
+
   function cheatBanditVictory () {
     const state = State.get()
-    if (!state || typeof CommissionSystem === 'undefined') return
+    if (!state || typeof PrologueSystem === 'undefined') return
     Dialog.close()
     state._battle = null
     state._ambush = null
@@ -246,9 +323,7 @@ window.AppSettings = (function () {
     state._pMainlineStage = 0
     state._pRole = null
     state._pChapterOneLocked = false
-    state._pRouteLocked = false
     state._pGateChoices = []
-    state._pDayaOutcome = null
     state._pTownInquiry = { guard: false, merchant: false, citizen: false }
     state._pBanditDefeatCount = 1
     state._pBanditClothesLocked = false
@@ -260,7 +335,34 @@ window.AppSettings = (function () {
     EventBus.emit('ui:log', { text: '☠️ 调试：已进入战胜强盗头目后的清算。', type: 'good' })
     EventBus.emit('state:changed', state)
     State.save()
-    CommissionSystem.resumePending()
+    PrologueSystem.resumePending()
+  }
+
+  function cheatBanditDefeat () {
+    const state = State.get()
+    if (!state || typeof PrologueSystem === 'undefined') return
+    Dialog.close()
+    state._battle = null
+    state._ambush = null
+    state.phase = 'idle'
+    state.position = { x: 10, y: 9 }
+    state._wrongCommissionStage = 6
+    state._pBanditAftermath = null
+    state._pBanditDefeatCount = 0
+    state._pBanditDefeatScene = 0
+    state._pBanditDefeatResult = null
+    state._pBanditToySession = null
+    state._pBanditClothesLocked = false
+    EventBus.emit('ui:log', { text: '🍑 调试：已进入强盗头目战败后的扣留剧情。', type: 'danger' })
+    EventBus.emit('state:changed', state)
+    State.save()
+    PrologueSystem.afterDefeat({
+      storyDefeat: true,
+      enemyId: 'p_bandit_leader',
+      story: 'commission-bandits',
+      banditLivingCrew: 2,
+      banditLivingCrewIds: ['bandit-lookout', 'bandit-cutpurse'],
+    })
   }
 
   function cheatMIntake () {
@@ -275,14 +377,17 @@ window.AppSettings = (function () {
     state._pRole = 'slave'
     state._pMainlineStage = 2
     state._pChapterOneLocked = true
-    state._pRouteLocked = false
-    state._pDayaOutcome = null
     state._pMChapterStage = 0
     state._pMChapterStep = 0
     state._pMChapterBranch = null
     state._pMChapterAttitude = null
     state._pMWakeResist = 0
     state._pMSpankStack = 1
+    state._pMStage2000SlapCount = 0
+    state._pMStage2000SlapPending = false
+    state._pMStage2000SlapReturn = null
+    state._pMStage2500GearConfirmStep = 0
+    state._pMStage2500GearConfirming = false
     state._pMChapterFailures = 0
     state._pMChapterEscrow = null
     state._pMConfiscated = false
@@ -294,10 +399,164 @@ window.AppSettings = (function () {
     state._pMMarketResponse = null
     state._pMDayaChoice = null
     state._pMChapterCompleted = false
+    state._pMEscortMode = 'bellamy'
+    state._pMEscort = null
     EventBus.emit('ui:log', { text: '⛓️ 调试：已进入 M 路线被打晕后的入库开场。', type: 'danger' })
     EventBus.emit('state:changed', state)
     State.save()
     PMEnslavementSystem.open()
+  }
+
+  function cheatMStages () {
+    const stages = [
+      { stage: 0, icon: '🌑', title: '失去意识', note: '打晕、没收与收容笼' },
+      { stage: 500, icon: '👁️', title: '醒来验号', note: '眼罩取下与第一次登记' },
+      { stage: 1000, icon: '📋', title: '指定监管者', note: '登记经历与贝拉米接管' },
+      { stage: 1500, icon: '✋', title: '服从测试', note: '第一轮互动训练' },
+      { stage: 2000, icon: '⛓️', title: '登记桌验收', note: '请求、拒绝与累计惩罚' },
+      { stage: 2500, icon: '🔔', title: '锁具与挂饰', note: '插入装备及街道出发准备' },
+      { stage: 3000, icon: '🏛️', title: '初见派克', note: '会馆验收与当前开放终点' },
+    ]
+    Dialog.show({
+      title: '⛓️ 欲缚镇·奴隶线·第一章',
+      className: 'cheat-modal cheat-stage-modal',
+      body: `<section class="cheat-stage-intro"><b>章节时间线</b><span>选择后会补齐该阶段需要的身份、进度和剧情锁具。</span></section>
+        <div class="cheat-stage-list">${stages.map((entry, index) => `<button data-m-stage="${entry.stage}"><i>${entry.icon}</i><span><small>阶段 ${index + 1} · STAGE ${entry.stage}</small><b>${entry.title}</b><em>${entry.note}</em></span><strong>开始 ›</strong></button>`).join('')}</div>`,
+      actions: [{ kind: 'navigation', label: '返回作弊菜单', handler: showCheatMenu }],
+    })
+    Dialog.onMount(root => {
+      root.querySelectorAll('[data-m-stage]').forEach(btn => {
+        btn.onclick = () => startMStagePreview(Number(btn.dataset.mStage))
+      })
+    })
+  }
+
+  function prepareMPreviewBase (stage) {
+    const state = State.get()
+    if (!state) return null
+    state._battle = null
+    state._ambush = null
+    state.phase = 'camp'
+    state.position = { x: 13, y: 9 }
+    state._wrongCommissionStage = Math.max(10, state._wrongCommissionStage || 0)
+    state._pRole = 'slave'
+    state._pMainlineStage = 2
+    state._pChapterOneLocked = true
+    state._pMChapterStage = stage
+    state._pMChapterStep = 0
+    state._pMChapterBranch = 'novice'
+    state._pMChapterAttitude = 'spank'
+    state._pMWakeResist = 0
+    state._pMSpankStack = 1
+    state._pMStage2000SlapCount = 0
+    state._pMStage2000SlapPending = false
+    state._pMStage2000SlapReturn = null
+    state._pMStage2500GearConfirmStep = 0
+    state._pMStage2500GearConfirming = false
+    state._pMChapterFailures = 0
+    state._pMChapterEscrow = null
+    state._pMConfiscated = stage !== 0
+    state._pMConfiscationEscrow = null
+    state._pMChapterRestraintEscrow = stage >= 1000 ? {} : null
+    state._pMGroomed = stage >= 1000
+    state._pMBranded = false
+    state._pMSisterBond = false
+    state._pMMarketResponse = null
+    state._pMDayaChoice = null
+    state._pMChapterCompleted = false
+    state._pMEscortMode = 'bellamy'
+    state._pMEscort = stage === 3000
+      ? { started: true, gateDone: true, mode: 'bellamy', position: 8, currentType: null, currentId: null, currentStep: 0, forcedTiles: [], publicNotice: false, completed: true, entryStep: 1, entryEvent: 'bellamy_pass', hallArrive: true, gagRemovedAtHall: false }
+      : null
+    return state
+  }
+
+  function equipMPreviewRestraints (stage) {
+    const state = State.get()
+    if (!state || !window.RestraintSystem || stage < 1000) return
+    if (state.gender === 'male') {
+      const vaginal = RestraintSystem.get('vagina')
+      if (vaginal && vaginal.source === 'p_m_intake') RestraintSystem.remove('vagina', true)
+    }
+    ;[
+      ['neck', 'slave_collar'],
+      ['arms', 'handcuffs'],
+      ['legs', 'leg_cuffs'],
+      ['waist', state.gender === 'male' ? 'vibrating_chastity' : 'chastity_device'],
+    ].forEach(([slot, id]) => RestraintSystem.equip(slot, id, { locked: true, lockType: 'story', source: 'p_m_intake', difficulty: 5 }, true))
+    if (stage >= 3000) RestraintSystem.equip('mouth', 'leather_gag', { locked: true, lockType: 'story', source: 'p_m_intake', difficulty: 5 }, true)
+  }
+
+  function startMStagePreview (stage) {
+    if (!window.PMEnslavementSystem) return
+    const state = prepareMPreviewBase(stage)
+    if (!state) return
+    Dialog.close()
+    equipMPreviewRestraints(stage)
+    if (window.StatusSystem && !StatusSystem.has('naked')) StatusSystem.apply('naked', 99999, { source: 'p_m_intake' })
+    EventBus.emit('ui:log', { text: `⛓️ 调试：已从欲缚镇·奴隶线·第一章 Stage ${stage} 开始。`, type: 'danger' })
+    EventBus.emit('state:changed', state)
+    State.save()
+    PMEnslavementSystem.open()
+  }
+
+  function cheatMEscort () {
+    if (!window.PMEscortSystem) return
+    Dialog.show({
+      title: '🏙️ 九格押送预览',
+      className: 'cheat-modal',
+      body: '<p style="color:var(--text-dim);font-size:.84rem">选择试玩角色与押送方式。这会将当前存档调到 Stage 2500 结束后。</p>',
+      actions: [
+        { label: '女性 · 贝拉米同行', cls: 'btn-primary', handler: () => startEscortPreview('female', 'bellamy') },
+        { label: '女性 · 独自行走', handler: () => startEscortPreview('female', 'solo') },
+        { label: '男性 · 独自行走', handler: () => startEscortPreview('male', 'solo') },
+        { label: '取消', handler: showCheatMenu },
+      ],
+    })
+  }
+
+  function startEscortPreview (gender, mode) {
+    const state = State.get()
+    if (!state || !window.PMEscortSystem || !window.RestraintSystem) return
+    Dialog.close()
+    state.gender = gender
+    state.genderLabel = gender === 'male' ? '男性' : '女性'
+    state._battle = null
+    state._ambush = null
+    state.phase = 'camp'
+    state.position = { x: 13, y: 9 }
+    state._wrongCommissionStage = Math.max(10, state._wrongCommissionStage || 0)
+    state._pRole = 'slave'
+    state._pMainlineStage = 2
+    state._pChapterOneLocked = true
+    state._pMChapterStage = 2500
+    state._pMChapterStep = 1
+    state._pMConfiscated = true
+    state._pMChapterCompleted = false
+    state._pMEscortMode = mode
+    state._pMEscort = null
+    ;[
+      ['neck', 'slave_collar'],
+      ['arms', 'handcuffs'],
+      ['legs', 'leg_cuffs'],
+      ['waist', gender === 'male' ? 'vibrating_chastity' : 'chastity_device'],
+      ['anal', 'medium_butt_plug'],
+    ].forEach(([slot, id]) => RestraintSystem.equip(slot, id, {
+      locked: true, lockType: 'story', source: 'p_m_intake', difficulty: 5,
+      ...(slot === 'anal' ? { attachment: 'prostitute_tag' } : {}),
+    }, true))
+    if (gender === 'male') {
+      const vaginal = RestraintSystem.get('vagina')
+      if (vaginal && vaginal.source === 'p_m_intake') RestraintSystem.remove('vagina', true)
+    } else RestraintSystem.equip('vagina', 'vibrating_dildo', {
+      locked: true, lockType: 'story', source: 'p_m_intake', difficulty: 5,
+      attachment: 'bell', vibrationMode: 'low',
+    }, true)
+    if (window.StatusSystem && !StatusSystem.has('naked')) StatusSystem.apply('naked', 99999, { source: 'p_m_intake' })
+    EventBus.emit('ui:log', { text: `🏙️ 调试：已进入${gender === 'male' ? '男性' : '女性'}·${mode === 'solo' ? '独行' : '贝拉米同行'}九格押送。`, type: 'danger' })
+    EventBus.emit('state:changed', state)
+    State.save()
+    PMEscortSystem.start({ mode })
   }
 
   /** 执行作弊指令，返回日志消息 */
@@ -330,6 +589,11 @@ window.AppSettings = (function () {
       case 'cheat-god':
         state._godMode = !state._godMode
         return state._godMode ? '🛡️ 无敌模式已开启（HP 不再减少）。' : '🛡️ 无敌模式已关闭。'
+      case 'cheat-no-enemy':
+        state._noEnemyEncounters = !state._noEnemyEncounters
+        return state._noEnemyEncounters
+          ? '🚶 避敌模式已开启：普通怪物格、随机怪物和伏击会被跳过；剧情战与 BOSS 保留。'
+          : '🚶 避敌模式已关闭：恢复普通敌人遭遇。'
       case 'cheat-orb':
         if (state._battle) state._battle.orbBoost = true
         else if (state._ambush) state._ambush.orbBoost = true

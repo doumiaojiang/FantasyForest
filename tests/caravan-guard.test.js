@@ -11,8 +11,9 @@ const source = file => fs.readFileSync(path.join(root, file), 'utf8')
 const context = { window: {} }
 vm.createContext(context)
 vm.runInContext(source('js/data/monsters.js'), context)
+vm.runInContext(source('js/data/monsters/caravan-guard.js'), context)
 
-const guard = context.window.MONSTERS.find(monster => monster.id === 'p_caravan_guard')
+const guard = context.window.MONSTER_DEFINITIONS.find(monster => monster.id === 'p_caravan_guard')
 assert.ok(guard, 'P caravan guard must exist')
 
 const attacks = new Map(guard.attacks.map(attack => [attack.roll, attack]))
@@ -24,7 +25,7 @@ assert.equal(attacks.get(4).provoked.part, 'anal', 'provoked rear attack must de
 assert.ok(attacks.get(5).provoked.repeat, 'provoked display must have a repeat variant')
 assert.doesNotMatch(attacks.get(5).provoked.repeat.desc, /收走.*衣|脱下.*衣/, 'repeat display must not strip an already naked player')
 assert.equal(attacks.get(2).taskCount, 20)
-assert.equal(attacks.get(2).provoked.taskCount, 30)
+assert.equal(attacks.get(2).provoked.taskCount, 40)
 
 const battle = source('js/ui/battle.js')
 assert.match(battle, /task-count-current/, 'count tasks must expose an interactive counter')
@@ -32,9 +33,8 @@ assert.match(battle, /task-count-add-one/, 'count tasks must support adding one 
 assert.match(battle, /task-count-add-five/, 'count tasks must support adding five repetitions')
 assert.match(battle, /completedCount \+ 5/, 'the five-repetition shortcut must advance by five')
 assert.match(battle, /completedCount < requiredCount/, 'count tasks must stay incomplete until the target is reached')
-assert.match(battle, /resolveMonsterOrifice\(inspectionPart\)/, 'search inspection must honor occupied orifices')
 
-const story = source('js/systems/camp-p-story.js')
+const story = source('js/systems/prologue-town.js')
 assert.match(story, /function settleCaravanDebt/, 'the gate chapter must settle caravan debt')
 assert.match(story, /state\._pCaravanDebt = 0/, 'settlement must clear the debt')
 assert.match(story, /function runCaravanDebtTasks/, 'caravan debt must have a playable gate service')

@@ -7,7 +7,7 @@ const configVersion = read('js/config.js').match(/\bversion:\s*['"](\d+\.\d+\.\d
 if (!configVersion) throw new Error('CONFIG.version missing')
 
 const html = read('index.html')
-const assetVersions = [...html.matchAll(/(?:style\.css|js\/[^"?]+)\?v=([^"\s]+)/g)].map(match => match[1])
+const assetVersions = [...html.matchAll(/(?:style\.css|js\/[^"?]+)\?v=(\d+\.\d+\.\d+)/g)].map(match => match[1])
 if (!assetVersions.length) throw new Error('No versioned assets found')
 const mismatches = [...new Set(assetVersions.filter(version => version !== configVersion))]
 if (mismatches.length) throw new Error(`Asset cache versions differ from CONFIG.version: ${mismatches.join(', ')}`)
