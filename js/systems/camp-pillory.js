@@ -457,7 +457,7 @@ window.TownPillorySystem = (function () {
       body: `<section class="pillory-result"><i>✓</i><div><h3>${resultText}</h3><p>${eventSummary}${task.poseId === 'classic' ? '你重新活动发麻的手腕' : '木枷终于打开，你在围观目光中直起赤裸发麻的身体'}，走下广场台阶。</p></div></section>
         <div class="pillory-result-list">${resultRows.map(row => `<span class="is-${row.type || 'dim'}"><i>${row.icon}</i><b>${row.label}</b><small>${row.detail}</small></span>`).join('')}</div>`,
       actions: task.source === 'fine'
-        ? [{ label: '离开城镇', cls: 'btn-primary', handler: doLeaveCamp }]
+        ? [{ label: '离开城镇', cls: 'btn-primary', handler: () => TownGateSystem.finishLeave() }]
         : task.source === 'punishment'
           ? [{ kind: 'navigation', label: '返回营地', cls: 'btn-primary', handler: open }]
           : [

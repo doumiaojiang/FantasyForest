@@ -16,6 +16,22 @@ for (const api of ['isServicePartLocked: townServicePartLocked', 'finishClearedL
 
 const pillory = read('js/systems/camp-pillory.js')
 if (!pillory.includes('start: startPillory')) throw new Error('TownPillorySystem.start is missing')
+if (!pillory.includes('handler: () => TownGateSystem.finishLeave()')) throw new Error('Pillory fine settlement does not use TownGateSystem.finishLeave')
+
+const gate = read('js/systems/camp-gate.js')
+if (!gate.includes('finishLeave: doLeaveCamp')) throw new Error('TownGateSystem.finishLeave is missing')
+
+const tavernWork = read('js/systems/camp-tavern-work.js')
+if (!tavernWork.includes('resumeCustomerTask: runCustomerTask')) throw new Error('TownTavernWorkSystem.resumeCustomerTask is missing')
+
+const camp = read('js/systems/camp.js')
+if (!camp.includes('TownTavernWorkSystem.resumeCustomerTask(pending.customerKey, pending.z, pending.stepIndex)')) {
+  throw new Error('Camp does not restore the complete pending tavern task state')
+}
+
+const patrons = read('js/systems/camp-tavern-patrons.js')
+const tavernRenderCalls = patrons.match(/\(\) => TownTavernSystem\.render\(\)/g) || []
+if (tavernRenderCalls.length < 3) throw new Error('Enchanter and mercenary recruitment callbacks must use TownTavernSystem.render')
 
 const crossModuleFiles = [
   'js/systems/camp.js',
@@ -27,6 +43,8 @@ const forbiddenCalls = [
   /\bgloryClearedLeave\s*\(/,
   /\bstartPillory\s*\(/,
   /\btownServicePartLocked\s*\(/,
+  /\brunCustomerTask\s*\(/,
+  /\brenderTavern\b/,
 ]
 for (const file of crossModuleFiles) {
   const source = read(file)
@@ -35,7 +53,6 @@ for (const file of crossModuleFiles) {
   }
 }
 
-const patrons = read('js/systems/camp-tavern-patrons.js')
 if (/\bcampClose\s*\(/.test(patrons)) throw new Error('Tavern patrons still call private campClose')
 
 console.log('camp-module-contracts-ok')

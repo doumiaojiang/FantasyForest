@@ -111,7 +111,7 @@ window.TownTavernPatronsSystem = (function () {
           <button class="camp-opt" data-enchanter="shop"><i>💎</i><span><b>购买灵魂石</b><small>微型、次级与普通灵魂石</small></span><em>查看商品</em></button>
           <button class="camp-opt" data-enchanter="chat"><i>💬</i><span><b>对话</b><small>询问灵魂石与附魔的知识</small></span><em>交谈</em></button>
         </div>`,
-      actions: [{ kind: 'navigation', label: '返回酒馆', handler: renderTavern }],
+      actions: [{ kind: 'navigation', label: '返回酒馆', handler: () => TownTavernSystem.render() }],
     })
     document.querySelectorAll('[data-enchanter]').forEach(btn => {
       btn.onclick = () => {
@@ -468,14 +468,14 @@ window.TownTavernPatronsSystem = (function () {
           EventBus.emit('ui:log', { text: '⚔️ 芙蕾雅加入了你的队伍！你攻击命中后她会补上 2 点伤害。', type: 'good' })
           EventBus.emit('state:changed', state)
           Dialog.close()
-          if (window.MercenaryContractSystem) MercenaryContractSystem.showIntro(renderTavern)
+          if (window.MercenaryContractSystem) MercenaryContractSystem.showIntro(() => TownTavernSystem.render())
           else TownTavernSystem.render()
         } }] : []),
         ...(canFinance ? [{ label: '🤝 分期招募芙蕾雅', cls: 'btn-primary', handler: () => {
           MercenaryContractSystem.offerRecruitmentFinance(
             { id: FUTA_WARRIOR.id, name: FUTA_WARRIOR.name, icon: FUTA_WARRIOR.icon, dmg: FUTA_WARRIOR.dmg, lust: 0 },
             FUTA_WARRIOR.price,
-            renderTavern,
+            () => TownTavernSystem.render(),
           )
         } }] : []),
         { kind: 'navigation', label: '返回', handler: () => { Dialog.close(); tavernFuta() } },

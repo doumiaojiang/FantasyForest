@@ -127,7 +127,7 @@ window.CampSystem = (function () {
       state._prostituteLicensed = true
       state._prostituteDressed = true
       const pending = state._prostitutePendingTask
-      runCustomerTask(pending.customerKey, pending.z, pending.stepIndex)
+      TownTavernWorkSystem.resumeCustomerTask(pending.customerKey, pending.z, pending.stepIndex)
       return
     }
     // 序章结束后的首次城门换岗属于关键演出，优先于可重复的厕所/酒馆追债。

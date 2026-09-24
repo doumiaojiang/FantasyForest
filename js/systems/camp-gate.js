@@ -653,6 +653,7 @@ window.TownGateSystem = (function () {
 
   return {
     leave: leaveCamp,
+    finishLeave: doLeaveCamp,
     showBanditNakedGate,
     shouldSearch: shouldGuardSearch,
     showSearchPrompt: showGuardSearchPrompt,

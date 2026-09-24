@@ -855,5 +855,6 @@ window.TownTavernWorkSystem = (function () {
     title: prostituteTitle,
     openGamble: tavernGamble,
     openDrink: tavernDrink,
+    resumeCustomerTask: runCustomerTask,
   }
 })()
