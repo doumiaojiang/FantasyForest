@@ -19,14 +19,14 @@ window.TownGateSystem = (function () {
     // 1. 强制流程（厕所/酒馆欠债）优先
     if ((state._gloryDebt || 0) > 0 || state._gloryFreeService || (state._prostituteDebt || 0) > 0) {
       if ((state._prostituteDebt || 0) > 0) {
-        Dialog.close(); prostitute(); return
+        Dialog.close(); TownTavernWorkSystem.open(); return
       }
       Dialog.close(); showGloryWork(); return
     }
     Dialog.close()
     // 兜底：荣耀洞还清欠款标记未清除（如刷新跳过）→ 回营地触发卫兵/队长事件，而非直接出城
     if (state._gloryJustCleared) {
-      gloryClearedLeave()
+      TownGlorySystem.finishClearedLeave()
       return
     }
     // 2. 通缉犯：优先于一切检查，不能用搜身/贿赂/免检查卷逃过
@@ -133,7 +133,7 @@ window.TownGateSystem = (function () {
         } }] : []),
         ...((state._pillorySettings || {}).enabled !== false ? [{ label: '🪵 木枷抵罚（60秒）', cls: 'btn-danger', handler: () => {
           Dialog.close()
-          startPillory('fine', 60, 0)
+          TownPillorySystem.start('fine', 60, 0)
         } }] : []),
         { label: state.gold >= 100 ? `💸 交 100G` : '🚻 被丢进厕所', cls: state.gold >= 100 ? 'btn-primary' : 'btn-danger', handler: () => {
           if (state.gold >= 100) {

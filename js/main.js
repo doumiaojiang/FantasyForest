@@ -302,7 +302,8 @@
     const state = State.get()
     showGameScreen()
     Log.clear()
-    Log.add(`🆕 新的冒险 — ${diffName(difficulty)}`, 'good')
+    const difficultyName = { normal: '普通', hard: '困难', brutal: '残酷' }[difficulty] || difficulty
+    Log.add(`🆕 新的冒险 — ${difficultyName}`, 'good')
     const lover = loverTerm(state.gender)
     Log.add(`你的${lover.term}被森林拖走了。你必须穿越妖林救回${lover.pronoun}。`, '')
     MapLib.parse()

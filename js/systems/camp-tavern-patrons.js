@@ -488,7 +488,7 @@ window.TownTavernPatronsSystem = (function () {
     // 佣兵服务以前是 Dialog 弹窗，现在使用营地内嵌面板。
     // 在营地内返回酒馆；从地图 HUD 打开则关闭面板并恢复地图。
     if (State.get().phase === 'camp') TownTavernSystem.render()
-    else campClose()
+    else CampSystem.closeScene()
   }
 
   function serveMercenary () {
@@ -500,9 +500,9 @@ window.TownTavernPatronsSystem = (function () {
       return
     }
     const isFemale = state.gender !== 'male'
-    const oralLocked = townServicePartLocked('oral')
-    const analLocked = townServicePartLocked('anal')
-    const vaginaLocked = townServicePartLocked('vagina')
+    const oralLocked = TownGlorySystem.isServicePartLocked('oral')
+    const analLocked = TownGlorySystem.isServicePartLocked('anal')
+    const vaginaLocked = TownGlorySystem.isServicePartLocked('vagina')
     const sexBtn = isFemale && !ChastitySystem.isWorn()
       ? `<button class="camp-opt" data-serve="sex" ${vaginaLocked ? 'disabled' : ''}><i>🌸</i><span><b>性交服务</b><small>${vaginaLocked ? '小穴装备已上锁，无法使用' : '主动骑上去，用小穴好好伺候她'}</small></span><em>${vaginaLocked ? '已锁定' : '欲 -30'}</em></button>`
       : ''
@@ -532,7 +532,7 @@ window.TownTavernPatronsSystem = (function () {
     const merc = state._mercenary
     if (!merc || merc.dead) return
     const requestedPart = { oral: 'oral', anal: 'anal', sex: 'vagina' }[type]
-    if (requestedPart && townServicePartLocked(requestedPart)) {
+    if (requestedPart && TownGlorySystem.isServicePartLocked(requestedPart)) {
       EventBus.emit('ui:log', { text: '🔒 这个部位被妖缚装备锁住了，无法用于服务。', type: 'danger' })
       serveMercenary()
       return

@@ -471,6 +471,6 @@ window.TownPillorySystem = (function () {
   return {
     open: squarePillory,
     resume: runPilloryFlow,
+    start: startPillory,
   }
 })()
-

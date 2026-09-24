@@ -146,7 +146,7 @@ window.CampSystem = (function () {
     if ((state._prostituteDebt || 0) > 0) {
       state._prostituteLicensed = true
       state._prostituteDressed = true
-      prostitute()
+      TownTavernWorkSystem.open()
       return
     }
     // 奴隶线第一章 Stage 9500 的第二次派克会面可存档恢复。

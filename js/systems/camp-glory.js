@@ -5,6 +5,7 @@ window.TownGlorySystem = (function () {
   const GLORY_FEE = CampSystem.gloryFee
   const campShow = options => CampSystem.showScene(options)
   const open = opts => CampSystem.open(opts)
+  const setCampPhase = () => CampSystem.ensurePhase()
 
   const SERVICE_SECONDS = 30
   const ORAL_SERVICES = [
@@ -705,7 +706,7 @@ window.TownGlorySystem = (function () {
         } },
         ...((state._pillorySettings || {}).enabled !== false ? [{ label: '🪵 接受广场木枷处罚', cls: 'btn-danger', handler: () => {
           EventBus.emit('ui:log', { text: '🪵 你接受 90 秒广场木枷处罚，避免被直接押进监狱。', type: 'danger' })
-          startPillory('punishment', 90, 0)
+          TownPillorySystem.start('punishment', 90, 0)
         } }] : []),
         { label: '⛓️ 放弃抵抗', cls: 'btn-danger', handler: () => {
           EventBus.emit('ui:log', { text: '⛓️ 你放弃抵抗，被守卫押进监狱。', type: 'danger' })
@@ -774,5 +775,7 @@ window.TownGlorySystem = (function () {
     serviceGearNames,
     routeTownService,
     townServiceDesc,
+    isServicePartLocked: townServicePartLocked,
+    finishClearedLeave: gloryClearedLeave,
   }
 })()
