@@ -418,7 +418,24 @@ window.MovementController = (function () {
       }
 
       _prevPos = { x, y }
-      const res = await stepTo({ x: nx, y: ny })
+      let res
+      try {
+        res = await stepTo({ x: nx, y: ny })
+      } catch (error) {
+        // 事件弹窗或奖励结算一旦抛错，不能把玩家永久留在“移动中”状态。
+        // 先恢复方向键，具体错误仍保留在控制台，方便继续定位原始分支。
+        console.error('移动事件处理失败，已恢复方向键:', error)
+        EventBus.emit('ui:log', { text: '⚠️ 事件结算出现异常，移动界面已恢复。', type: 'danger' })
+        _isWalking = false
+        _moveLocked = false
+        const latest = State.get()
+        if (latest && latest.phase !== 'battle' && latest.phase !== 'gameover' && latest.phase !== 'shop') {
+          latest.phase = 'idle'
+          EventBus.emit('state:changed', latest)
+          readyToRoll(_stepsRemaining > 0)
+        }
+        return
+      }
       if (res === 'stopped') { _isWalking = false; return }
       if (res === 'ambush') { _isWalking = false; readyToRoll(); return }
 
@@ -525,6 +542,19 @@ window.MovementController = (function () {
       }
       if (treasureResult === 'resume') {
         hint.textContent = `🚶 收好宝藏，继续前进（剩余 ${_stepsRemaining} 步）`
+        // 领取过程中若其他事件提前结束了自动行走，保留余步并立即还回方向键。
+        if (!_isWalking && _stepsRemaining > 0) {
+          _turning = true
+          readyToRoll(true)
+          return 'stopped'
+        }
+      } else if (_stepsRemaining <= 0) {
+        // 宝箱正好吃掉最后一步时，不再依赖宝箱系统间接广播恢复 UI。
+        // 直接结束本次移动，确保“收下宝藏”之后方向键一定重新出现。
+        _isWalking = false
+        _moveLocked = false
+        readyToRoll()
+        return 'stopped'
       }
     }
 
@@ -620,6 +650,9 @@ window.MovementController = (function () {
 
   EventBus.on('game:gameover', () => {
     _isWalking = false
+    _moveLocked = false
+    // 死亡是可恢复状态，必须立即落盘；否则此刻刷新可能读回半场战斗状态。
+    State.save()
     showActionBar()
     const wasBoss = State.get()._battle && State.get()._battle.enemyId === 'spirit_of_forest'
 

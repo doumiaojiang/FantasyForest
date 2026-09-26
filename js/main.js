@@ -369,6 +369,10 @@
     } else if (state.phase === 'battle') {
       // 存档已恢复 _battle 全部战况（HP/回合/反射/格挡），只重建 UI
       if (BattleUI.resume) BattleUI.resume()
+    } else if (state.phase === 'gameover') {
+      // 死亡状态不是坏档：重新建立死亡操作界面，让玩家可以返回检查点。
+      // 旧逻辑会落入 readyToRoll()，但该函数会拒绝 gameover，导致页面没有任何按钮。
+      EventBus.emit('game:gameover', { restored: true })
     } else if (state.phase === 'shop') {
       ShopSystem.open(null)
     } else if (state.phase === 'camp') {
