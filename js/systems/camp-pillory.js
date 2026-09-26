@@ -425,9 +425,7 @@ window.TownPillorySystem = (function () {
     } else if (task.source === 'punishment') {
       state._gloryWanted = Math.max(0, (state._gloryWanted || 0) - 10)
       // 木枷已经替代本轮守卫盘查；清掉荣耀洞离场断点，避免回营地后再次判定抓捕。
-      state._gloryJustCleared = false
-      state._gloryByGuard = false
-      state._gloryByCaptain = false
+      TownGlorySystem.clearEnforcementSource()
       resultText = `完成无证营业处罚 · 危险值降至 ${state._gloryWanted}`
       EventBus.emit('ui:log', { text: `🪵 你完成广场木枷处罚，危险值降至 ${state._gloryWanted}。`, type: 'good' })
     } else {

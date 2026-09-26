@@ -91,7 +91,8 @@ window.AdventureMenu = (function () {
 
     if (state._inPrison) tasks.push({ icon: '⛓️', group: '强制任务', name: '服刑', detail: state._prisonLife ? '越狱机会已经耗尽。继续完成牢房安排的工作。' : '完成牢房工作积攒释放点数，或寻找逃离监狱的机会。', status: `${state._prisonPoints || 0}/300`, tone: 'danger', progress: state._prisonPoints || 0, required: 300 })
     if (state._pillory) tasks.push({ icon: '🪵', group: '进行中', name: '广场木枷', detail: '木枷展示尚未结算，回到营地会继续当前阶段。', status: '未结束', tone: 'danger' })
-    if ((state._gloryDebt || 0) > 0 || state._gloryFreeService) tasks.push({ icon: '🚻', group: '欠账', name: '荣耀洞债务', detail: '在离开雾灯镇前，必须回公共厕所结清这笔账。', status: state._gloryDebt ? `${state._gloryDebt}G` : '追加服务', tone: 'danger' })
+    const gloryStatus = typeof TownGlorySystem !== 'undefined' ? TownGlorySystem.getStatus() : { forced: false }
+    if (gloryStatus.forced) tasks.push({ icon: '🚻', group: '欠账', name: '荣耀洞债务', detail: '在离开雾灯镇前，必须回公共厕所结清这笔账。', status: gloryStatus.debt ? `${gloryStatus.debt}G` : '追加服务', tone: 'danger' })
     if ((state._prostituteDebt || 0) > 0) tasks.push({ icon: '🍷', group: '欠账', name: '酒馆打工欠款', detail: '回酒馆老板娘处继续接客，完成尚未结清的工作。', status: `${state._prostituteDebt}G`, tone: 'danger' })
     if ((state._pCaravanDebt || 0) > 0) tasks.push({ icon: '🛻', group: '欠账', name: '派克车队欠条', detail: '旧桥看守在强制搜身时记下的账。派克的商团已经知道你的名字，之后会向你追讨。', status: `${state._pCaravanDebt}G`, tone: 'danger' })
     if ((state._pBanditRansomDebt || 0) > 0) tasks.push({ icon: '🌉', group: '欠账', name: '桥洞赎金', detail: state._pBanditBridgeToll ? '你欠强盗头目 1200G。还清之前，每次路过旧桥都要口交、深喉、肛交和性交各一次。' : '桥洞赎金尚未结清。', status: `${state._pBanditRansomDebt}G`, tone: 'danger' })

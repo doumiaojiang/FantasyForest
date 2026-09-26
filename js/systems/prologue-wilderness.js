@@ -895,12 +895,9 @@
       body: `<section class="scene-dialogue"><i aria-hidden="true">🛡️</i><div><p>守卫在宣判「当众发情」的罪名后，把你往城镇公共厕所的方向拉去。</p></div></section>
         <section class="p-hall-order"><span>城门守卫</span><blockquote>“发情而已不是什么大事，罚款一百金币，罚金只能去公共厕所赚回来，赚够之前禁止出城。”</blockquote></section>`,
       actions: [{ label: '被押去公共厕所还债', cls: 'btn-danger', handler: () => {
-        const fee = window.CampSystem && CampSystem.gloryFee ? CampSystem.gloryFee : 0
         releaseDefeatCaravanBindings()
         state._pDefeatDispatchPending = false
-        state._gloryDebt = Math.max(0, Number(state._gloryDebt) || 0) + 100 + fee
-        state._gloryByGuard = true
-        EventBus.emit('ui:log', { text: `🚻 守卫以当众发情罚你 ${state._gloryDebt}G。赚够之前禁止出城。`, type: 'danger' })
+        TownGlorySystem.addDebt({ amount: 100, source: 'prologue', reason: '当众发情罚款', includeEntryFee: true })
         EventBus.emit('state:changed', state)
         State.save()
         closeCaravanDefeatScene()

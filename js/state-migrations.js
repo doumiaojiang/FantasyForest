@@ -254,6 +254,7 @@ window.StateMigrations = (function () {
     state._gloryByGuard = !!state._gloryByGuard
     state._gloryByCaptain = !!state._gloryByCaptain
     state._gloryWanted = Math.max(0, Math.min(100, Math.floor(finite(state._gloryWanted, 0))))
+    state._gloryManagerCooldown = Math.max(0, Math.min(3, Math.floor(finite(state._gloryManagerCooldown, 0))))
     state._inPrison = !!state._inPrison
     state._prisonPoints = Math.max(0, Math.min(5000, Math.floor(finite(state._prisonPoints, 0))))
     state._prisonPardon = !!state._prisonPardon

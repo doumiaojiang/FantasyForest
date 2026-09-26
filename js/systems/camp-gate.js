@@ -2,11 +2,9 @@
  * systems/camp-gate.js — 离营、城门检查、通缉处置与卫兵服务。
  */
 window.TownGateSystem = (function () {
-  const GLORY_FEE = CampSystem.gloryFee
   const campShow = options => CampSystem.showScene(options)
   const campClose = () => CampSystem.closeScene()
   const open = opts => CampSystem.open(opts)
-  const showGloryWork = () => CampSystem.showGloryWork()
   const routeTownService = part => CampSystem.routeTownService(part)
   const townServiceDesc = (part, actor) => CampSystem.townServiceDesc(part, actor)
 
@@ -17,11 +15,11 @@ window.TownGateSystem = (function () {
       return
     }
     // 1. 强制流程（厕所/酒馆欠债）优先
-    if ((state._gloryDebt || 0) > 0 || state._gloryFreeService || (state._prostituteDebt || 0) > 0) {
+    if (TownGlorySystem.hasForcedWork() || (state._prostituteDebt || 0) > 0) {
       if ((state._prostituteDebt || 0) > 0) {
         Dialog.close(); TownTavernWorkSystem.open(); return
       }
-      Dialog.close(); showGloryWork(); return
+      Dialog.close(); TownGlorySystem.resumeForcedWork(); return
     }
     Dialog.close()
     // 兜底：荣耀洞还清欠款标记未清除（如刷新跳过）→ 回营地触发卫兵/队长事件，而非直接出城
@@ -142,12 +140,7 @@ window.TownGateSystem = (function () {
             EventBus.emit('state:changed', state); Dialog.close(); doLeaveCamp()
           } else {
             // 没钱：罚款变欠债，丢进公共厕所强制赚钱还债，另收 30G 入场管理费
-            state._gloryDebt = (state._gloryDebt || 0) + 100 + GLORY_FEE
-            state._gloryByGuard = true   // 标记：被卫兵丢进来的
-            EventBus.emit('ui:log', { text: `💸 你付不起 100G 罚款，被卫兵丢进公共厕所！另收 ${GLORY_FEE}G 管理费，合计欠债 ${state._gloryDebt}G，赚够才能出来。`, type: 'danger' })
-            EventBus.emit('state:changed', state)
-            Dialog.close()
-            showGloryWork()
+            TownGlorySystem.addDebt({ amount: 100, source: 'guard', reason: '付不起卫兵罚款', includeEntryFee: true, openWork: true })
           }
         } }])
     } else if (r < 40) {
@@ -437,8 +430,7 @@ window.TownGateSystem = (function () {
     const framedDebt = framed ? Math.max(0, framedValue - confiscatedGold) : 0
     if (confiscatedGold > 0) state.gold -= confiscatedGold
     if (framedDebt > 0) {
-      state._gloryDebt = Math.max(0, Number(state._gloryDebt) || 0) + framedDebt
-      state._gloryByGuard = true
+      TownGlorySystem.addDebt({ amount: framedDebt, source: 'guard', reason: '跳过搜身后的赃物罚款' })
     }
     const confiscated = s.confiscateLockpick && (state.inventory.consumables.lockpick || 0) > 0
     if (confiscated) {
@@ -468,7 +460,7 @@ window.TownGateSystem = (function () {
             EventBus.emit('town:guardCheck', { direction })
             EventBus.emit('state:changed', state)
             State.save()
-            showGloryWork()
+            TownGlorySystem.resumeForcedWork()
           } else finishGuardPass(direction, true)
         },
       }],

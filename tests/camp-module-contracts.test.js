@@ -10,8 +10,19 @@ if (/\bdiffName\s*\(\s*difficulty\s*\)/.test(main)) {
 }
 
 const glory = read('js/systems/camp-glory.js')
-for (const api of ['isServicePartLocked: townServicePartLocked', 'finishClearedLeave: gloryClearedLeave']) {
+for (const api of [
+  'isServicePartLocked: townServicePartLocked',
+  'finishClearedLeave: gloryClearedLeave',
+  'addDebt',
+  'getStatus',
+  'hasForcedWork',
+  'resumeForcedWork',
+  'clearEnforcementSource',
+]) {
   if (!glory.includes(api)) throw new Error(`TownGlorySystem is missing public API: ${api}`)
+}
+for (const privateApi of ['renderToilet,', 'investigateStall,', 'enterGlory,', 'useToilet,', 'showWork:']) {
+  if (glory.includes(privateApi)) throw new Error(`TownGlorySystem still exposes private UI API: ${privateApi}`)
 }
 
 const pillory = read('js/systems/camp-pillory.js')
@@ -27,6 +38,19 @@ if (!tavernWork.includes('resumeCustomerTask: runCustomerTask')) throw new Error
 const camp = read('js/systems/camp.js')
 if (!camp.includes('TownTavernWorkSystem.resumeCustomerTask(pending.customerKey, pending.z, pending.stepIndex)')) {
   throw new Error('Camp does not restore the complete pending tavern task state')
+}
+if (!camp.includes('TownGlorySystem.resumeForcedWork({ deferWhenBlocked: true })')) {
+  throw new Error('Camp must resume forced toilet work through TownGlorySystem')
+}
+for (const obsoleteProxy of ['showGloryWork:', 'renderToilet:', 'investigateStall:', 'enterGlory:', 'useToilet:']) {
+  if (camp.includes(obsoleteProxy)) throw new Error(`CampSystem still exposes obsolete toilet proxy: ${obsoleteProxy}`)
+}
+
+for (const file of ['js/systems/camp-gate.js', 'js/systems/camp-tavern-captain.js', 'js/systems/prologue-wilderness.js']) {
+  const source = read(file)
+  if (/state\._gloryDebt\s*=/.test(source) || /state\._gloryBy(?:Guard|Captain)\s*=/.test(source)) {
+    throw new Error(`${file} still mutates public-toilet debt state directly`)
+  }
 }
 
 const patrons = read('js/systems/camp-tavern-patrons.js')

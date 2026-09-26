@@ -15,6 +15,7 @@ window.StateSchema = (function () {
       settings: { footService: true },
       discovered: false,
       justCleared: false,
+      managerCooldown: 0,
     },
     prison: {
       active: false,
@@ -216,6 +217,7 @@ window.StateSchema = (function () {
     _glorySettings: ['glory', 'settings'],
     _gloryDiscovered: ['glory', 'discovered'],
     _gloryJustCleared: ['glory', 'justCleared'],
+    _gloryManagerCooldown: ['glory', 'managerCooldown'],
     _inPrison: ['prison', 'active'],
     _prisonPoints: ['prison', 'points'],
     _prisonPardon: ['prison', 'pardon'],

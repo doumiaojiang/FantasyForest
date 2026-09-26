@@ -2,7 +2,6 @@
  * systems/camp-tavern-captain.js — 酒馆守卫队长、许可证与赦免剧情。
  */
 window.TownTavernCaptainSystem = (function () {
-  const GLORY_FEE = CampSystem.gloryFee
   const campShow = options => CampSystem.showScene(options)
   const openCamp = opts => CampSystem.open(opts)
   const townPrice = (price, category) => CampSystem.townPrice(price, category)
@@ -383,11 +382,7 @@ window.TownTavernCaptainSystem = (function () {
     EventBus.emit('ui:log', { text: '🚫 你被队长操得腿软，趴在地上喘气。', type: 'danger' })
     if (isPerfect) {
       // 头牌妓畜：罚金 200 + 30 入场费，丢荣耀洞（队长标记，出城时队长羞辱）
-      state._gloryDebt = (state._gloryDebt || 0) + 200 + GLORY_FEE
-      state._gloryByCaptain = true
-      EventBus.emit('ui:log', { text: `💸 队长把你扔进荣耀洞：罚金 200G + ${GLORY_FEE}G 入场费，合计欠债 ${state._gloryDebt}G！`, type: 'danger' })
-      EventBus.emit('state:changed', state)
-      TownGlorySystem.showWork()
+      TownGlorySystem.addDebt({ amount: 200, source: 'captain', reason: '守卫队长处罚', includeEntryFee: true, openWork: true })
     } else {
       // 职业妓女：被操完后羞辱辱骂，明确不给注销
       EventBus.emit('ui:log', { text: '🛡️ 队长提上裤子："证不能退，下次再敢提，还操你。"', type: 'dim' })

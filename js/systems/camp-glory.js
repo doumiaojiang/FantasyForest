@@ -7,6 +7,61 @@ window.TownGlorySystem = (function () {
   const open = opts => CampSystem.open(opts)
   const setCampPhase = () => CampSystem.ensurePhase()
 
+  function getStatus () {
+    const state = State.get()
+    const debt = Math.max(0, Number(state && state._gloryDebt) || 0)
+    const freeService = !!(state && state._gloryFreeService)
+    return {
+      debt,
+      freeService,
+      forced: debt > 0 || freeService,
+      source: state && state._gloryByCaptain ? 'captain' : state && state._gloryByGuard ? 'guard' : null,
+      justCleared: !!(state && state._gloryJustCleared),
+      gearBlocked: !!(state && (debt > 0 || freeService) && lockedServiceGear().length > 0),
+    }
+  }
+
+  /** 外部系统只能通过此入口增加厕所欠债，避免漏写来源、日志或存档。 */
+  function addDebt (options = {}) {
+    const state = State.get()
+    const amount = Math.max(0, Math.floor(Number(options.amount) || 0))
+    const fee = options.includeEntryFee ? GLORY_FEE : 0
+    const added = amount + fee
+    state._gloryDebt = Math.max(0, Number(state._gloryDebt) || 0) + added
+    if (options.source === 'captain') state._gloryByCaptain = true
+    else if (['guard', 'manager', 'prologue'].includes(options.source)) state._gloryByGuard = true
+    const reason = typeof options.reason === 'string' && options.reason.trim() ? options.reason.trim() : '强制罚款'
+    EventBus.emit('ui:log', { text: `🚻 ${reason}：新增厕所欠债 ${added}G${fee ? `（含 ${fee}G 入场费）` : ''}，当前共欠 ${state._gloryDebt}G。`, type: 'danger' })
+    EventBus.emit('state:changed', state)
+    State.save()
+    if (options.openWork) {
+      Dialog.close()
+      showGloryWork()
+    }
+    return state._gloryDebt
+  }
+
+  function hasForcedWork () {
+    return getStatus().forced
+  }
+
+  function resumeForcedWork (options = {}) {
+    const status = getStatus()
+    if (!status.forced) return false
+    if (options.deferWhenBlocked && status.gearBlocked) return false
+    showGloryWork()
+    return true
+  }
+
+  function clearEnforcementSource () {
+    const state = State.get()
+    state._gloryJustCleared = false
+    state._gloryByGuard = false
+    state._gloryByCaptain = false
+    EventBus.emit('state:changed', state)
+    State.save()
+  }
+
   const SERVICE_SECONDS = 30
   const ORAL_SERVICES = [
     { id: 'lick', icon: '👄', name: '舔舐阴茎', pay: 2, desc: '用湿滑的舌头上下舔弄粗硬的阴茎' },
@@ -312,24 +367,91 @@ window.TownGlorySystem = (function () {
     render()
   }
 
+  function rollManagerEvent (state) {
+    if (state._prostituteLicensed || state._gloryByGuard) return null
+    const cooldown = Math.max(0, Number(state._gloryManagerCooldown) || 0)
+    if (cooldown > 0) {
+      state._gloryManagerCooldown = cooldown - 1
+      return null
+    }
+    const chance = Math.min(25, 5 + Math.floor((state._gloryWanted || 0) / 5))
+    if (Math.random() * 100 >= chance) return null
+    state._gloryManagerCooldown = 3
+    const z = Dice.rollZ()
+    return ({
+      1: { z, manager: true, basePay: true, payMultiplier: 1, wantedDelta: -3, msg: '👮 管理员按普通客人的规矩付钱，并替你压下了一点风声。' },
+      2: { z, manager: true, basePay: false, wantedDelta: -8, msg: '👮 管理员以检查为名免费使用了一次，但暂时替你遮住了无证记录。' },
+      3: { z, manager: true, basePay: true, payMultiplier: 1.5, wantedDelta: 0, msg: '👮 管理员付了封口费，这一单按一点五倍结算，但不会替你消除记录。' },
+      4: { z, manager: true, basePay: true, payMultiplier: 2, extraSeconds: 30, wantedDelta: -5, msg: '👮 管理员要求加做一段服务；完成后支付双倍报酬，并替你压下一部分危险值。' },
+      5: { z, manager: true, basePay: false, free: true, wantedDelta: 10, msg: '👮 管理员认定服务不合格：本单没有报酬，还要追加一单免费惩罚。' },
+      6: { z, manager: true, basePay: false, enforcement: true, wantedDelta: 0, msg: '🚨 管理员翻出无证记录，现场查封并按当前危险值处罚。' },
+    })[z]
+  }
+
   function rollSpecialEvent () {
-    // 加权概率：1=10% / 2=50% / 3=20% / 4=10% / 5=5% / 6=5%
+    const state = State.get()
+    const manager = rollManagerEvent(state)
+    if (manager) return manager
+    // 普通客人事件；管理员已经独立判定，不再混在这张表里。
     const roll = Math.random() * 100
     let z
-    if (roll < 10) z = 1
-    else if (roll < 60) z = 2
-    else if (roll < 80) z = 3
+    if (roll < 55) z = 2
+    else if (roll < 75) z = 3
     else if (roll < 90) z = 4
     else if (roll < 95) z = 5
     else z = 6
     return ({
-      1: { z, basePay: false, tip: 0, msg: '👮 管理员走进来，白嫖了一发，一分钱没给。' },
       2: { z, basePay: true, tip: 0, msg: '🙂 客人舒服地哼哼着离开，一切如常。' },
       3: { z, basePay: true, tip: 5, msg: '💖 客人被你伺候得舒爽，往你嘴里塞了 5 金币小费。' },
       4: { z, basePay: true, tip: 10, msg: '💰 客人被你榨得腿软，大方地甩出 10 金币。' },
       5: { z, basePay: false, tip: 0, complain: true, msg: '😤 客人嫌你服务不行，向营地投诉了你！' },
       6: { z, basePay: true, tip: 0, free: true, msg: '😠 客人嫌你不够卖力，要求免费再来一次！' },
     })[z]
+  }
+
+  function serviceRiskGain (pay) {
+    if (pay >= 20) return 5
+    if (pay >= 15) return 3
+    return 2
+  }
+
+  /** Z6 查封：低危险没收本单，中危险罚款/转欠债，高危险直接收监。 */
+  function resolveManagerEnforcement (state, totalEarn, event) {
+    if (!state || !event || !event.enforcement) return { totalEarn, arrested: false, text: '' }
+    const wanted = Math.max(0, Number(state._gloryWanted) || 0)
+    if (wanted < 40) {
+      state._gloryWanted = Math.min(100, wanted + 15)
+      return { totalEarn: 0, arrested: false, text: `本次收入被没收，危险值升至 ${state._gloryWanted}。` }
+    }
+    if (wanted < 70) {
+      let fine = 100
+      const fromEarn = Math.min(totalEarn, fine)
+      totalEarn -= fromEarn
+      fine -= fromEarn
+      const fromGold = Math.min(Math.max(0, state.gold || 0), fine)
+      state.gold -= fromGold
+      fine -= fromGold
+      if (fine > 0) {
+        addDebt({ amount: fine, source: 'manager', reason: '管理员查封罚款' })
+      }
+      return { totalEarn, arrested: false, text: fine > 0 ? `罚款 100G；不足的 ${fine}G 转为厕所欠债。` : '罚款 100G 已缴清。' }
+    }
+    EventBus.emit('state:changed', state)
+    State.save()
+    TownPrisonSystem.enter({ charge: '无证营业查封' })
+    return { totalEarn: 0, arrested: true, text: '危险值过高，管理员将你直接押进监狱。' }
+  }
+
+  function applyUnauthorizedRisk (state, event, servicePay) {
+    if (state._prostituteLicensed || state._gloryByGuard) return
+    if (event.manager) {
+      state._gloryWanted = Math.max(0, Math.min(100, (state._gloryWanted || 0) + (event.wantedDelta || 0)))
+      EventBus.emit('ui:log', { text: `👮 管理员处理后，危险值为 ${state._gloryWanted}。`, type: event.wantedDelta < 0 ? 'good' : 'danger' })
+      return
+    }
+    const gain = serviceRiskGain(servicePay)
+    state._gloryWanted = Math.min(100, (state._gloryWanted || 0) + gain)
+    EventBus.emit('ui:log', { text: `🚨 无证营业，危险值 +${gain}（现 ${state._gloryWanted}%）。`, type: 'danger' })
   }
 
   function runServiceTimer (service, seconds, telemetry = null) {
@@ -421,7 +543,7 @@ window.TownGlorySystem = (function () {
     }
     if (wasFree) state._gloryFreeService = false
     // 白嫖服务：一毛钱都不给（基础费和小费都归零）
-    const baseEarn = (!wasFree && event.basePay) ? service.pay : 0
+    const baseEarn = (!wasFree && event.basePay) ? Math.round(service.pay * (event.payMultiplier || 1)) : 0
     const tip = wasFree ? 0 : (event.tip || 0)
     let totalEarn = baseEarn + tip
     // 投诉：客人向营地投诉，加 30 欠款且这次不给钱
@@ -449,6 +571,10 @@ window.TownGlorySystem = (function () {
     const debtBefore = Math.max(0, state._gloryDebt || 0)
     const repaid = Math.min(debtBefore, totalEarn)
     state._gloryDebt = debtBefore - repaid
+    if (!wasFree) applyUnauthorizedRisk(state, event, service.pay)
+    const enforcement = resolveManagerEnforcement(state, totalEarn - repaid, event)
+    if (enforcement.arrested) return
+    totalEarn = enforcement.totalEarn + repaid
     state.gold += totalEarn - repaid
     // 还清欠款：出城时根据来源触发——卫兵放行嘲笑 / 队长羞辱
     if (repaid > 0 && state._gloryDebt === 0 && (state._gloryByGuard || state._gloryByCaptain)) {
@@ -461,22 +587,12 @@ window.TownGlorySystem = (function () {
     if (repaid > 0) EventBus.emit('ui:log', { text: `💸 你挣的钱先被营地扣去还债 ${repaid} 金币，还剩 ${state._gloryDebt} 没还清。`, type: 'dim' })
     EventBus.emit('ui:log', { text: `🎲 Z=${event.z}：${wasFree && event.tip > 0 ? event.msg.replace(/小费|金币/g, '') : event.msg}`, type: event.tip > 0 && !wasFree ? 'good' : 'dim' })
     EventBus.emit('state:changed', state)
-    // 无证卖淫：危险值处理（管理员使用 -10，否则 +2），越高越容易被抓
-    if (!state._prostituteLicensed && !wasFree && !state._gloryByGuard) {
-      if (event.z === 1) {
-        state._gloryWanted = Math.max(0, (state._gloryWanted || 0) - 10)
-        EventBus.emit('ui:log', { text: `👮 管理员刚刚「使用」过你，给你罩着点，危险值 -10（现 ${state._gloryWanted}%）。`, type: 'good' })
-      } else {
-        state._gloryWanted = Math.min(100, (state._gloryWanted || 0) + 2)
-        EventBus.emit('ui:log', { text: `🚨 无证卖淫，危险值 +2（现 ${state._gloryWanted}%）。越高越容易被抓！`, type: 'danger' })
-      }
-      EventBus.emit('state:changed', state)
-    }
+    if (enforcement.text) EventBus.emit('ui:log', { text: `🚨 ${enforcement.text}`, type: 'danger' })
     const forced = state._gloryDebt > 0 || state._gloryFreeService
     const guardDebtCleared = !forced && !!state._gloryJustCleared && !!state._gloryByGuard
     campShow({
       title: '🍑 服务完成', className: 'glory-result-modal',
-      body: `<div class="glory-result"><strong>${totalEarn > 0 ? `赚了 ${totalEarn}G` : '白干了一场'}</strong><p>${wasFree && event.tip > 0 ? event.msg.replace(/小费|金币/g, '') : event.msg}</p>${repaid > 0 ? `<span>还债 ${repaid}G · 还欠 ${state._gloryDebt}G</span>` : ''}${state._gloryFreeService ? '<span class="danger">还有个免费的得做完才能走</span>' : ''}</div>`,
+      body: `<div class="glory-result"><strong>${totalEarn > 0 ? `赚了 ${totalEarn}G` : '白干了一场'}</strong><p>${wasFree && event.tip > 0 ? event.msg.replace(/小费|金币/g, '') : event.msg}</p>${enforcement.text ? `<span class="danger">${enforcement.text}</span>` : ''}${repaid > 0 ? `<span>还债 ${repaid}G · 还欠 ${state._gloryDebt}G</span>` : ''}${state._gloryFreeService ? '<span class="danger">还有个免费的得做完才能走</span>' : ''}</div>`,
       actions: guardDebtCleared
         ? [{ kind: 'navigation', label: '还清欠款，返回营地', cls: 'btn-primary', handler: () => { Dialog.close(); gloryClearedLeave() } }]
         : [
@@ -516,6 +632,8 @@ window.TownGlorySystem = (function () {
     const heelBonus = heelId ? HEEL_BONUSES[heelId] : null
     const heelLocked = !!(feetEntry && feetEntry.locked)
     const heelDef = heelId ? RestraintSystem.defOf(heelId) : null
+    const event = rollSpecialEvent()
+    const taskSeconds = service.seconds + (event.extraSeconds || 0)
     EventBus.emit('ui:log', { text: `👠 你伸出双脚，客人开始「${service.name}」。`, type: 'danger' })
 
     let result
@@ -524,9 +642,9 @@ window.TownGlorySystem = (function () {
         ? await BattleUI.showTaskDialog({
             enemyName: '🍑 荣耀洞客人',
             attackName: service.name,
-            desc: `用双脚为客人足交，${service.bpm} BPM 持续 60 秒`,
+            desc: `用双脚为客人足交，${service.bpm} BPM 持续 ${taskSeconds} 秒`,
             bpm: service.bpm,
-            seconds: service.seconds,
+            seconds: taskSeconds,
             dmg: 0,
             noDamage: true,
             refuseLabel: '🙅 拒绝接待',
@@ -549,10 +667,10 @@ window.TownGlorySystem = (function () {
       rerender(); return
     }
 
-    // 完成：掷 Z 特殊事件（足交不额外加钱，只加文本）
-    const event = rollSpecialEvent()
-    const baseEarn = event.basePay ? service.pay : 0
-    const heelPay = (event.basePay && heelBonus) ? heelBonus.pay : 0
+    // 完成：按任务开始前抽出的特殊事件结算。
+    const multiplier = event.payMultiplier || 1
+    const baseEarn = event.basePay ? Math.round(service.pay * multiplier) : 0
+    const heelPay = (event.basePay && heelBonus) ? Math.round(heelBonus.pay * multiplier) : 0
     const tip = event.tip || 0
     let totalEarn = baseEarn + heelPay + tip
     // 投诉：加 30 欠款且这次不给钱
@@ -594,6 +712,10 @@ window.TownGlorySystem = (function () {
     const debtBefore = Math.max(0, state._gloryDebt || 0)
     const repaid = Math.min(debtBefore, totalEarn)
     state._gloryDebt = debtBefore - repaid
+    applyUnauthorizedRisk(state, event, service.pay)
+    const enforcement = resolveManagerEnforcement(state, totalEarn - repaid, event)
+    if (enforcement.arrested) return
+    totalEarn = enforcement.totalEarn + repaid
     state.gold += totalEarn - repaid
     if (repaid > 0 && state._gloryDebt === 0 && (state._gloryByGuard || state._gloryByCaptain)) {
       state._gloryJustCleared = true
@@ -609,17 +731,7 @@ window.TownGlorySystem = (function () {
     EventBus.emit('state:changed', state)
     State.save()
 
-    // 无证卖淫危险值
-    if (!state._prostituteLicensed && !state._gloryByGuard) {
-      if (event.z === 1) {
-        state._gloryWanted = Math.max(0, (state._gloryWanted || 0) - 10)
-        EventBus.emit('ui:log', { text: `👮 管理员刚刚「使用」过你，给你罩着点，危险值 -10（现 ${state._gloryWanted}%）。`, type: 'good' })
-      } else {
-        state._gloryWanted = Math.min(100, (state._gloryWanted || 0) + 2)
-        EventBus.emit('ui:log', { text: `🚨 无证卖淫，危险值 +2（现 ${state._gloryWanted}%）。越高越容易被抓！`, type: 'danger' })
-      }
-      EventBus.emit('state:changed', state)
-    }
+    if (enforcement.text) EventBus.emit('ui:log', { text: `🚨 ${enforcement.text}`, type: 'danger' })
 
     const forced = state._gloryDebt > 0 || state._gloryFreeService
     const guardDebtCleared = !forced && !!state._gloryJustCleared && !!state._gloryByGuard
@@ -629,8 +741,9 @@ window.TownGlorySystem = (function () {
     campShow({
       title: '👠 足交完成', className: 'glory-result-modal',
       body: `<div class="glory-result"><strong>${totalEarn > 0 ? `赚了 ${totalEarn}G` : '白干了一场'}</strong>
-        <p>${service.name}（${service.bpm} BPM · 60 秒）</p>
+        <p>${service.name}（${service.bpm} BPM · ${taskSeconds} 秒）</p>
         <p>${event.msg}</p>
+        ${enforcement.text ? `<span class="danger">${enforcement.text}</span>` : ''}
         <p>${ejacText}</p>
         ${heelBonus ? `<span>${heelDef.name} 奖金 +${heelPay}G</span>` : ''}
         ${repaid > 0 ? `<span>还债 ${repaid}G · 还欠 ${state._gloryDebt}G</span>` : ''}
@@ -765,11 +878,11 @@ window.TownGlorySystem = (function () {
 
   return {
     open: gloryHole,
-    renderToilet,
-    investigateStall,
-    enterGlory,
-    useToilet,
-    showWork: showGloryWork,
+    addDebt,
+    getStatus,
+    hasForcedWork,
+    resumeForcedWork,
+    clearEnforcementSource,
     lockedServiceGear,
     showServiceGearLockout,
     serviceGearNames,

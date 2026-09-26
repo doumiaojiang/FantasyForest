@@ -136,10 +136,10 @@ window.CampSystem = (function () {
       return
     }
     // 未完成的强制流程会持久化；若装备锁死服务部位，先允许在营地内寻找解锁办法，避免软锁。
-    const forcedGlory = (state._gloryDebt || 0) > 0 || state._gloryFreeService
-    const gloryGearBlocked = forcedGlory && TownGlorySystem.lockedServiceGear().length > 0
-    if (forcedGlory && !gloryGearBlocked) {
-      TownGlorySystem.showWork()
+    const gloryStatus = TownGlorySystem.getStatus()
+    const forcedGlory = gloryStatus.forced
+    const gloryGearBlocked = gloryStatus.gearBlocked
+    if (TownGlorySystem.resumeForcedWork({ deferWhenBlocked: true })) {
       return
     }
     // 打工欠款同样属于强制流程，刷新或重进营地不能绕过。
@@ -364,12 +364,6 @@ window.CampSystem = (function () {
     routeTownService: requestedPart => TownGlorySystem.routeTownService(requestedPart),
     townServiceDesc: (part, actor) => TownGlorySystem.townServiceDesc(part, actor),
     recordCommissionLead: wrongCommissionLead,
-    showGloryWork: () => TownGlorySystem.showWork(),
-    gloryHole: () => TownGlorySystem.open(),
-    renderToilet: () => TownGlorySystem.renderToilet(),
-    investigateStall: () => TownGlorySystem.investigateStall(),
-    enterGlory: () => TownGlorySystem.enterGlory(),
-    useToilet: () => TownGlorySystem.useToilet(),
     deer,
     tavern: () => TownTavernSystem.open(),
     serveMercenary: () => TownTavernSystem.serveMercenary(),

@@ -8,6 +8,7 @@ const legacy = {
   saveVersion: 2,
   _gloryDebt: 75,
   _glorySettings: { footService: false },
+  _gloryManagerCooldown: 2,
   _inPrison: true,
   _prisonPoints: 180,
   _prisonCharge: '野外非法卖淫',
@@ -38,6 +39,7 @@ const legacy = {
 StateSchema.prepare(legacy)
 assert.equal(legacy.systems.glory.debt, 75)
 assert.equal(legacy.systems.glory.settings.footService, false)
+assert.equal(legacy.systems.glory.managerCooldown, 2)
 assert.equal(legacy.systems.prison.active, true)
 assert.equal(legacy.systems.prison.points, 180)
 assert.equal(legacy.systems.prison.charge, '野外非法卖淫')
@@ -79,6 +81,7 @@ assert(serialized.includes('"systems"'))
 const roundTrip = JSON.parse(serialized)
 StateSchema.prepare(roundTrip)
 assert.equal(roundTrip._gloryDebt, 40)
+assert.equal(roundTrip._gloryManagerCooldown, 2)
 assert.equal(roundTrip._prisonPoints, 220)
 assert.equal(roundTrip._prisonCharge, '野外非法卖淫')
 assert.equal(roundTrip._prisonCaravanBindings[0].slot, 'arms')
