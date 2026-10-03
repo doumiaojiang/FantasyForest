@@ -221,7 +221,7 @@ window.TownGlorySystem = (function () {
     const footOn = (state._glorySettings || {}).footService !== false
     campShow({
       title: '🍑 荣耀洞 · 入场处', className: 'glory-entry-modal',
-      body: `<section class="glory-scene scene-dialogue">
+      body: `<section class="glory-scene">
           <div class="glory-scene-mark" aria-hidden="true">🍑</div>
           <div><h3>墙后的客人已经在等你。</h3><p>木板后传来指节轻敲的声音。</p></div>
         </section>
@@ -355,7 +355,7 @@ window.TownGlorySystem = (function () {
             ${footBtn}
           </div>
           ${footHint}`}`,
-        actions: forced ? [] : [{ kind: 'navigation', label: '返回营地', handler: () => { open() } }],
+        actions: forced ? [] : [{ kind: 'navigation', label: '返回营地', handler: () => { gloryClearedLeave() } }],
       })
       document.querySelectorAll('.glory-service-card').forEach(btn => {
         btn.onclick = () => {
@@ -595,10 +595,7 @@ window.TownGlorySystem = (function () {
       body: `<div class="glory-result"><strong>${totalEarn > 0 ? `赚了 ${totalEarn}G` : '白干了一场'}</strong><p>${wasFree && event.tip > 0 ? event.msg.replace(/小费|金币/g, '') : event.msg}</p>${enforcement.text ? `<span class="danger">${enforcement.text}</span>` : ''}${repaid > 0 ? `<span>还债 ${repaid}G · 还欠 ${state._gloryDebt}G</span>` : ''}${state._gloryFreeService ? '<span class="danger">还有个免费的得做完才能走</span>' : ''}</div>`,
       actions: guardDebtCleared
         ? [{ kind: 'navigation', label: '还清欠款，返回营地', cls: 'btn-primary', handler: () => { Dialog.close(); gloryClearedLeave() } }]
-        : [
-            { label: forced ? '继续服务' : '继续接客', cls: 'btn-primary', handler: () => { Dialog.close(); rerender() } },
-            ...(!forced ? [{ kind: 'navigation', label: '返回营地', handler: () => { Dialog.close(); gloryClearedLeave() } }] : []),
-          ],
+        : [{ label: forced ? '继续服务' : '继续接客', cls: 'btn-primary', handler: () => { Dialog.close(); rerender() } }],
     })
   }
 
@@ -752,10 +749,7 @@ window.TownGlorySystem = (function () {
         ${state._gloryFreeService ? '<span class="danger">还有个免费的得做完才能走</span>' : ''}</div>`,
       actions: guardDebtCleared
         ? [{ kind: 'navigation', label: '还清欠款，返回营地', cls: 'btn-primary', handler: () => { Dialog.close(); gloryClearedLeave() } }]
-        : [
-            { label: forced ? '继续服务' : '继续接客', cls: 'btn-primary', handler: () => { Dialog.close(); rerender() } },
-            ...(!forced ? [{ kind: 'navigation', label: '返回营地', handler: () => { Dialog.close(); gloryClearedLeave() } }] : []),
-          ],
+        : [{ label: forced ? '继续服务' : '继续接客', cls: 'btn-primary', handler: () => { Dialog.close(); rerender() } }],
     })
   }
 
@@ -875,6 +869,18 @@ window.TownGlorySystem = (function () {
   /* ============ 铁匠铺：普通NPC + 佩戴监狱贞操装备时有特殊求情 ============ */
 
   /** 铁匠铺入口：正常进主界面；若已和铁匠签了服务契约则先服务 */
+
+  // 危险值代表镇内守卫掌握的近期无证营业线索。离镇后击败任意怪物，
+  // 守卫的注意力转向林中骚乱，整条线索随之清零；单纯进出荣耀洞不会清除。
+  EventBus.on('battle:end', result => {
+    if (!result || !result.victory || result.fled || !result.enemyId) return
+    const state = State.get()
+    if ((state._gloryWanted || 0) <= 0) return
+    state._gloryWanted = 0
+    EventBus.emit('ui:log', { text: '🌲 你在镇外击败了怪物，守卫的注意力转向林中骚乱；荣耀洞危险值已清零。', type: 'good' })
+    EventBus.emit('state:changed', state)
+    State.save()
+  })
 
   return {
     open: gloryHole,

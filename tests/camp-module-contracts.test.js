@@ -34,6 +34,20 @@ if (!gate.includes('finishLeave: doLeaveCamp')) throw new Error('TownGateSystem.
 
 const tavernWork = read('js/systems/camp-tavern-work.js')
 if (!tavernWork.includes('resumeCustomerTask: runCustomerTask')) throw new Error('TownTavernWorkSystem.resumeCustomerTask is missing')
+if (!/function leaveProstituteWork \(\)[\s\S]*?_prostituteDressed = false[\s\S]*?TownTavernPatronsSystem\.openBarkeep\(\)/.test(tavernWork)) {
+  throw new Error('Tavern work is missing a safe exit back to the barkeep')
+}
+if ((tavernWork.match(/label: '结束营业，返回老板娘'/g) || []).length < 1 || !/!inDebt[\s\S]*?leaveProstituteWork/.test(tavernWork)) {
+  throw new Error('Debt-free tavern service screens must offer an exit from the customer loop')
+}
+if (!/_prostituteDebt \|\| 0\) <= 0[\s\S]*?label: '暂不接客'[\s\S]*?prostitute\(\)/.test(tavernWork)) {
+  throw new Error('Debt-free players must be able to decline the selected tavern customer')
+}
+
+const migrations = read('js/state-migrations.js')
+if (!/\['goblin', 'werewolf', 'orc', 'minotaur', 'koopa', 'guard'\]/.test(migrations)) {
+  throw new Error('Guard customer tasks are lost during save migration')
+}
 
 const camp = read('js/systems/camp.js')
 if (!camp.includes('TownTavernWorkSystem.resumeCustomerTask(pending.customerKey, pending.z, pending.stepIndex)')) {

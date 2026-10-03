@@ -689,7 +689,7 @@ window.StateMigrations = (function () {
     state._prostituteGear = Object.fromEntries(validProstituteGear.filter(id => savedProstituteGear[id]).map(id => [id, true]))
     state._prostituteSwapCost = Math.max(20, Math.min(100, Math.floor(finite(state._prostituteSwapCost, 20))))
     if (!state._prostitutePendingTask || typeof state._prostitutePendingTask !== 'object' ||
-      !['goblin', 'werewolf', 'orc', 'minotaur', 'koopa'].includes(state._prostitutePendingTask.customerKey)) {
+      !['goblin', 'werewolf', 'orc', 'minotaur', 'koopa', 'guard'].includes(state._prostitutePendingTask.customerKey)) {
       state._prostitutePendingTask = null
     } else {
       const pendingZ = Math.floor(finite(state._prostitutePendingTask.z, 0))

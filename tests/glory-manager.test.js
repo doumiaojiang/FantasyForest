@@ -23,6 +23,15 @@ for (const expected of [
 if (!/wanted < 40[\s\S]*?wanted < 70[\s\S]*?TownPrisonSystem\.enter/.test(source)) {
   throw new Error('Z6 必须按低中高危险值执行没收、罚款和收监')
 }
+if (!/if \(pay >= 20\) return 5[\s\S]*?if \(pay >= 15\) return 3[\s\S]*?return 2/.test(source)) {
+  throw new Error('无证服务危险值应保持原有的低幅累积')
+}
+if (!/label: '返回营地', handler: \(\) => \{ gloryClearedLeave\(\) \}/.test(source)) {
+  throw new Error('荣耀洞返回营地必须经过出口盘查，不能靠重新进出绕过危险值')
+}
+if (!/EventBus\.on\('battle:end'[\s\S]*?result\.victory[\s\S]*?state\._gloryWanted = 0[\s\S]*?State\.save\(\)/.test(source)) {
+  throw new Error('击败镇外怪物后必须持久化清零荣耀洞危险值')
+}
 if (!/managerCooldown: 0/.test(schema) || !/_gloryManagerCooldown: \['glory', 'managerCooldown'\]/.test(schema)) {
   throw new Error('管理员冷却必须进入 glory 存档领域')
 }

@@ -59,6 +59,18 @@ window.TownTavernWorkSystem = (function () {
     return { percent, text: `距「${next.name}」还差 ${next.level - level} 级` }
   }
 
+  /** 没有欠款时结束营业；全裸玩家同样可以离开，只是不发生换装。 */
+  function leaveProstituteWork () {
+    const state = State.get()
+    if ((state._prostituteDebt || 0) > 0) { prostitute(); return }
+    state._prostituteDressed = false
+    state._prostitutePendingTask = null
+    EventBus.emit('state:changed', state)
+    State.save()
+    Dialog.close()
+    TownTavernPatronsSystem.openBarkeep()
+  }
+
   function prostitute () {
     const state = State.get()
     if (TownGlorySystem.showServiceGearLockout('酒馆', tavernWork)) return
@@ -166,8 +178,7 @@ window.TownTavernWorkSystem = (function () {
       actions: [
         { label: inDebt ? '🔍 继续接客还债' : '🔍 寻找顾客', cls: 'btn-primary', handler: () => { Dialog.close(); findCustomer() } },
         { label: '⛓️ 整理妖缚装备', handler: () => { Dialog.close(); RestraintSystem.openManage() } },
-        // 全裸时无法换回衣服（本来就没衣服）；欠款时无法退出
-        ...((!inDebt && !StatusSystem.has('naked')) ? [{ label: '👗 换回衣服', handler: () => { Dialog.close(); state._prostituteDressed = false; EventBus.emit('state:changed', state); tavernWork() } }] : []),
+        ...(!inDebt ? [{ kind: 'navigation', label: StatusSystem.has('naked') ? '结束营业，返回老板娘' : '👗 换回衣服并结束营业', handler: leaveProstituteWork }] : []),
       ],
     })
   }
@@ -535,6 +546,7 @@ window.TownTavernWorkSystem = (function () {
       actions: [
         { label: '🍑 为他服务', cls: 'btn-primary', handler: () => { Dialog.close(); runCustomerTask(key) } },
         { label: `💸 换客人（${state._prostituteSwapCost || 20}G）`, handler: () => { Dialog.close(); swapCustomer() } },
+        ...((state._prostituteDebt || 0) <= 0 ? [{ kind: 'navigation', label: '暂不接客', handler: () => { Dialog.close(); prostitute() } }] : []),
       ],
     })
   }
@@ -740,6 +752,7 @@ window.TownTavernWorkSystem = (function () {
       body: `<div class="glory-result"><strong>${failed ? `没完成，欠老板娘 30G` : gold >= 0 ? `赚了 ${gold}G${campTaxPaid > 0 ? `（税 ${campTaxPaid}G）` : ''}` : `被抢走 ${-gold}G`}</strong><p>${failed ? `等级未提升（仍是 ${state._prostituteLevel} 级 · ${title.icon} ${title.name}）` : `妓女等级提升到 <b>${state._prostituteLevel}</b> 级 · ${title.icon} ${title.name}`}</p>${inDebt ? `<p style="color:var(--danger);margin-top:6px">💸 你欠老板娘 ${state._prostituteDebt}G，还清前不能离开！</p>` : ''}${titleUp || ''}${rewardItemText || ''}${title.note ? `<p style="color:var(--text-dim);font-size:.75rem;margin-top:4px">${title.note}</p>` : ''}</div>`,
       actions: [
         { label: inDebt ? '继续接客还债' : '继续接客', cls: 'btn-primary', handler: () => { Dialog.close(); prostitute() } },
+        ...(!inDebt ? [{ kind: 'navigation', label: '结束营业，返回老板娘', handler: leaveProstituteWork }] : []),
       ],
     })
   }

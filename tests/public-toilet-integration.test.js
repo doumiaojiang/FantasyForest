@@ -22,7 +22,10 @@ const context = {
     open: () => {},
     ensurePhase: () => {},
   },
-  EventBus: { emit: (name, data) => { if (name === 'ui:log') logs.push(data.text) } },
+  EventBus: {
+    emit: (name, data) => { if (name === 'ui:log') logs.push(data.text) },
+    on: () => () => {},
+  },
   Dialog: { close: () => {} },
   ChastitySystem: { isWorn: () => false },
   CONFIG: { difficulty: { normal: { campTax: 0 } } },
