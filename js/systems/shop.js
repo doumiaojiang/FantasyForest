@@ -69,6 +69,14 @@ window.ShopSystem = (function () {
       if (['master_key', 'curse_remover', 'common_soul_gem'].includes(item.id)) return // 高级妖缚补给由城镇专营
       _stock[item.id] = isRespawnShop ? 99 : 2
     })
+    if (!tile && state._shopStock) {
+      Object.keys(_stock).forEach(id => {
+        if (Object.prototype.hasOwnProperty.call(state._shopStock, id)) {
+          _stock[id] = Math.max(0, Math.min(_stock[id], Number(state._shopStock[id]) || 0))
+        }
+      })
+    }
+    state._shopStock = { ..._stock }
 
     // 同步 _freeUpgrade 标记与背包材料状态（防旧档不一致）
     if (state.inventory.consumables['weapon_upgrade_material'] > 0) {
@@ -77,6 +85,7 @@ window.ShopSystem = (function () {
 
     // 装备：靠购买记录控制唯一性，不设库存计数
     state.phase = 'shop'
+    State.save()
     EventBus.emit('shop:open', { tile: effectiveTile, isRespawnShop })
   }
 
@@ -99,6 +108,8 @@ window.ShopSystem = (function () {
       state.gold -= price
       _stock[itemId]--
       state.inventory.consumables[itemId] = (state.inventory.consumables[itemId] || 0) + 1
+      state._shopStock = { ..._stock }
+      State.save()
       EventBus.emit('shop:buy', { item, price })
       EventBus.emit('state:changed', state)
       return { ok: true, item, price }
@@ -235,7 +246,9 @@ window.ShopSystem = (function () {
     const returnToCamp = !!state._shopReturnToCamp
     state._shopReturnToCamp = false
     state._activeShopRaw = null
+    state._shopStock = null
     state.phase = returnToCamp ? 'camp' : 'idle'
+    State.save()
     EventBus.emit('shop:close', {})
     EventBus.emit('state:changed', state)
     if (returnToCamp && typeof CampSystem !== 'undefined') CampSystem.open()

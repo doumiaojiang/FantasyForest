@@ -374,7 +374,8 @@
       // 旧逻辑会落入 readyToRoll()，但该函数会拒绝 gameover，导致页面没有任何按钮。
       EventBus.emit('game:gameover', { restored: true })
     } else if (state.phase === 'shop') {
-      ShopSystem.open(null)
+      if (state._activeShopRaw === 'dream') TownTavernSystem.openDreamShop()
+      else ShopSystem.open(null)
     } else if (state.phase === 'camp') {
       CampSystem.open()
     } else {

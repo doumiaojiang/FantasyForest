@@ -112,4 +112,32 @@ const preserved2500 = State.migrate(stage2500Save)
 assert.equal(preserved2500._pMChapterStage, 2500, '2500 阶段读档不得回退到章节开头')
 assert.equal(preserved2500._pMChapterStep, 1)
 
+for (const poseId of ['classic', 'nude_bent', 'nude_kneel']) {
+  const save = JSON.parse(JSON.stringify(fresh))
+  save.systems.pillory.active = { poseId, duration: 30, stage: 'restraint', crowdLine: '测试围观记录' }
+  const restored = State.migrate(save)
+  assert.equal(restored._pillory.poseId, poseId, '木枷读档必须保留所选姿势')
+  assert.equal(restored._pillory.crowdLine, '测试围观记录')
+}
+const completedEvent = JSON.parse(JSON.stringify(fresh))
+completedEvent.systems.pillory.active = { stage: 'adult', poseId: 'classic', duration: 30,
+  event: { id: 'cruel_guard_trial', part: 'spank', storyChoice: 'endure', storyStage: 'complete',
+    bonus: 10, applied: true, consequencesApplied: true } }
+const restoredEvent = State.migrate(completedEvent)._pillory.event
+assert.equal(restoredEvent.storyChoice, 'endure')
+assert.equal(restoredEvent.storyStage, 'complete')
+assert.equal(restoredEvent.bonus, 10)
+assert.equal(restoredEvent.consequencesApplied, true)
+
+const prisonSave = JSON.parse(JSON.stringify(fresh))
+prisonSave.systems.prison.active = true
+prisonSave.systems.prison.pending = { mode: 'task', tier: 'adv', roll: 2, stepIndex: 1, restPending: true }
+prisonSave._dreamShopCategory = 'sensory'
+const restoredPrison = State.migrate(prisonSave)
+assert.deepEqual(restoredPrison._prisonPending, { mode: 'task', tier: 'adv', roll: 2, stepIndex: 1, restPending: true })
+assert.equal(restoredPrison._dreamShopCategory, 'sensory')
+restoredPrison._inPrison = false
+State.migrate(restoredPrison)
+assert.equal(restoredPrison._prisonPending, null, 'Released saves must discard stale prison checkpoints')
+
 console.log('state-migrations-ok')

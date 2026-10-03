@@ -5,6 +5,22 @@ window.TownPrisonSystem = (function () {
   const campShow = options => CampSystem.showScene(options)
   const open = opts => CampSystem.open(opts)
 
+  function checkpoint (pending) {
+    State.get()._prisonPending = pending
+    State.save()
+  }
+
+  function resumePrison () {
+    const pending = State.get()._prisonPending
+    if (!State.get()._inPrison) { prisonDoor(); return }
+    if (pending && pending.mode === 'tier') return prisonTierChoice()
+    if (pending && pending.mode === 'escape') return prisonEscapePrompt()
+    if (pending && pending.mode === 'punishment') return prisonPunishment(true)
+    if (pending && pending.mode === 'adv-punishment') return prisonAdvPunishment(true)
+    if (pending && pending.mode === 'task') return prisonRollTask(pending.tier, true)
+    prisonWork()
+  }
+
   function prisonTarget () {
     const base = { normal: 300, hard: 400, brutal: 500 }[State.get().difficulty] || 300
     return base + (State.get()._prisonEscapePenalty || 0)
@@ -84,7 +100,7 @@ window.TownPrisonSystem = (function () {
   /** 监狱大门（平时查看） */
   function prisonDoor () {
     const state = State.get()
-    if (state._inPrison) { prisonWork(); return }
+    if (state._inPrison) { resumePrison(); return }
     campShow({
       title: '⛓️ 雾灯镇监牢', className: 'prison-modal prison-story-page-modal',
       body: `<div class="prison-narrative"><div class="prison-scene-mark" aria-hidden="true">⛓️</div>
@@ -102,12 +118,14 @@ window.TownPrisonSystem = (function () {
   function enterPrison (options = {}) {
     const state = State.get()
     const wasInPrison = !!state._inPrison
+    if (wasInPrison) { resumePrison(); return }
     const charge = typeof options.charge === 'string' && options.charge.trim()
       ? options.charge.trim()
       : (state._prisonCharge || '无证营业')
     const prisonDevice = state.gender === 'male' ? '贞操锁' : '贞操带'
     const lockedPart = state.gender === 'male' ? '生殖器' : '小穴'
     state._inPrison = true
+    state._prisonPending = null
     state._prisonPoints = 0
     state._wanted = false   // 已被收监，不再通缉
     state._prisonCharge = charge
@@ -128,6 +146,7 @@ window.TownPrisonSystem = (function () {
       preparePrisonMouth()
     }
     if (!StatusSystem.has('chastity')) StatusSystem.apply('chastity', 99999)
+    State.save()
     const target = prisonTarget()
     campShow({
       title: '⛓️ 收监', className: 'prison-modal prison-story-page-modal',
@@ -146,6 +165,7 @@ window.TownPrisonSystem = (function () {
   function prisonWork () {
     const state = State.get()
     preparePrisonMouth()
+    checkpoint(null)
     const prisonDevice = state.gender === 'male' ? '贞操锁' : '贞操带'
     const points = state._prisonPoints || 0
     const target = prisonTarget()
@@ -193,6 +213,7 @@ window.TownPrisonSystem = (function () {
 
   /** 先观察牢门，只在真正尝试前透出风险。 */
   function prisonEscapePrompt () {
+    checkpoint({ mode: 'escape' })
     const collared = typeof RestraintSystem !== 'undefined' && RestraintSystem.hasCollar()
     const chance = collared ? 15 : 25
     campShow({
@@ -225,6 +246,7 @@ window.TownPrisonSystem = (function () {
     if (roll < threshold) {
       // 成功越狱：出狱但贞操锁不解开，且成为通缉犯
       state._inPrison = false
+      state._prisonPending = null
       state._prisonPoints = 0
       state._prisonEscapeFails = 0
       state._prisonEscapePenalty = 0
@@ -237,6 +259,7 @@ window.TownPrisonSystem = (function () {
       restorePrisonCaravanBindings()
       state._prisonCharge = null
       EventBus.emit('state:changed', state)
+      State.save()
       Dialog.show({
         title: '🪓 越狱成功', className: 'prison-modal prison-story-page-modal',
         body: `<div class="prison-narrative is-escape"><div class="prison-scene-mark" aria-hidden="true">🪓</div>
@@ -303,6 +326,7 @@ window.TownPrisonSystem = (function () {
   /** 自选任务类型（基础/中级），再掷 Z；中级需积分 ≥80 解锁 */
   function prisonTierChoice () {
     const state = State.get()
+    checkpoint({ mode: 'tier' })
     const points = state._prisonPoints || 0
     const target = prisonTarget()
     const midUnlocked = points >= 80
@@ -343,11 +367,14 @@ window.TownPrisonSystem = (function () {
   }
 
   /** 掷骰决定任务（按所选类型；进阶任务掷 X） */
-  async function prisonRollTask (tier) {
+  async function prisonRollTask (tier, restoring = false) {
     const isAdv = tier === 'adv'
-    const roll = isAdv ? Dice.rollZ() : Dice.rollZ()
-    await Dialog.showDice(roll, isAdv ? 'X' : 'Z')
     const state = State.get()
+    const roll = restoring ? state._prisonPending.roll : Dice.rollZ()
+    if (!restoring) {
+      checkpoint({ mode: 'task', tier, roll, stepIndex: 0, restPending: false })
+      await Dialog.showDice(roll, isAdv ? 'X' : 'Z')
+    }
     // 掷到 6 送惩罚牢房（基础/中级→矫正教育，进阶→最可畏守卫）
     if (roll === 6) {
       isAdv ? prisonAdvPunishment() : prisonPunishment()
@@ -523,7 +550,13 @@ window.TownPrisonSystem = (function () {
       } else {
         steps = [{ desc: task.desc, bpm: task.bpm || 0, seconds: task.seconds || 0, countTarget: task.countTarget || 0, countDesc: task.countDesc }]
       }
-      for (let i = 0; i < steps.length; i++) {
+      const pending = state._prisonPending
+      if (pending && pending.restPending) {
+        await prisonRestButton(5)
+        pending.restPending = false
+        State.save()
+      }
+      for (let i = Math.min(steps.length, (pending && pending.stepIndex) || 0); i < steps.length; i++) {
         if (failed) break
         const step = steps[i]
         let f
@@ -546,8 +579,14 @@ window.TownPrisonSystem = (function () {
           })
         }
         if (f) { failed = true; break }
+        if (pending) {
+          pending.stepIndex = i + 1
+          pending.restPending = !!step.restAfter
+          State.save()
+        }
         if (step.restAfter) {
           await prisonRestButton(5)
+          if (pending) { pending.restPending = false; State.save() }
         }
       }
       if (failed) {
@@ -564,6 +603,8 @@ window.TownPrisonSystem = (function () {
       }
     }
     state._prisonPoints = Math.min(prisonTarget(), (state._prisonPoints || 0) + task.points)
+    state._prisonPending = null
+    State.save()
     EventBus.emit('ui:log', { text: `⛓️ 你卖力服务，获得 ${task.points} 积分（现 ${state._prisonPoints}/${prisonTarget()}）。`, type: 'good' })
     EventBus.emit('state:changed', state)
     prisonWork()
@@ -576,6 +617,7 @@ window.TownPrisonSystem = (function () {
     const prisonDevice = state.gender === 'male' ? '贞操锁' : '贞操带'
     const completedTarget = prisonTarget()
     state._inPrison = false
+    state._prisonPending = null
     state._prisonPoints = 0
     state._prisonEscapeFails = 0
     state._prisonEscapePenalty = 0
@@ -595,6 +637,7 @@ window.TownPrisonSystem = (function () {
     state._prisonCharge = null
     if (StatusSystem.has('chastity')) StatusSystem.remove('chastity')
     EventBus.emit('state:changed', state)
+    State.save()
     campShow({
       title: '⛓️ 监狱 · 释放', className: 'prison-modal prison-story-page-modal',
       body: `<div class="prison-narrative"><div class="prison-scene-mark" aria-hidden="true">🔓</div>
@@ -646,8 +689,9 @@ window.TownPrisonSystem = (function () {
   }
 
   /** 惩罚牢房：狱警主管/矫正专家再教育（掷 Z 随机决定，只有 Z=1/4/6 才释放） */
-  function prisonPunishment () {
+  function prisonPunishment (restoring = false) {
     const state = State.get()
+    if (!restoring) checkpoint({ mode: 'punishment', roll: 0, stepIndex: 0 })
     const points = state._prisonPoints || 0
     const tier = points < 80 ? 'basic' : 'mid'
     const showPunish = () => {
@@ -662,9 +706,12 @@ window.TownPrisonSystem = (function () {
         ],
       })
     }
-    const prisonPunishRoll = async () => {
-      const z = Dice.rollZ()
-      await Dialog.showDice(z, 'Z')
+    const prisonPunishRoll = async (resuming = false) => {
+      const z = resuming ? state._prisonPending.roll : Dice.rollZ()
+      if (!resuming) {
+        checkpoint({ mode: 'punishment', roll: z, stepIndex: 0 })
+        await Dialog.showDice(z, 'Z')
+      }
       // 释放规则：基础 1/4/6 释放，中级 1/4 释放
       if (z === 1 || z === 4 || (tier === 'basic' && z === 6)) {
         EventBus.emit('ui:log', { text: `🎲 Z=${z}：矫正专家网开一面，放你回牢房。`, type: 'good' })
@@ -691,7 +738,9 @@ window.TownPrisonSystem = (function () {
     }
     const doPunishTask = async (task) => {
       let failed = false
-      if (typeof BattleUI !== 'undefined' && BattleUI.showTaskDialog) {
+      if (state._prisonPending.stepIndex >= 1) {
+        // 此段已完成：只恢复结算，不重复执行。
+      } else if (typeof BattleUI !== 'undefined' && BattleUI.showTaskDialog) {
         if (task.countTarget) {
           failed = await prisonCountDialog(task.desc, task.countTarget, task.countDesc || '干呕', '🎓 矫正教育专家', '矫正专家的鸡巴')
         } else {
@@ -715,16 +764,20 @@ window.TownPrisonSystem = (function () {
         EventBus.emit('state:changed', state)
         prisonPunishment(); return
       }
+      state._prisonPending.stepIndex = 1
+      State.save()
       EventBus.emit('ui:log', { text: '🎓 你完成再教育，但惩罚牢房不给积分。', type: 'dim' })
       EventBus.emit('state:changed', state)
       prisonPunishment()
     }
+    if (restoring && state._prisonPending.roll) return prisonPunishRoll(true)
     showPunish()
   }
 
   /** 进阶惩罚牢房：最令人畏惧的守卫，纯虐待（掷 Z，1/4/6 才释放） */
-  function prisonAdvPunishment () {
+  function prisonAdvPunishment (restoring = false) {
     const state = State.get()
+    if (!restoring) checkpoint({ mode: 'adv-punishment', roll: 0, stepIndex: 0, restPending: false })
     const showPunish = () => {
       campShow({
         title: '⛓️ 进阶惩罚牢房 · 纯虐待', className: 'prison-punish-modal prison-story-page-modal',
@@ -736,9 +789,12 @@ window.TownPrisonSystem = (function () {
         ],
       })
     }
-    const prisonAdvPunishRoll = async () => {
-      const z = Dice.rollZ()
-      await Dialog.showDice(z, 'Z')
+    const prisonAdvPunishRoll = async (resuming = false) => {
+      const z = resuming ? state._prisonPending.roll : Dice.rollZ()
+      if (!resuming) {
+        checkpoint({ mode: 'adv-punishment', roll: z, stepIndex: 0, restPending: false })
+        await Dialog.showDice(z, 'Z')
+      }
       // 只有 Z=1 才释放
       if (z === 1) {
         EventBus.emit('ui:log', { text: `🎲 Z=${z}：最可畏的守卫狞笑一声，放你回牢房。`, type: 'good' })
@@ -770,7 +826,13 @@ window.TownPrisonSystem = (function () {
         } else {
           steps = [{ desc: task.desc, bpm: 120, seconds: task.seconds || 0, countTarget: task.countTarget || 0, countDesc: task.countDesc, textOnly: !!task.textOnly }]
         }
-        for (let i = 0; i < steps.length; i++) {
+        const pending = state._prisonPending
+        if (pending.restPending) {
+          await prisonRestButton(5)
+          pending.restPending = false
+          State.save()
+        }
+        for (let i = Math.min(steps.length, pending.stepIndex || 0); i < steps.length; i++) {
           if (failed) break
           const step = steps[i]
           let f
@@ -793,8 +855,13 @@ window.TownPrisonSystem = (function () {
             })
           }
           if (f) { failed = true; break }
+          pending.stepIndex = i + 1
+          pending.restPending = !!step.restAfter
+          State.save()
           if (step.restAfter) {
             await prisonRestButton(5)
+            pending.restPending = false
+            State.save()
           }
         }
       } else {
@@ -809,6 +876,7 @@ window.TownPrisonSystem = (function () {
       EventBus.emit('state:changed', state)
       prisonAdvPunishment()
     }
+    if (restoring && state._prisonPending.roll) return prisonAdvPunishRoll(true)
     showPunish()
   }
 
@@ -817,6 +885,6 @@ window.TownPrisonSystem = (function () {
   return {
     open: prisonDoor,
     enter: enterPrison,
-    resume: prisonWork,
+    resume: resumePrison,
   }
 })()

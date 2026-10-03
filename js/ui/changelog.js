@@ -13,6 +13,22 @@ window.Changelog = (function () {
   /** 各版本的更新日志（新版本放最前） */
   const LOGS = [
     {
+      version: '0.5.8',
+      title: '营地退出与任务恢复修复',
+      date: '2026-10-03',
+      sections: [{
+        icon: '🛠️', title: '流程修复',
+        items: [
+          '修复无欠款时酒馆接客无法结束营业的问题，全裸角色同样可以返回。',
+          '修复卫兵顾客任务读档丢失，以及完成分段后刷新重复上一段的问题。',
+          '修复木枷读档丢失姿势、梦幻商店分类无法恢复，以及监狱任务刷新丢失分段进度的问题。',
+          '商店刷新后保留本次访问的剩余库存；启动更新日志不再覆盖已恢复的任务。',
+          '修复荣耀洞出口绕过盘查的问题；击败野外怪物后清除危险值。',
+          '统一资源版本，避免浏览器继续加载旧版脚本。',
+        ],
+      }],
+    },
+    {
       version: '0.5.7',
       title: '酒馆恢复与木枷离场热修复',
       date: '2026-09-24',
@@ -1302,6 +1318,9 @@ window.Changelog = (function () {
 
   /** 启动时检查并显示（应在进入游戏界面后调用） */
   function check () {
+    // 启动检查有延迟；玩家已经读档时，不得用更新日志覆盖恢复中的任务弹窗。
+    const title = document.getElementById('screen-title')
+    if (title && title.classList.contains('screen-hidden')) return
     if (shouldShow()) show()
   }
 

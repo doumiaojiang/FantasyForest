@@ -1,0 +1,79 @@
+<!doctype html>
+<html lang="zh-CN">
+<meta charset="utf-8">
+<title>营地恢复测试（隔离存档）</title>
+<style>body{font:16px system-ui;margin:16px;background:#f4f5f7;color:#222}button{margin:4px;padding:9px}iframe{width:100%;height:760px;border:1px solid #999}pre{white-space:pre-wrap}</style>
+<h1>营地恢复测试</h1>
+<p>下方运行完整游戏。测试存档使用独立的 sessionStorage 命名空间，不覆盖玩家的 localStorage 存档。只测试按钮、持久化和结算，不执行现实动作。</p>
+<button data-case="prison">在押任务测试</button>
+<button data-case="release">释放测试（积分已满）</button>
+<button data-case="segments">多段恢复测试（已完成第一段）</button>
+<button data-case="punishment">处罚页恢复测试</button>
+<button data-case="advanced">进阶处罚页恢复测试</button>
+<button data-case="shop">道具商购买恢复测试</button>
+<button data-case="dream">梦幻商店恢复测试</button>
+<button data-case="pillory-fine">木枷抵罚结算恢复测试</button>
+<button id="reload">刷新游戏并继续</button>
+<button id="inspect">读取测试断点</button>
+<pre id="report">正在加载完整游戏…</pre>
+<iframe id="game" src="../index.html"></iframe>
+<script>
+const frame = document.getElementById('game')
+const report = document.getElementById('report')
+const prefix = 'camp-recovery-fixture:'
+const isolatedStorage = {
+  getItem: key => sessionStorage.getItem(prefix + key),
+  setItem: (key, value) => sessionStorage.setItem(prefix + key, value),
+  removeItem: key => sessionStorage.removeItem(prefix + key),
+}
+function inspect () {
+  const state = frame.contentWindow.State.get()
+  report.textContent = JSON.stringify(state ? {
+    phase: state.phase, inPrison: state._inPrison, points: state._prisonPoints,
+    pending: state._prisonPending, shop: state._activeShopRaw,
+  } : { ready: true }, null, 2)
+}
+frame.addEventListener('load', () => {
+  Object.defineProperty(frame.contentWindow, 'localStorage', { configurable: true, value: isolatedStorage })
+  report.textContent = '隔离存档已启用。请选择测试场景，或点击刷新继续。'
+})
+document.querySelectorAll('[data-case]').forEach(button => button.onclick = () => {
+  const w = frame.contentWindow
+  const state = w.State.init('normal')
+  state.playerName = '恢复测试'
+  state.gender = 'male'
+  state.phase = 'camp'
+  state.position = { x: 13, y: 9 }
+  state._wrongCommissionStage = 1
+  state._inPrison = true
+  state._prisonCharge = '测试'
+  state._prisonChastity = false
+  state._prisonPoints = button.dataset.case === 'release' ? 300 : 0
+  if (button.dataset.case === 'prison') state._prisonPending = { mode: 'task', tier: 'basic', roll: 2, stepIndex: 0 }
+  if (button.dataset.case === 'segments') {
+    state._prisonPoints = 300
+    state._prisonEscapePenalty = 100
+    state._prisonPending = { mode: 'task', tier: 'adv', roll: 2, stepIndex: 1, restPending: false }
+  }
+  if (button.dataset.case === 'punishment') state._prisonPending = { mode: 'punishment', roll: 0 }
+  if (button.dataset.case === 'advanced') state._prisonPending = { mode: 'adv-punishment', roll: 0 }
+  if (['shop', 'dream'].includes(button.dataset.case)) {
+    state._inPrison = false
+    state.phase = 'shop'
+    state.gold = 1000
+    state._shopReturnToCamp = true
+    state._activeShopRaw = button.dataset.case === 'dream' ? 'dream' : '道具商'
+    state._dreamShopCategory = 'tools'
+  }
+  if (button.dataset.case === 'pillory-fine') {
+    state._inPrison = false
+    state._pillory = { source: 'fine', stage: 'settle', poseId: 'classic', duration: 30, reward: 0, event: null, results: [] }
+    state._campReturnPos = { x: 12, y: 9 }
+  }
+  w.State.save()
+  frame.src = '../index.html'
+})
+document.getElementById('reload').onclick = () => { frame.src = '../index.html' }
+document.getElementById('inspect').onclick = inspect
+</script>
+</html>

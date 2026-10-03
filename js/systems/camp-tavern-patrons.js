@@ -212,11 +212,10 @@ window.TownTavernPatronsSystem = (function () {
   }
 
   /** 梦幻商店当前分类：全部分类保持在同一层级。 */
-  let dreamShopCat = 'insert'
-
   /** 梦幻商店（妖缚商行，营地内）：所有商品使用同一层分类，一步直达。 */
   function ddShop () {
     const state = State.get()
+    let dreamShopCat = state._dreamShopCategory || 'insert'
     const all = (RESTRAINTS || []).filter(r => !r.story && !(r.femaleOnly && state.gender === 'male') && !(r.maleOnly && state.gender !== 'male'))
     const isMale = state.gender === 'male'
     const itemIcon = r => {
@@ -334,6 +333,12 @@ window.TownTavernPatronsSystem = (function () {
       { key: 'tools', icon: '🔑', label: '工具', title: '锁具与解锁工具', desc: '普通锁、钥匙、开锁工具与驱咒符', items: tools, render: renderToolCard },
     ]
     if (!CATS.some(c => c.key === dreamShopCat)) dreamShopCat = 'insert'
+    state._dreamShopCategory = dreamShopCat
+    state._activeShopRaw = 'dream'
+    state._shopStock = null
+    state._shopReturnToCamp = true
+    state.phase = 'shop'
+    State.save()
     const activeCat = CATS.find(c => c.key === dreamShopCat)
     const navHtml = `<div class="dream-category-grid" aria-label="梦幻商店商品分类">${CATS.map(c => `<button class="dream-category-btn${dreamShopCat === c.key ? ' is-active' : ''}" data-shop-cat="${c.key}" aria-current="${dreamShopCat === c.key ? 'true' : 'false'}"><i>${c.icon}</i><span>${c.label}</span><small>${c.items.length}</small></button>`).join('')}</div>`
     const activeCards = activeCat.items.map(activeCat.render).join('')
@@ -345,11 +350,17 @@ window.TownTavernPatronsSystem = (function () {
         <div class="merchant-stats"><span>💎 ${state.gold}G</span><span>⛓️ 已锁 ${typeof RestraintSystem !== 'undefined' ? RestraintSystem.countLocked() : 0} 件</span><span>💰 战斗金币加成 ${typeof RestraintSystem !== 'undefined' ? Math.round(RestraintSystem.goldBonus() * 100) : 0}%</span></div>
         ${navHtml}
         ${contentHtml}`,
-      actions: [{ kind: 'navigation', label: '返回营地', handler: () => { Dialog.close(); openCamp() } }],
+      actions: [{ kind: 'navigation', label: '返回营地', handler: () => {
+        state._activeShopRaw = null
+        state._shopReturnToCamp = false
+        state.phase = 'camp'
+        State.save()
+        Dialog.close(); openCamp()
+      } }],
     })
     document.querySelectorAll('[data-shop-cat]').forEach(btn => {
       btn.onclick = () => {
-        dreamShopCat = btn.dataset.shopCat
+        state._dreamShopCategory = btn.dataset.shopCat
         Dialog.close()
         ddShop()
       }

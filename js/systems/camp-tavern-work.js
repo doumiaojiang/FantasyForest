@@ -607,6 +607,7 @@ window.TownTavernWorkSystem = (function () {
     }
     state._prostitutePendingTask = { customerKey, z, stepIndex: Math.max(0, startStep) }
     EventBus.emit('state:changed', state)
+    State.save()
     await Dialog.showDice(z, 'Z')
 
     EventBus.emit('ui:log', { text: `🎲 Z=${z}：${customer.name}要${task.desc}`, type: 'danger' })
@@ -640,7 +641,7 @@ window.TownTavernWorkSystem = (function () {
     const dildoName = customer.name === '哥布林' ? '小号假阴茎' : customer.name === '狼人' ? '大号假阴茎' : customer.name === '兽人' ? '大号假阴茎' : customer.name === '牛头人' ? '马/牛形假阴茎' : customer.name === '卫兵' ? '中号假阴茎' : '最大的假阴茎'
     const steps = task.steps || [{ desc: task.desc, bpm: task.bpm || 0, seconds: task.seconds || 0 }]
     if (typeof BattleUI !== 'undefined' && BattleUI.showTaskDialog && !failed) {
-      for (let i = Math.min(startStep, steps.length - 1); i < steps.length; i++) {
+      for (let i = Math.max(0, Math.min(startStep, steps.length)); i < steps.length; i++) {
         state._prostitutePendingTask = { customerKey, z, stepIndex: i }
         EventBus.emit('state:changed', state)
         const step = steps[i]
@@ -655,6 +656,8 @@ window.TownTavernWorkSystem = (function () {
           dildoName,
         })
         if (f) { failed = true; break }
+        state._prostitutePendingTask = { customerKey, z, stepIndex: i + 1 }
+        State.save()
       }
     } else {
       failed = !confirm(`为${customer.name}服务：${task.desc}\n\n确定代表完成，取消代表未完成。`)

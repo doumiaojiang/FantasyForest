@@ -257,6 +257,16 @@ window.StateMigrations = (function () {
     state._gloryManagerCooldown = Math.max(0, Math.min(3, Math.floor(finite(state._gloryManagerCooldown, 0))))
     state._inPrison = !!state._inPrison
     state._prisonPoints = Math.max(0, Math.min(5000, Math.floor(finite(state._prisonPoints, 0))))
+    const prisonPending = state._prisonPending
+    state._prisonPending = state._inPrison && prisonPending && ['tier', 'task', 'punishment', 'adv-punishment', 'escape'].includes(prisonPending.mode)
+      ? {
+          mode: prisonPending.mode,
+          tier: ['basic', 'mid', 'adv'].includes(prisonPending.tier) ? prisonPending.tier : 'basic',
+          roll: Math.max(0, Math.min(6, Math.floor(finite(prisonPending.roll, 0)))),
+          stepIndex: Math.max(0, Math.min(99, Math.floor(finite(prisonPending.stepIndex, 0)))),
+          restPending: !!prisonPending.restPending,
+        }
+      : null
     state._prisonPardon = !!state._prisonPardon
     state._prisonPardonSetting = state._prisonPardonSetting !== false
     state._prisonEscapeFails = Math.max(0, Math.min(3, Math.floor(finite(state._prisonEscapeFails, 0))))
@@ -556,6 +566,10 @@ window.StateMigrations = (function () {
             seconds: Math.max(15, Math.min(120, Math.floor(finite(p.event.seconds, 30)))),
             gold: Math.max(-50, Math.min(50, Math.floor(finite(p.event.gold, 0)))),
             applied: !!p.event.applied,
+            bonus: Math.max(0, Math.min(50, Math.floor(finite(p.event.bonus, 0)))),
+            storyChoice: ['endure', 'provoke', 'submit'].includes(p.event.storyChoice) ? p.event.storyChoice : null,
+            storyStage: ['task', 'complete'].includes(p.event.storyStage) ? p.event.storyStage : null,
+            consequencesApplied: !!p.event.consequencesApplied,
           }
         : null
       const results = Array.isArray(p.results)
@@ -568,6 +582,8 @@ window.StateMigrations = (function () {
         : []
       state._pillory = {
         source: ['voluntary', 'mercenary', 'fine', 'punishment'].includes(p.source) ? p.source : 'voluntary',
+        poseId: ['classic', 'nude_bent', 'nude_kneel'].includes(p.poseId) ? p.poseId : 'nude_bent',
+        crowdLine: typeof p.crowdLine === 'string' ? p.crowdLine.replace(/[<>&"'\u0000-\u001f]/g, '').slice(0, 300) : '',
         duration,
         reward: Math.max(0, Math.min(999, Math.floor(finite(p.reward, 0)))),
         stage: ['restraint', 'adult', 'settle'].includes(p.stage) ? p.stage : 'restraint',
@@ -699,7 +715,14 @@ window.StateMigrations = (function () {
         : null
     }
     state._shopReturnToCamp = !!state._shopReturnToCamp
+    state._shopStock = state.phase === 'shop' && state._shopStock && typeof state._shopStock === 'object' && !Array.isArray(state._shopStock)
+      ? Object.fromEntries(Object.entries(state._shopStock).slice(0, 100)
+          .filter(([id]) => /^[a-z0-9_]{1,60}$/i.test(id))
+          .map(([id, count]) => [id, Math.max(0, Math.min(99, Math.floor(finite(count, 0))))]))
+      : null
     state._activeShopRaw = typeof state._activeShopRaw === 'string' ? state._activeShopRaw : null
+    state._dreamShopCategory = ['insert', 'cosmetic', 'mouth', 'neck', 'sensory', 'arms', 'torso', 'waist', 'legs', 'tools'].includes(state._dreamShopCategory)
+      ? state._dreamShopCategory : 'insert'
     state._campDeerTaken = !!state._campDeerTaken
 
   }

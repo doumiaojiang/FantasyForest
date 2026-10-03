@@ -538,7 +538,7 @@ window.TownGlorySystem = (function () {
       rerender(); return
     }
     if (!completed) {
-      // 中途溜走（跳过）：无惩罚，只是没报酬
+      // 未完成：没有报酬；'skip' 表示省去等待，继续按完成结算。
       EventBus.emit('ui:log', { text: `🏃 你中途受不住溜了，没拿报酬但也没欠债。`, type: 'dim' }); rerender(); return
     }
     if (wasFree) state._gloryFreeService = false
