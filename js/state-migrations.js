@@ -190,6 +190,45 @@ window.StateMigrations = (function () {
     state._pChapterOneLocked = !!state._pChapterOneLocked
     state._pMChapterStage = [0, 500, 1000, 1500, 2000, 2500, 3000, 3500, 4000, 9500, 10000].includes(Math.floor(finite(state._pMChapterStage, 0))) ? Math.floor(finite(state._pMChapterStage, 0)) : 0
     state._pMChapterStep = Math.max(0, Math.min(8, Math.floor(finite(state._pMChapterStep, 0))))
+    const hadFirstAudience = !!state._pMFirstAudience && typeof state._pMFirstAudience === 'object' && !Array.isArray(state._pMFirstAudience)
+    if (!hadFirstAudience && !state._pMChapterCompleted && [3000, 3500, 4000, 9500].includes(state._pMChapterStage)) {
+      const legacyStage = state._pMChapterStage
+      const legacyStep = state._pMChapterStep
+      if (legacyStage === 3000 && legacyStep === 3) {
+        state._pMChapterStage = 3500
+        state._pMChapterStep = 0
+      } else if ((legacyStage === 3000 && legacyStep >= 4) || legacyStage === 4000 || legacyStage === 9500) {
+        state._pMChapterStage = 4000
+        state._pMChapterStep = 0
+      }
+      state._pMFirstAudience = {
+        version: 1,
+        page: state._pMChapterStage === 4000 ? 'command-choice' : state._pMChapterStage === 3500 ? 'assessment-question' : 'arrival',
+        arrivalResponse: null,
+        identityResponse: null,
+        assessmentVariant: null,
+        assessmentViewed: state._pMChapterStage === 4000,
+        commandReasonAsked: false,
+        commandObjected: false,
+        commandPunishmentCompleted: false,
+        removedGear: [],
+        commandConfirmed: false,
+      }
+    } else if (hadFirstAudience) {
+      const audience = state._pMFirstAudience
+      audience.version = 1
+      audience.page = typeof audience.page === 'string' ? audience.page : 'arrival'
+      audience.arrivalResponse = ['obey', 'resist', 'muffle'].includes(audience.arrivalResponse) ? audience.arrivalResponse : null
+      audience.identityResponse = ['accept', 'object'].includes(audience.identityResponse) ? audience.identityResponse : null
+      audience.assessmentVariant = ['novice', 'experienced', 'guarded'].includes(audience.assessmentVariant) ? audience.assessmentVariant : null
+      delete audience.recordExplained
+      audience.assessmentViewed = !!audience.assessmentViewed
+      audience.commandReasonAsked = !!audience.commandReasonAsked
+      audience.commandObjected = !!audience.commandObjected
+      audience.commandPunishmentCompleted = !!audience.commandPunishmentCompleted
+      audience.removedGear = Array.isArray(audience.removedGear) ? [...new Set(audience.removedGear.filter(slot => ['mouth', 'eyes'].includes(slot)))] : []
+      audience.commandConfirmed = !!audience.commandConfirmed
+    }
     if (!['novice', 'experienced', 'surrender'].includes(state._pMChapterBranch)) state._pMChapterBranch = null
     if (state._pMChapterAttitude === 'quiet') state._pMChapterAttitude = 'spank'
     else if (state._pMChapterAttitude === 'resist') state._pMChapterAttitude = 'spank'
@@ -216,11 +255,41 @@ window.StateMigrations = (function () {
       ? state._pMChapterRestraintEscrow
       : null
     state._pMGroomed = !!state._pMGroomed
-    state._pMBranded = !!state._pMBranded
-    state._pMSisterBond = !!state._pMSisterBond
-    if (!['endure', 'shield', 'defy'].includes(state._pMMarketResponse)) state._pMMarketResponse = null
-    if (!['protect', 'self', 'obey'].includes(state._pMDayaChoice)) state._pMDayaChoice = null
     state._pMChapterCompleted = !!state._pMChapterCompleted
+    if (!state._pMChapterCompleted && state._pMChapterStage === 9500) {
+      state._pMChapterStage = 4000
+      state._pMChapterStep = 0
+      if (state._pMFirstAudience && typeof state._pMFirstAudience === 'object' && !Array.isArray(state._pMFirstAudience)) {
+        state._pMFirstAudience.page = 'command-choice'
+        state._pMFirstAudience.commandConfirmed = false
+      }
+    }
+    const firstAudience = state._pMFirstAudience && typeof state._pMFirstAudience === 'object' && !Array.isArray(state._pMFirstAudience)
+      ? state._pMFirstAudience
+      : null
+    const confirmedAtStage4000 = state._pRole === 'slave' && !state._pMChapterCompleted && state._pMChapterStage === 4000 && !!(firstAudience && firstAudience.commandConfirmed)
+
+    // 第一章的新终点固定为 9500。旧 10000 完成档与已经确认命令的 4000 档
+    // 在同一次迁移中完成结章，并创建独立的「捕获伊凡娜」Stage 0 状态。
+    if (state._pRole === 'slave' && (state._pMChapterCompleted || confirmedAtStage4000)) {
+      state._pMChapterStage = 9500
+      state._pMChapterStep = 0
+      state._pMChapterCompleted = true
+      state._pMainlineStage = Math.max(6, state._pMainlineStage || 0)
+      state._pChapterOneLocked = true
+      if (!state._pCatchingIvana || typeof state._pCatchingIvana !== 'object' || Array.isArray(state._pCatchingIvana)) {
+        state._pCatchingIvana = { version: 1, stage: 0, page: 'objective', started: true, completed: false }
+      }
+    }
+    if (state._pCatchingIvana && typeof state._pCatchingIvana === 'object' && !Array.isArray(state._pCatchingIvana)) {
+      const catching = state._pCatchingIvana
+      catching.version = 1
+      catching.stage = 0
+      catching.page = ['objective', 'gate', 'bellamy-ask', 'bellamy-reply', 'bellamy-done'].includes(catching.page) ? catching.page : 'objective'
+      catching.bellamyAnswer = ['obey', 'resist'].includes(catching.bellamyAnswer) ? catching.bellamyAnswer : null
+      catching.started = !!catching.started
+      catching.completed = !!catching.completed
+    } else state._pCatchingIvana = null
     if (!['bellamy', 'solo'].includes(state._pMEscortMode)) state._pMEscortMode = 'bellamy'
     if (state._pMEscort && typeof state._pMEscort === 'object' && !Array.isArray(state._pMEscort)) {
       const escort = state._pMEscort

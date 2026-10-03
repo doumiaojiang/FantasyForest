@@ -33,6 +33,11 @@ window.GameFlow = (function () {
 
   function resumeStory () {
     const state = typeof State !== 'undefined' && State.get ? State.get() : null
+    // 第一章结章后，独立恢复「捕获伊凡娜」Stage 0；它必须优先于普通营地。
+    if (state && typeof PCatchingIvanaSystem !== 'undefined' && PCatchingIvanaSystem.eligible && PCatchingIvanaSystem.eligible()) {
+      PCatchingIvanaSystem.open()
+      return true
+    }
     // 「入库」是由一连串弹窗组成的任务。存档的 phase 仍是 camp，因此必须在
     // 普通营地恢复之前接回当前章节，否则“继续游戏”只会把玩家送回营地首页。
     if (state && state._pRole === 'slave' && state._pMConfiscated && !state._pMChapterCompleted &&

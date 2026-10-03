@@ -84,10 +84,6 @@ malformedMChapter.systems.pStory.mConfiscated = 1
 malformedMChapter.systems.pStory.mConfiscationEscrow = []
 malformedMChapter.systems.pStory.mChapterRestraintEscrow = []
 malformedMChapter.systems.pStory.mGroomed = 1
-malformedMChapter.systems.pStory.mBranded = 1
-malformedMChapter.systems.pStory.mSisterBond = 1
-malformedMChapter.systems.pStory.mMarketResponse = 'unknown'
-malformedMChapter.systems.pStory.mDayaChoice = 'unknown'
 const normalizedMChapter = State.migrate(malformedMChapter)
 assert.equal(normalizedMChapter._pMChapterStage, 0)
 assert.equal(normalizedMChapter._pMChapterStep, 8)
@@ -100,10 +96,6 @@ assert.equal(normalizedMChapter._pMConfiscated, true)
 assert.equal(normalizedMChapter._pMConfiscationEscrow, null)
 assert.equal(normalizedMChapter._pMChapterRestraintEscrow, null)
 assert.equal(normalizedMChapter._pMGroomed, true)
-assert.equal(normalizedMChapter._pMBranded, true)
-assert.equal(normalizedMChapter._pMSisterBond, true)
-assert.equal(normalizedMChapter._pMMarketResponse, null)
-assert.equal(normalizedMChapter._pMDayaChoice, null)
 
 const stage2500Save = JSON.parse(JSON.stringify(fresh))
 stage2500Save.systems.pStory.mChapterStage = 2500
@@ -111,6 +103,95 @@ stage2500Save.systems.pStory.mChapterStep = 1
 const preserved2500 = State.migrate(stage2500Save)
 assert.equal(preserved2500._pMChapterStage, 2500, '2500 阶段读档不得回退到章节开头')
 assert.equal(preserved2500._pMChapterStep, 1)
+
+const legacyStage3000TaskDone = JSON.parse(JSON.stringify(fresh))
+legacyStage3000TaskDone.systems.pStory.mChapterStage = 3000
+legacyStage3000TaskDone.systems.pStory.mChapterStep = 3
+delete legacyStage3000TaskDone.systems.pStory.mFirstAudience
+const migratedStage3500 = State.migrate(legacyStage3000TaskDone)
+assert.equal(migratedStage3500._pMChapterStage, 3500, '旧3000检查完成存档应进入评估阶段')
+assert.equal(migratedStage3500._pMChapterStep, 0)
+assert.equal(migratedStage3500._pMFirstAudience.page, 'assessment-question')
+
+for (const legacyStage of [4000, 9500]) {
+  const save = JSON.parse(JSON.stringify(fresh))
+  save.systems.pStory.mChapterStage = legacyStage
+  save.systems.pStory.mChapterStep = 6
+  delete save.systems.pStory.mFirstAudience
+  const restored = State.migrate(save)
+  assert.equal(restored._pMChapterStage, 4000, `旧${legacyStage}存档应回到新命令阶段`)
+  assert.equal(restored._pMChapterStep, 0)
+  assert.equal(restored._pMFirstAudience.assessmentViewed, true)
+  assert.equal(restored._pMChapterCompleted, false)
+}
+
+const confirmedStage4000 = JSON.parse(JSON.stringify(fresh))
+confirmedStage4000.systems.pStory.role = 'slave'
+confirmedStage4000.systems.pStory.mainlineStage = 2
+confirmedStage4000.systems.pStory.mChapterStage = 4000
+confirmedStage4000.systems.pStory.mFirstAudience = {
+  version: 1, page: 'chapter-complete', arrivalResponse: 'obey', identityResponse: 'accept', assessmentVariant: 'novice',
+  assessmentViewed: true, commandReasonAsked: false, commandObjected: false,
+  commandPunishmentCompleted: false, removedGear: [], commandConfirmed: true,
+}
+const migratedConfirmed4000 = State.migrate(confirmedStage4000)
+assert.equal(migratedConfirmed4000._pMChapterStage, 9500, '已确认命令的4000存档应完成第一章')
+assert.equal(migratedConfirmed4000._pMChapterCompleted, true)
+assert.equal(migratedConfirmed4000._pMainlineStage, 6)
+assert.equal(migratedConfirmed4000._pCatchingIvana.stage, 0)
+assert.equal(migratedConfirmed4000._pCatchingIvana.page, 'objective')
+assert.equal(migratedConfirmed4000._pCatchingIvana.started, true)
+assert.equal(migratedConfirmed4000._pCatchingIvana.bellamyAnswer, null)
+
+const oldIncomplete9500WithAudience = JSON.parse(JSON.stringify(fresh))
+oldIncomplete9500WithAudience.systems.pStory.role = 'slave'
+oldIncomplete9500WithAudience.systems.pStory.mChapterStage = 9500
+oldIncomplete9500WithAudience.systems.pStory.mFirstAudience = JSON.parse(JSON.stringify(confirmedStage4000.systems.pStory.mFirstAudience))
+const restoredIncomplete9500 = State.migrate(oldIncomplete9500WithAudience)
+assert.equal(restoredIncomplete9500._pMChapterStage, 4000, '未完成的旧9500存档必须返回命令页')
+assert.equal(restoredIncomplete9500._pMChapterCompleted, false)
+assert.equal(restoredIncomplete9500._pMFirstAudience.commandConfirmed, false)
+assert.equal(restoredIncomplete9500._pCatchingIvana, null)
+
+const oldCompleted10000 = JSON.parse(JSON.stringify(fresh))
+oldCompleted10000.systems.pStory.role = 'slave'
+oldCompleted10000.systems.pStory.mainlineStage = 6
+oldCompleted10000.systems.pStory.mChapterStage = 10000
+oldCompleted10000.systems.pStory.mChapterCompleted = true
+delete oldCompleted10000.systems.pStory.catchingIvana
+const migratedCompleted10000 = State.migrate(oldCompleted10000)
+assert.equal(migratedCompleted10000._pMChapterStage, 9500, '旧10000完成档应统一映射到9500')
+assert.equal(migratedCompleted10000._pMChapterCompleted, true)
+assert.equal(migratedCompleted10000._pCatchingIvana.stage, 0)
+assert.equal(migratedCompleted10000._pCatchingIvana.started, true)
+assert.equal(migratedCompleted10000._pCatchingIvana.page, 'objective')
+
+const catchingPages = JSON.parse(JSON.stringify(fresh))
+catchingPages.systems.pStory.role = 'slave'
+catchingPages.systems.pStory.mChapterCompleted = true
+catchingPages.systems.pStory.catchingIvana = { version: 1, stage: 9, page: 'saved-page', bellamyAnswer: 'yell', started: true, completed: false }
+const normalizedCatching = State.migrate(catchingPages)._pCatchingIvana
+assert.equal(normalizedCatching.stage, 0, '未实现的捕获伊凡娜阶段必须停在 0')
+assert.equal(normalizedCatching.page, 'objective')
+assert.equal(normalizedCatching.bellamyAnswer, null)
+
+const catchingHandoff = JSON.parse(JSON.stringify(fresh))
+catchingHandoff.systems.pStory.role = 'slave'
+catchingHandoff.systems.pStory.mChapterCompleted = true
+catchingHandoff.systems.pStory.catchingIvana = { version: 1, stage: 0, page: 'bellamy-done', bellamyAnswer: 'obey', started: true, completed: false }
+assert.equal(State.migrate(catchingHandoff)._pCatchingIvana.page, 'bellamy-done', '已送达的口信页必须保留')
+
+const malformedAudience = JSON.parse(JSON.stringify(fresh))
+malformedAudience.systems.pStory.mChapterStage = 4000
+malformedAudience.systems.pStory.mFirstAudience = { version: 99, page: 3, arrivalResponse: 'bad', identityResponse: 'bad', assessmentVariant: 'bad', removedGear: ['mouth', 'arms', 'mouth'], commandConfirmed: 1 }
+const normalizedAudience = State.migrate(malformedAudience)._pMFirstAudience
+assert.equal(normalizedAudience.version, 1)
+assert.equal(normalizedAudience.arrivalResponse, null)
+assert.equal(normalizedAudience.identityResponse, null)
+assert.equal(normalizedAudience.assessmentVariant, null)
+assert.deepEqual(normalizedAudience.removedGear, ['mouth'])
+assert.equal(normalizedAudience.commandPunishmentCompleted, false)
+assert.equal(normalizedAudience.commandConfirmed, true)
 
 for (const poseId of ['classic', 'nude_bent', 'nude_kneel']) {
   const save = JSON.parse(JSON.stringify(fresh))

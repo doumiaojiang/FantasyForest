@@ -1,0 +1,141 @@
+<!doctype html>
+<html lang="zh-CN">
+<meta charset="utf-8">
+<title>隔离存档点击测试</title>
+<pre id="report">loading</pre>
+<iframe id="game" src="../index.html" style="width:100%;height:640px;border:1px solid #999"></iframe>
+<script>
+const report = document.getElementById('report')
+const frame = document.getElementById('game')
+const prefix = 'isolated-m-audience:'
+const isolatedStorage = {
+  getItem: key => sessionStorage.getItem(prefix + key),
+  setItem: (key, value) => sessionStorage.setItem(prefix + key, value),
+  removeItem: key => sessionStorage.removeItem(prefix + key),
+}
+function sleep (ms) { return new Promise(resolve => setTimeout(resolve, ms)) }
+function sceneRoot (w) {
+  return w.document.querySelector('.camp-tavern-modal, .p-m-chapter-modal, .camp-modal, .dialog-overlay, .modal') || w.document.body
+}
+function textOf (w) { return (sceneRoot(w).innerText || '').replace(/\s+/g, ' ') }
+function clickLabel (w, label) {
+  const buttons = [...w.document.querySelectorAll('button')]
+  const button = buttons.find(el => (el.textContent || '').includes(label))
+  if (!button) throw new Error('missing button ' + label + ' in ' + textOf(w).slice(0, 180))
+  button.click()
+}
+function seed (w, kind) {
+  const state = w.State.init('normal')
+  state.playerName = '隔离点击'
+  state.gender = kind === 'male3500' ? 'male' : 'female'
+  state.phase = 'camp'
+  state.position = { x: 13, y: 9 }
+  state._wrongCommissionStage = 10
+  state._inPrison = false
+  state._pRole = 'slave'
+  state._pMainlineStage = kind === 'catching' ? 6 : 2
+  state._pChapterOneLocked = true
+  state._pMConfiscated = true
+  state._pMChapterBranch = 'novice'
+  if (kind === 'catching') {
+    state._pMChapterStage = 9500
+    state._pMChapterCompleted = true
+    state._pCatchingIvana = { version: 1, stage: 0, page: 'objective', started: true, completed: false }
+  } else if (kind === 'identityAccept' || kind === 'identityObject') {
+    state._pMChapterStage = 3000
+    state._pMChapterStep = 0
+    state._pMChapterCompleted = false
+    state._pMFirstAudience = {
+      version: 1, page: 'arrival', arrivalResponse: null, identityResponse: null,
+      assessmentVariant: null, assessmentViewed: false,
+      commandReasonAsked: false, commandObjected: false, commandPunishmentCompleted: false,
+      removedGear: [], commandConfirmed: false,
+    }
+  } else {
+    state._pMChapterStage = 3500
+    state._pMChapterStep = 0
+    state._pMChapterCompleted = false
+    state._pMFirstAudience = {
+      version: 1, page: 'assessment-question', arrivalResponse: 'obey',
+      identityResponse: kind === 'guarded' ? 'object' : 'accept',
+      assessmentVariant: null, assessmentViewed: false,
+      commandReasonAsked: false, commandObjected: false, commandPunishmentCompleted: false,
+      removedGear: [], commandConfirmed: false,
+    }
+  }
+  w.State.save()
+}
+async function bootGame () {
+  frame.src = '../index.html'
+  await new Promise(resolve => { frame.addEventListener('load', resolve, { once: true }) })
+  Object.defineProperty(frame.contentWindow, 'localStorage', { configurable: true, value: isolatedStorage })
+  await sleep(200)
+}
+async function runCase (kind) {
+  await bootGame()
+  const w = frame.contentWindow
+  seed(w, kind)
+  if (kind === 'catching') w.PCatchingIvanaSystem.open()
+  else w.PMEnslavementSystem.open()
+  await sleep(200)
+  if (kind === 'catching') {
+    clickLabel(w, '前往城门')
+    await sleep(120)
+    clickLabel(w, '把派克的口信告诉贝拉米')
+    await sleep(120)
+    clickLabel(w, '奴隶主要戴蒙德去会馆')
+    await sleep(120)
+    const body = textOf(w)
+    if (!body.includes('主人怎么说你怎么做') && !body.includes('很好')) throw new Error('bellamy reply missing: ' + body.slice(0, 240))
+    clickLabel(w, '……')
+    await sleep(120)
+    if (!textOf(w).includes('尚未开放')) throw new Error('hold page missing')
+    return 'catching-ok'
+  }
+  if (kind === 'identityAccept' || kind === 'identityObject') {
+    clickLabel(w, kind === 'identityAccept' ? '是……我知道' : '您不能这样')
+    await sleep(120)
+    w.PMEnslavementSystem.open()
+    await sleep(120)
+    const body = textOf(w)
+    if (kind === 'identityAccept' && !body.includes('以后叫我奴隶主')) throw new Error('accepted reply did not recover')
+    if (kind === 'identityObject' && !body.includes('还敢谈条件')) throw new Error('objected reply did not recover')
+    if (kind === 'identityAccept') {
+      clickLabel(w, '……')
+      await sleep(120)
+      const kneel = [...w.document.querySelectorAll('button')].find(el => (el.textContent || '').includes('跪下。'))
+      if (!kneel || kneel.classList.contains('btn-danger')) throw new Error('inspection button still uses resist color')
+    }
+    return kind + '-ok'
+  }
+  clickLabel(w, '您看出结果了吗')
+  await sleep(120)
+  const body = textOf(w)
+  if (kind === 'male3500') {
+    if (body.includes('胸') || body.includes('小穴') || body.includes('湿得快')) throw new Error('male used female valuation')
+    if (!body.includes('腰胯结实')) throw new Error('male valuation missing')
+  } else if (kind === 'guarded') {
+    if (!body.includes('谈条件') || !body.includes('压价格')) throw new Error('guarded valuation missing')
+    if (body.includes('妓院')) throw new Error('guarded invented experience')
+  } else {
+    if (!body.includes('劳役还是性奴')) throw new Error('novice valuation missing')
+  }
+  clickLabel(w, '我现在该做什么')
+  await sleep(120)
+  if (!textOf(w).includes('戴蒙德')) throw new Error('4000 command missing')
+  return kind + '-ok'
+}
+;(async () => {
+  try {
+    const lines = []
+    for (const kind of ['identityAccept', 'identityObject', 'female3500', 'male3500', 'guarded', 'catching']) {
+      lines.push(await runCase(kind))
+    }
+    report.textContent = 'ISOLATED-OK\n' + lines.join('\n')
+    document.title = 'ISOLATED-OK'
+  } catch (error) {
+    report.textContent = 'ISOLATED-FAIL\n' + error.message
+    document.title = 'ISOLATED-FAIL'
+  }
+})()
+</script>

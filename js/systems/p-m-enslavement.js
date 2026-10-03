@@ -1,6 +1,8 @@
 /**
- * systems/p-m-enslavement.js — 欲缚镇 M 路线第一章「入库」。
+ * systems/p-m-enslavement.js — 欲缚镇 M 路线第一章。
  *
+ * 阶段目录：3000 首次会面与检查；3500 询问评估；4000 接受下一步命令；9500 第一章结章。
+ * 接受命令后只启动独立的「捕获伊凡娜」Stage 0；贝拉米对话与后续阶段不在本文件。
  * 章节只保存可序列化进度；营地负责入口，BattleUI 负责计时/计数任务。
  * 每个任务前后都写入断点，刷新后不会跳过或重复结算已经完成的段落。
  */
@@ -54,6 +56,36 @@ window.PMEnslavementSystem = (function () {
     s._pMChapterStage = stage
     s._pMChapterStep = step
     save()
+  }
+
+  function firstAudience () {
+    const s = state()
+    if (!s._pMFirstAudience || typeof s._pMFirstAudience !== 'object' || Array.isArray(s._pMFirstAudience)) {
+      s._pMFirstAudience = {
+        version: 1,
+        page: 'arrival',
+        arrivalResponse: null,
+        identityResponse: null,
+        assessmentVariant: null,
+        assessmentViewed: false,
+        commandReasonAsked: false,
+        commandObjected: false,
+        commandPunishmentCompleted: false,
+        removedGear: [],
+        commandConfirmed: false,
+      }
+    }
+    const a = s._pMFirstAudience
+    a.version = 1
+    if (!Array.isArray(a.removedGear)) a.removedGear = []
+    return a
+  }
+
+  function saveAudiencePage (page, changes = {}) {
+    const a = firstAudience()
+    Object.assign(a, changes, { page })
+    save()
+    return a
   }
 
   async function task (options) {
@@ -1023,16 +1055,6 @@ window.PMEnslavementSystem = (function () {
     })
   }
 
-  function showStage2000Forced () {
-    show({
-      title: '⛓️ 城门 · 登记桌',
-      className: 'camp-tavern-modal wrong-letter-reaction-modal p-m-chapter-modal',
-      body: `<section class="scene-dialogue"><i aria-hidden="true">◆</i><div><p>你没跪。贝拉米按着你的肩膀把你压下去，拇指抵进你的腮，嘴被扳开。</p></div></section>
-        <section class="p-hall-order"><span>贝</span><blockquote>“不跪也得跪。嘴张开。”</blockquote></section>`,
-      actions: [{ label: '……', cls: 'btn-danger', handler: runStage2000Oral }],
-    })
-  }
-
   async function runStage2000Oral () {
     Dialog.close()
     const failed = await task({
@@ -1362,39 +1384,61 @@ window.PMEnslavementSystem = (function () {
 
   /* ==================== Stage 3000 · 初见派克 ==================== */
 
+  function hallModal (title, body, actions) {
+    show({
+      title,
+      className: 'camp-tavern-modal wrong-letter-reaction-modal p-hall-modal p-m-chapter-modal',
+      body,
+      actions,
+    })
+  }
+
   function showStage3000 () {
     const e = state()._pMEscort
     if (e && e.completed && e.hallArrive === false) { showArriveAtHall(); return }
     const step = state()._pMChapterStep || 0
-    if (step >= 4) { showStage3000ReleaseEnd(); return }
-    if (step >= 3) { showPikeVerdict(); return }
-    if (step >= 1) { runStage3000(); return }
-    if (e && e.gagRemovedAtHall) { showPikeAfterGag('派克已经摘下口塞，正等你回答。'); return }
+    const audience = firstAudience()
+    if (step >= 4) { setStage(4000); showStage4000(); return }
+    if (step >= 3 && audience.page !== 'inspect-anal-done') { setStage(3500); showStage3500(); return }
+    if (step >= 1 || (audience.page && audience.page.indexOf('inspect-') === 0) || audience.page === 'inspection') {
+      resumeInspection()
+      return
+    }
+    if (audience.page === 'identity-question' || audience.page === 'gag-removed') {
+      showPikeAfterGag('派克已经摘下口塞。拇指还压在你的下唇上。')
+      return
+    }
+    if (audience.page === 'identity-accepted') { showPikeObey(); return }
+    if (audience.page === 'identity-objected') { showPikeHaggle(); return }
+    if (e && e.gagRemovedAtHall) { showPikeAfterGag('派克已经摘下口塞。拇指还压在你的下唇上。'); return }
+    const gag = window.RestraintSystem && RestraintSystem.get('mouth')
+    if (!gag || gag.id !== 'leather_gag' || gag.source !== 'p_m_intake') {
+      showPikeAfterGag('你走到桌前。派克看过锁和身子，把拇指压在下唇上。')
+      return
+    }
     const solo = state()._pMEscortMode === 'solo'
-    const escortNote = solo
-      ? '你把牵引链攥在自己手里，一路上的锁响还没停。你抬起登记牌，朝派克含混地呜了一声。'
-      : '贝拉米把链子递到桌边，自己替你报上编号：“城门新登记的，送来验收。”'
-    show({
-      title: '🏛️ 商团会馆 · 长厅',
-      className: 'camp-tavern-modal wrong-letter-reaction-modal p-hall-modal p-m-chapter-modal',
-      body: `<section class="scene-dialogue"><i aria-hidden="true">🏛️</i><div><p>派克把登记册翻到有你编号的那页。${escortNote}</p></div></section>
-        <section class="p-hall-order"><span>派</span><blockquote>“新收的货？不错。贝拉米准备得很好。抬头。”</blockquote></section>
-        <section class="p-hall-order"><span>你</span><blockquote>“唔……嗯……”</blockquote></section>`,
-      actions: [
-        { label: '点头', tone: 'submit', handler: () => showPikeRemoveGag('obey') },
-        { label: '摇头', tone: 'resist', handler: () => showPikeRemoveGag('resist') },
-        { label: '含着口塞发出呜咽', handler: () => showPikeRemoveGag('muffle') },
-      ],
-    })
+    const male = state().gender === 'male'
+    const look = male ? '锁、腰、臀，我先看。' : '锁、胸、臀，我先看。'
+    const arrival = solo
+      ? '<section class="scene-dialogue"><i aria-hidden="true">🏛️</i><div><p>派克把登记册翻到你的编号。你自己把链子递到桌边。口塞里只能发出含混的声音。</p></div></section>'
+      : '<section class="scene-dialogue"><i aria-hidden="true">🏛️</i><div><p>派克把登记册翻到你的编号。贝拉米把链子递到桌边。</p></div></section><section class="p-hall-order"><span>贝</span><blockquote>“城门新登记的。送来了。”</blockquote></section>'
+    hallModal('🏛️ 商团会馆 · 长厅', `${arrival}
+        <section class="p-hall-order"><span>派</span><blockquote>“新收的货。贝拉米准备得不错。转过来。${look}”</blockquote></section>
+        <section class="p-hall-order"><span>你</span><blockquote>“唔……”</blockquote></section>`, [
+      { label: '点头', tone: 'submit', handler: () => showPikeRemoveGag('obey') },
+      { label: '摇头', tone: 'resist', handler: () => showPikeRemoveGag('resist') },
+      { label: '含着口塞发出呜咽', handler: () => showPikeRemoveGag('muffle') },
+    ])
   }
 
   function showPikeRemoveGag (response) {
+    saveAudiencePage('gag-removed', { arrivalResponse: response })
     removeEscortGag()
     const reaction = response === 'obey'
-      ? '你点了点头。派克捏住口塞前端，把扣带从脑后解开。'
+      ? '你点头。派克解开脑后扣带，把口塞抽出来。'
       : response === 'resist'
-        ? '你摇头后退。派克抓住项圈把你拉回桌前，亲手解开口塞。'
-        : '含混的声音没有组成一句话。派克抬起你的下巴，解开口塞。'
+        ? '你摇头后退。派克抓住项圈，把你拉回桌沿，解开扣带。'
+        : '声音没有组成句子。派克抬起下巴，解开扣带。'
     const e = state()._pMEscort
     if (e) e.gagRemovedAtHall = true
     save()
@@ -1402,259 +1446,302 @@ window.PMEnslavementSystem = (function () {
   }
 
   function showPikeAfterGag (reaction) {
-    show({
-      title: '🏛️ 商团会馆 · 长厅',
-      className: 'camp-tavern-modal wrong-letter-reaction-modal p-hall-modal p-m-chapter-modal',
-      body: `<section class="scene-dialogue"><i aria-hidden="true">🤐</i><div><p>${reaction}</p><p>球形口塞离开嘴后，派克没有让你休息，只用拇指压住下唇检查牙齿与舌头。</p></div></section>
-        <section class="p-hall-order"><span>派</span><blockquote>“嘴张开。让我看看牙齿和舌头。然后告诉我：知不知道自己现在是什么？”</blockquote></section>`,
-      actions: [
-        { label: '“是……我知道。”', tone: 'submit', handler: showPikeObey },
-        { label: '“您不能这样。我们可以谈条件。”', tone: 'resist', handler: showPikeHaggle },
-      ],
-    })
+    saveAudiencePage('identity-question')
+    hallModal('🏛️ 商团会馆 · 长厅', `<section class="scene-dialogue"><i aria-hidden="true">🤐</i><div><p>${reaction}</p><p>派克用拇指压住下唇，扳开牙关。</p></div></section>
+        <section class="p-hall-order"><span>派</span><blockquote>“张嘴。牙和舌头。然后回答：知不知道自己现在是什么？”</blockquote></section>`, [
+      { label: '“是……我知道。”', tone: 'submit', handler: () => { saveAudiencePage('identity-accepted', { identityResponse: 'accept' }); showPikeObey() } },
+      { label: '“您不能这样。我们可以谈条件。”', tone: 'resist', handler: () => { saveAudiencePage('identity-objected', { identityResponse: 'object' }); showPikeHaggle() } },
+    ])
   }
 
   function showPikeObey () {
-    show({
-      title: '🏛️ 商团会馆 · 长厅',
-      className: 'camp-tavern-modal wrong-letter-reaction-modal p-hall-modal p-m-chapter-modal',
-      body: `<section class="p-hall-order"><span>派</span><blockquote>“好。从现在起叫我奴隶主，其他男人叫先生。我要检查你值多少。别动，别反抗，不然罚得很重。让我看看你的穴和后面进过几根。”</blockquote></section>`,
-      actions: [{ label: '……', cls: 'btn-danger', handler: runStage3000 }],
-    })
+    hallModal('🏛️ 商团会馆 · 长厅', '<section class="p-hall-order"><span>派</span><blockquote>“好。以后叫我奴隶主。其他男人叫先生。”</blockquote></section><section class="p-hall-order"><span>派</span><blockquote>“我要估你的价。别动。反抗就罚。”</blockquote></section>', [
+      { label: '……', handler: showOralIntro },
+    ])
   }
 
   function showPikeHaggle () {
-    show({
-      title: '🏛️ 商团会馆 · 长厅',
-      className: 'camp-tavern-modal wrong-letter-reaction-modal p-hall-modal p-m-chapter-modal',
-      body: `<section class="p-hall-order"><span>派</span><blockquote>“贱货，你还敢跟我谈条件。你没有权利，只会服从。从现在起叫我奴隶主，其他男人叫先生。我要检查你值多少。这次你不会喜欢，也没人在乎。让我看看你的穴和后面进过几根。”</blockquote></section>`,
-      actions: [{ label: '……', cls: 'btn-danger', handler: runStage3000 }],
-    })
+    hallModal('🏛️ 商团会馆 · 长厅', '<section class="p-hall-order"><span>派</span><blockquote>“还敢谈条件。你没有权利。只会服从。”</blockquote></section><section class="p-hall-order"><span>派</span><blockquote>“以后叫我奴隶主。其他男人叫先生。我要估你的价。这次你不会喜欢。没人在乎。”</blockquote></section>', [
+      { label: '……', handler: showOralIntro },
+    ])
   }
 
-  async function runStage3000 () {
-    Dialog.close()
-    let s = state()
-    if ((s._pMChapterStep || 0) < 1) {
-      const failed = await task({
-        actor: '派克', name: '张开嘴', seconds: 15,
-        desc: '嘴张开。派克看牙齿和舌头。双手放在背后，不要合上。',
-      })
-      recordFailure(failed)
-      state()._pMChapterStep = 1; save()
+  function inspectionTask (part) {
+    if (part === 'oral') {
+      return {
+        actor: '派克', name: '口部验收', bpm: 90, seconds: 25,
+        desc: '双手放到背后，按 90 BPM 完成口部动作二十五秒。每八拍停一次，保持姿势，等待记录。',
+        steps: [
+          { at: 0, label: '张嘴', text: '抬起下巴，张嘴。' },
+          { at: 6, label: '配合', text: '按 90 BPM 保持动作，双手不许抬起。每八拍停一次。' },
+          { at: 19, label: '停住', text: '保持张嘴，等记录写完。' },
+        ],
+      }
     }
-    s = state()
-    if ((s._pMChapterStep || 0) < 2) {
-      const failed = await task({
-        actor: '派克', name: '身体检查', seconds: 25,
-        desc: `派克检查胸、臀和锁具留下的痕迹，再检查${hole()}。双手放在背后，按他的指令转身、弯腰。`,
-      })
-      recordFailure(failed)
-      state()._pMChapterStep = 2; save()
+    if (part === 'front') {
+      return state().gender === 'male'
+        ? {
+            actor: '派克', name: '正面验收', count: 20, tool: '手检',
+            desc: '派克检查正面、锁具和身体反应。按口令完成二十次。双腿不许并拢。',
+          }
+        : {
+            actor: '派克', name: '小穴验收', bpm: 100, seconds: 25,
+            desc: '转身扶住长桌，双腿分开，按 100 BPM 配合二十五秒。每八拍停一次，保持姿势，等待记录。',
+            steps: [
+              { at: 0, label: '扶桌', text: '上身前倾，双腿分开。' },
+              { at: 6, label: '检查', text: '按 100 BPM 配合。每八拍停一次。' },
+              { at: 19, label: '停住', text: '维持姿势直到记录写完。' },
+            ],
+          }
     }
-    s = state()
-    if ((s._pMChapterStep || 0) < 3) {
-      const failed = await task({
-        actor: '派克', name: '派克验收', bpm: 110, seconds: 30,
-        desc: `检查结束后，派克亲自验证${hole()}会不会按命令迎合。按 110 BPM 做三十秒。`,
-      })
-      recordFailure(failed)
-      state()._pMChapterStep = 3; save()
+    return {
+      actor: '派克', name: '菊穴验收', bpm: 110, seconds: 30,
+      desc: '双手撑住长桌，按 110 BPM 配合三十秒。每八拍停一次，不许改变姿势。',
+      steps: [
+        { at: 0, label: '撑桌', text: '双手向前撑稳，双腿分开，上身压低。' },
+        { at: 7, label: '检查', text: '按 110 BPM 配合。每八拍停一次。' },
+        { at: 23, label: '停住', text: '保持最后的姿势，等核对完成。' },
+      ],
     }
-    showPikeVerdict()
   }
 
-  function showPikeVerdict () {
+  function resumeInspection () {
+    const step = state()._pMChapterStep || 0
+    const page = firstAudience().page
+    if (page === 'inspect-oral-done') { showInspectionComment('oral'); return }
+    if (page === 'inspect-front-done') { showInspectionComment('front'); return }
+    if (page === 'inspect-anal-done') { showInspectionComment('anal'); return }
+    if (page === 'inspect-oral') { showOralIntro(); return }
+    if (page === 'inspect-front') { showFrontIntro(); return }
+    if (page === 'inspect-anal') { showAnalIntro(); return }
+    if (step >= 3) { setStage(3500); showStage3500(); return }
+    if (step >= 2) { showAnalIntro(); return }
+    if (step >= 1) { showFrontIntro(); return }
+    showOralIntro()
+  }
+
+  function showOralIntro () {
+    saveAudiencePage('inspect-oral')
+    hallModal('🏛️ 商团会馆 · 派克检查', '<section class="scene-dialogue"><i aria-hidden="true">📋</i><div><p>派克拍了拍桌沿。</p></div></section><section class="p-hall-order"><span>派</span><blockquote>“先看嘴。跪下。舌头会不会干活，现在就看。”</blockquote></section>', [
+      { label: '跪下。', handler: () => runInspectionPart('oral') },
+    ])
+  }
+
+  function showFrontIntro () {
+    saveAudiencePage('inspect-front')
     const male = state().gender === 'male'
-    const chest = male
-      ? '身体结实，脸也干净。你现在几乎不会用。至少身体会配合，这个能练。'
-      : '胸不大，身体结实，脸很干净。你现在几乎不会用。至少很容易湿，这个能练。'
-    show({
-      title: '🏛️ 商团会馆 · 长厅',
-      className: 'camp-tavern-modal wrong-letter-reaction-modal p-hall-modal p-m-chapter-modal',
-      body: `<section class="p-hall-order"><span>你</span><blockquote>“……奴隶主，您看出来了吗？”</blockquote></section>
-        <section class="p-hall-order"><span>派</span><blockquote>“身体还行。可以卖给农户干活，也可以卖给镇上当佣人。我先留下。训练完再看能卖什么价，适合当性奴隶还是劳役奴隶。${chest}详细评估完会给你出一份奴隶证明。”</blockquote></section>`,
-      actions: [{ label: '……', cls: 'btn-primary', handler: () => {
-        const s = state()
-        s._pMChapterStep = 4
-        save()
-        showStage3000ReleaseEnd()
-      } }],
-    })
+    const body = male
+      ? '<section class="p-hall-order"><span>派</span><blockquote>“没有小穴。先看正面、锁具和反应。”</blockquote></section>'
+      : '<section class="p-hall-order"><span>派</span><blockquote>“现在看穴。紧不紧，会不会照做。”</blockquote></section>'
+    hallModal('🏛️ 商团会馆 · 派克检查', body, [
+      { label: male ? '转身。' : '转过去。', handler: () => runInspectionPart('front') },
+    ])
   }
 
-  function showStage3000ReleaseEnd () {
-    show({
-      title: '🏛️ 奴隶线·第一章 · 当前进度',
-      className: 'camp-tavern-modal wrong-letter-reaction-modal p-hall-modal p-m-chapter-modal',
-      body: '<section class="scene-dialogue"><i aria-hidden="true">🏛️</i><div><h3>初见派克已经完成。</h3><p>当前版本的奴役线开放到 Stage 3000。返回城门、戴蒙德押送与后续入库流程将在后续内容完成后开放。</p></div></section>',
-      actions: [{ label: '返回欲缚镇', handler: openCamp }],
-    })
+  function showAnalIntro () {
+    saveAudiencePage('inspect-anal')
+    hallModal('🏛️ 商团会馆 · 派克检查', '<section class="p-hall-order"><span>派</span><blockquote>“别哼。最后看后面。要是做性奴，后面还得练。”</blockquote></section>', [
+      { label: '撑住桌子。', handler: () => runInspectionPart('anal') },
+    ])
   }
 
-  /* ==================== Stage 3500 → 9500 · 戴蒙德、市场与回厅 ==================== */
-
-  async function returnToBellamy () {
-    const s = state()
-    if (s._pMChapterStage !== 3500) { openCamp(); return }
-    show({
-      title: '⛓️ 城门岗哨',
-      className: 'camp-tavern-modal wrong-letter-reaction-modal p-gate-modal p-m-chapter-modal',
-      body: `<section class="scene-dialogue"><i aria-hidden="true">⛓️</i><div><p>贝拉米把你的短链扣到戴蒙德的链子上。</p></div></section>
-        <section class="p-hall-order"><span>贝</span><blockquote>“跟上。报号。丢了自己爬回来。”</blockquote></section>
-        <section class="p-hall-order"><span>戴</span><blockquote>“……别在街上停。”</blockquote></section>`,
-      actions: [
-        { label: '尽量护住戴蒙德', handler: () => prepareEscort('protect') },
-        { label: '只保证自己不受罚', handler: () => prepareEscort('self') },
-        { label: '完全按贝拉米的命令走', tone: 'submit', handler: () => prepareEscort('obey') },
-      ],
-    })
-  }
-
-  function prepareEscort (choice) {
-    const s = state()
-    s._pMDayaChoice = choice
-    s._pMChapterStage = 4000
-    s._pMChapterStep = 0
-    s._pMainlineStage = 4
-    EventBus.emit('ui:log', { text: '⛓️ 你与戴蒙德被编入同一支押送队，下一站是商团会馆。', type: 'danger' })
-    save(); Dialog.close(); openCamp()
-  }
-
-  function escortConsequence () {
-    const s = state()
-    if (s._pMDayaChoice === 'protect') return '你主动靠到戴蒙德外侧，卫兵把本来落在她身上的短链也扣到你腰间。'
-    if (s._pMDayaChoice === 'obey') return '你没有等戴蒙德提醒就跪到指定位置，贝拉米满意地让她跟在你后面。'
-    return '你只护住自己的步子，戴蒙德独自承受了卫兵收紧的另一端链子。'
-  }
-
-  function showSisterBinding () {
-    const s = state()
-    const memory = '链子收在标准长度。一人停步，另一人会被拉倒。'
-    show({
-      title: '⛓️ 城门 · 押送准备',
-      className: 'camp-tavern-modal wrong-letter-reaction-modal p-m-chapter-modal',
-      body: `<section class="scene-dialogue"><i aria-hidden="true">⛓️</i><div><p>一条更粗的腰链穿过你和戴蒙德的项圈，两人的手铐锁在同一枚铁环上。</p><p>${memory}${escortConsequence()}</p></div></section>
-        <section class="p-hall-order"><span>墨</span><blockquote>“一人停，另一个也倒。”</blockquote></section>`,
-      actions: [{ label: '和戴蒙德一起走向城门', cls: 'btn-danger', handler: () => { const latest = state(); latest._pMSisterBond = true; latest._pMChapterStep = 1; save(); returnToHall() } }],
-    })
-  }
-
-  function showMarketChoice () {
-    show({
-      title: '🎪 市场中央',
-      className: 'camp-tavern-modal wrong-letter-reaction-modal p-m-chapter-modal',
-      body: `<section class="scene-dialogue"><i aria-hidden="true">🎪</i><div><p>押送队在市场中央停下。铜铃响了。</p></div></section>
-        <section class="p-hall-order"><span>贝</span><blockquote>“站好。让他们看这件货。”</blockquote></section>`,
-      actions: [
-        { label: '忍住围观，和她保持同一姿势', handler: () => setMarketResponse('endure') },
-        { label: '往前挺半步，挡住戴蒙德', handler: () => setMarketResponse('shield') },
-        { label: '抬头直视贝拉米', tone: 'resist', handler: () => setMarketResponse('defy') },
-      ],
-    })
-  }
-
-  function setMarketResponse (response) {
-    const s = state()
-    s._pMMarketResponse = response
-    s._pMChapterStep = 3
-    save()
-    returnToHall()
-  }
-
-  function showBranding () {
-    const s = state()
-    const mark = s._pMMarketResponse === 'defy' ? '不驯标记与正式编号' : '正式编号与商团印记'
-    show({
-      title: '🔥 城门 · 炭盆',
-      className: 'camp-tavern-modal wrong-letter-reaction-modal p-m-chapter-modal',
-      body: `<section class="scene-dialogue"><i aria-hidden="true">🔥</i><div><h3>城门旁的炭盆里，一枚细铁印已经烧红；旁边的记号师也调好了奴隶纹身的黑色颜料。</h3><p>这不是桥下强盗的涂写，而是要记入黑皮册的${mark}。先用针将商团纹身留在腰侧，再用铁印完成登记。戴蒙德被锁在你身边，低声数着呼吸，要你别在印记落下时把两人一起拽倒。</p></div></section>`,
-      actions: [{ label: '咬住声音，接受纹身与烙印', tone: 'submit', handler: () => { const latest = state(); latest._pMBranded = true; latest._pMChapterStep = 5; save(); returnToHall() } }],
-    })
-  }
-
-  async function returnToHall () {
-    let s = state()
-    if (s._pMChapterStage !== 4000) { openCamp(); return }
-    const step = s._pMChapterStep || 0
-    if (step === 0) { showSisterBinding(); return }
+  async function runInspectionPart (part) {
     Dialog.close()
-    if (step === 1) {
-      const reports = 8
-      const failed = await task({
-        actor: '押送卫兵', name: '城门报号', count: reports, tool: '出声报号',
-        desc: `你与戴蒙德被同一条链子拉到城门中央。跪下报出自己的编号、M 身份和监管者，共 ${reports} 次。`,
-      })
-      recordFailure(failed)
-      state()._pMChapterStep = 2; save(); showMarketChoice(); return
-    }
-    if (step === 2) { showMarketChoice(); return }
-    if (step === 3) {
-      s = state()
-      const extra = s._pMDayaChoice === 'protect' || s._pMMarketResponse === 'shield' ? 5 : 0
-      const defiant = s._pMMarketResponse === 'defy' ? 10 : 0
-      const count = 10 + extra + defiant
-      const failed = await task({
-        actor: '贝拉米', name: '市场纪律', count, tool: '手掌或拍子',
-        desc: `${s._pMMarketResponse === 'shield' ? '你替戴蒙德挡下了前半段处罚。' : s._pMMarketResponse === 'defy' ? '直视监管者的代价被当场加到记录里。' : '你们被命令保持并排跪姿。'}完成 ${count} 下臀罚，每一下都要与戴蒙德保持同一高度。`,
-      })
-      recordFailure(failed)
-      state()._pMChapterStep = 4; save(); showBranding(); return
-    }
-    if (step === 4) { showBranding(); return }
-    if (step === 5) {
-      const latestState = state()
-      const failed = await task({
-        actor: '贝拉米', name: '奴隶姐妹押送', bpm: 60, seconds: 45,
-        desc: `烙印后不准停步。你与戴蒙德被腰链绑在一起，按 60 BPM 穿过市场：八拍行走，四拍停下展示项圈与腰部锁具。${latestState._pMDayaChoice === 'protect' ? '戴蒙德开始主动配合你的步子。' : latestState._pMDayaChoice === 'obey' ? '戴蒙德只在链子收紧时才被迫跟上。' : '两人各自盯着自己脚下，没有人再替对方承担停顿。'}`,
-      })
-      recordFailure(failed)
-      state()._pMChapterStep = 6; save()
-    }
-    const latest = state()
-    latest._pMChapterStage = 9500
-    latest._pMChapterStep = 0
-    latest._pMainlineStage = 5
-    save()
-    showPikeSecondAudience()
+    const failed = await task(inspectionTask(part))
+    recordFailure(failed)
+    const done = { oral: 1, front: 2, anal: 3 }
+    state()._pMChapterStep = done[part]
+    saveAudiencePage('inspect-' + part + '-done')
+    showInspectionComment(part)
   }
 
-  /* ==================== 章节结束与统一入口 ==================== */
+  function showInspectionComment (part) {
+    const quotes = {
+      oral: '嘴还能用。下一项。',
+      front: '还行。后面。',
+      anal: '估价写完了。',
+    }
+    hallModal('🏛️ 商团会馆 · 派克检查', `<section class="p-hall-order"><span>派</span><blockquote>“${quotes[part]}”</blockquote></section>`, [
+      { label: '……', handler: () => {
+        if (part === 'oral') showFrontIntro()
+        else if (part === 'front') showAnalIntro()
+        else { setStage(3500); showStage3500() }
+      } },
+    ])
+  }
 
-  /** Stage 9500：奴隶线第一章专属的第二次派克会面。 */
-  function showPikeSecondAudience () {
-    const s = state()
-    if (s._pRole !== 'slave' || s._pMChapterStage !== 9500 || s._pMainlineStage !== 5) { openCamp(); return }
-    const assessment = s._pMDayaChoice === 'protect'
-      ? '戴蒙德主动替你报上了最后一段押送记录。派克看得出你在市场替她挡过处罚，便把“会保护同链者”写进评估。'
-      : s._pMDayaChoice === 'obey'
-        ? '贝拉米对你的服从没有异议，戴蒙德却始终没有看你。派克在评估上写下“服从快，不会照顾同链者”。'
-        : '你与戴蒙德各自保全了自己，也把距离一直留到会馆。派克把这点记为“会判断，不会付出”。'
+  function assessmentVariant () {
+    const a = firstAudience()
+    if (!a.assessmentVariant) {
+      a.assessmentVariant = chapterBranch() === 'experienced' ? 'experienced' : (a.identityResponse === 'object' ? 'guarded' : 'novice')
+      save()
+    }
+    return a.assessmentVariant
+  }
+
+  function showStage3500 () {
+    saveAudiencePage('assessment-question')
+    hallModal('🏛️ 商团会馆 · 长厅', '<section class="scene-dialogue"><i aria-hidden="true">📋</i><div><p>派克合上册子。</p></div></section>', [
+      { label: '“奴隶主……您看出结果了吗？”', tone: 'submit', handler: showPikeAssessment },
+    ])
+  }
+
+  function resumeStage3500 () {
+    const page = firstAudience().page
+    if (page === 'assessment-result') { showPikeAssessment(); return }
+    showStage3500()
+  }
+
+  function pikeAssessmentQuotes (variant, male) {
+    const keepSell = '<section class="p-hall-order"><span>派</span><blockquote>“身子能卖。农户买去做重活，市民买去做家务。”</blockquote></section>'
+    const certificate = '<section class="p-hall-order"><span>派</span><blockquote>“详细评估以后，才签发正式证明。”</blockquote></section>'
+    if (variant === 'experienced') {
+      const body = male
+        ? '腰胯结实，而且会做。以前在窑子里干过？'
+        : '身子结实，脸能过关，而且会做。以前在妓院干过？'
+      return `<section class="p-hall-order"><span>派</span><blockquote>“${body}”</blockquote></section>
+        <section class="p-hall-order"><span>派</span><blockquote>“我暂时留下。训练后再卖个好价。你更适合当性奴。”</blockquote></section>
+        ${certificate}`
+    }
+    if (variant === 'guarded') {
+      return `${keepSell}
+        <section class="p-hall-order"><span>派</span><blockquote>“我暂时留下。你刚才还想谈条件。这条会写进服从，也会压价格。训练完才能判断用途。”</blockquote></section>
+        <section class="p-hall-order"><span>派</span><blockquote>“没有经验可写。详细评估以后，才签发正式证明。”</blockquote></section>`
+    }
+    const noviceBody = male
+      ? '腰胯结实。正面反应来得快。没有经验。后面还能练。'
+      : '身子结实，脸能过关。没有经验。至少湿得快，还能练。'
+    return `${keepSell}
+      <section class="p-hall-order"><span>派</span><blockquote>“我暂时留下。训练完再卖，价更高。到时候才知道你是劳役还是性奴。”</blockquote></section>
+      <section class="p-hall-order"><span>派</span><blockquote>“${noviceBody}”</blockquote></section>
+      ${certificate}`
+  }
+
+  function showPikeAssessment () {
+    const variant = assessmentVariant()
+    saveAudiencePage('assessment-result', { assessmentViewed: true })
+    hallModal('🏛️ 商团会馆 · 初步评估', pikeAssessmentQuotes(variant, state().gender === 'male'), [
+      { label: '“奴隶主，我现在该做什么？”', handler: () => { setStage(4000); showStage4000() } },
+    ])
+  }
+
+  function storyGear (slot) {
+    if (!window.RestraintSystem) return null
+    const item = RestraintSystem.get(slot)
+    return item && item.source === 'p_m_intake' ? item : null
+  }
+
+  function showStage4000 () {
+    const a = firstAudience()
+    if (a.commandConfirmed) { finishChapterAndStartIvana(); return }
+    saveAudiencePage('command-choice')
+    const gearActions = []
+    if (storyGear('mouth')) gearActions.push({ label: '请求取下口部装备', handler: () => requestAudienceGear('mouth') })
+    if (storyGear('eyes')) gearActions.push({ label: '请求取下眼部装备', handler: () => requestAudienceGear('eyes') })
     show({
-      title: '🏛️ 商团会馆 · 第二次会面',
+      title: '🏛️ 商团会馆 · 派克的命令',
       className: 'camp-tavern-modal wrong-letter-reaction-modal p-hall-modal p-m-chapter-modal',
-      body: `<section class="scene-dialogue"><i aria-hidden="true">⛓️</i><div><h3>你与戴蒙德被同一条腰链带到派克面前，新的印记还没有冷透。</h3><p>${assessment}</p></div></section>
-        <section class="p-hall-order"><span>派克</span><blockquote>“戴蒙德只是命令的一部分。真正送到我面前的，是你选择成为的那个人。”</blockquote></section>`,
-      actions: [{ label: '完成入库，领取第一册记录', cls: 'btn-danger', handler: completeChapter }],
+      body: '<section class="p-hall-order"><span>派</span><blockquote>“基础训练还没开始。你先回城门找贝拉米，告诉他我要戴蒙德到会馆来。把她带回来，再谈训练。”</blockquote></section>',
+      actions: [
+        { label: '“是，奴隶主。”', tone: 'submit', handler: confirmPikeCommand },
+        { label: a.commandReasonAsked ? '“为什么一定要由我去？”（再问一次）' : '“为什么一定要由我去？”', handler: showCommandReason },
+        ...gearActions,
+        { label: '“我不接受这项命令。”', tone: 'resist', handler: showCommandObjection },
+      ],
     })
   }
 
-  function completeChapter () {
+  function showCommandReason () {
+    saveAudiencePage('command-reason', { commandReasonAsked: true })
+    show({
+      title: '🏛️ 商团会馆 · 派克的命令',
+      className: 'camp-tavern-modal wrong-letter-reaction-modal p-hall-modal p-m-chapter-modal',
+      body: '<section class="p-hall-order"><span>派</span><blockquote>“因为你刚从那条路进来，也认识城门的监管者。这是命令，同时也是下一次评估的开始。”</blockquote></section>',
+      actions: [{ label: '返回命令选择', handler: showStage4000 }],
+    })
+  }
+
+  function requestAudienceGear (slot) {
+    const item = storyGear(slot)
+    if (item && window.RestraintSystem) RestraintSystem.remove(slot, true)
+    const a = firstAudience()
+    if (!a.removedGear.includes(slot)) a.removedGear.push(slot)
+    saveAudiencePage('gear-removed')
+    showAudienceGearRemoved(slot)
+  }
+
+  function showAudienceGearRemoved (slot) {
+    show({
+      title: '🏛️ 商团会馆 · 装备调整',
+      className: 'camp-tavern-modal wrong-letter-reaction-modal p-hall-modal p-m-chapter-modal',
+      body: `<section class="scene-dialogue"><i aria-hidden="true">🔓</i><div><p>${slot === 'mouth' ? '口部装备' : '眼部装备'}已经取下。其他锁具与代管物品保持不变。</p></div></section>`,
+      actions: [{ label: '返回命令选择', handler: showStage4000 }],
+    })
+  }
+
+  function resumeStage4000 () {
+    const a = firstAudience()
+    if (a.commandConfirmed) { finishChapterAndStartIvana(); return }
+    if (a.page === 'command-reason') { showCommandReason(); return }
+    if (a.page === 'command-objection') { showCommandObjection(); return }
+    if (a.page === 'command-punished') { showCommandPunished(); return }
+    if (a.page === 'gear-removed' && a.removedGear.length) { showAudienceGearRemoved(a.removedGear[a.removedGear.length - 1]); return }
+    showStage4000()
+  }
+
+  function showCommandObjection () {
+    const a = firstAudience()
+    if (a.commandPunishmentCompleted) { showCommandPunished(); return }
+    saveAudiencePage('command-objection', { commandObjected: true })
+    show({
+      title: '🏛️ 商团会馆 · 派克的命令',
+      className: 'camp-tavern-modal wrong-letter-reaction-modal p-hall-modal p-m-chapter-modal',
+      body: '<section class="p-hall-order"><span>派</span><blockquote>“异议已经记下。到刑架前去。处罚结束以后，命令仍然不会改变。”</blockquote></section>',
+      actions: [{ label: '走到刑架前接受处罚', tone: 'resist', handler: runCommandPunishment }],
+    })
+  }
+
+  async function runCommandPunishment () {
+    Dialog.close()
+    const failed = await task({
+      actor: '派克', name: '抗命处罚', count: 20, tool: '短鞭',
+      desc: '双手固定在刑架上，腰压低。一下一声报数，完成二十下短鞭处罚。任务没有完成也不会卡住剧情，但会留下失败记录。',
+      completeLabel: '处罚完成',
+    })
+    recordFailure(failed)
+    saveAudiencePage('command-punished', { commandPunishmentCompleted: true })
+    showCommandPunished()
+  }
+
+  function showCommandPunished () {
+    show({
+      title: '🏛️ 商团会馆 · 抗命处罚结束',
+      className: 'camp-tavern-modal wrong-letter-reaction-modal p-hall-modal p-m-chapter-modal',
+      body: '<section class="scene-dialogue"><i aria-hidden="true">📋</i><div><p>短鞭停下，书记官在评估表上补了一道抗命记录。</p></div></section><section class="p-hall-order"><span>派</span><blockquote>“处罚结束。你可以不喜欢这道命令，但仍然要执行。现在重新回答。”</blockquote></section>',
+      actions: [{ label: '返回命令选择', handler: showStage4000 }],
+    })
+  }
+
+  function confirmPikeCommand () {
+    const a = firstAudience()
+    a.page = 'chapter-complete'
+    a.commandConfirmed = true
+    finishChapterAndStartIvana()
+  }
+
+  function finishChapterAndStartIvana () {
     const s = state()
-    s._pMChapterStage = 10000
+    const a = firstAudience()
+    a.page = 'chapter-complete'
+    a.commandConfirmed = true
+    s._pMChapterStage = 9500
+    s._pMChapterStep = 0
     s._pMChapterCompleted = true
-    s._pMChapterEscrow = null
     s._pMainlineStage = 6
     s._pChapterOneLocked = true
-    EventBus.emit('ui:log', { text: '📕 奴隶线·第一章完成。下一任务是寻找伊凡娜；基础奴隶训练尚未开始。', type: 'warning' })
-    save()
-    show({
-      title: '📕 商团会馆 · 长厅',
-      className: 'camp-tavern-modal wrong-letter-reaction-modal p-hall-modal p-m-chapter-modal',
-      body: `<section class="scene-dialogue"><i aria-hidden="true">📕</i><div><h3>派克在入库记录末页签名，把第一册奴隶记录扔到你面前。</h3><p>你昏迷时被收走的金币、武器、道具和旧妖缚仍留在商团仓库，没有随入库结束归还。项圈、手铐、脚镣、贞操锁和新印记都保留下来。${s._pMDayaChoice === 'protect' ? '戴蒙德在被解开姐妹链前，第一次低声对你说了“谢谢”。' : s._pMDayaChoice === 'obey' ? '戴蒙德沉默地等着姐妹链被解开，从头到尾没有再朝你看一眼。' : '姐妹链解开时，戴蒙德只说你至少学会了不把两个人一起拉倒。'}派克没有安排基础训练，而是让书记官翻出一名叫伊凡娜的失踪者资料。</p></div></section>
-        <div class="wrong-letter-evidence is-found"><span>下一章</span><p>捕获伊凡娜。完成那条任务以后，基础奴隶训练才会开放。</p></div>`,
-      actions: [{ label: '收起记录，返回欲缚镇', cls: 'btn-primary', handler: openCamp }],
-    })
+    EventBus.emit('ui:log', { text: '📕 奴隶线·第一章完成。派克已经在第一册记录末页签名。', type: 'warning' })
+    if (window.PCatchingIvanaSystem && PCatchingIvanaSystem.start) PCatchingIvanaSystem.start()
+    else { save(); openCamp() }
   }
 
   function open () {
@@ -1673,11 +1760,8 @@ window.PMEnslavementSystem = (function () {
       case 2000: showStage2000(); break
       case 2500: showStage2500(); break
       case 3000: showStage3000(); break
-      case 3500: returnToBellamy(); break
-      case 4000: returnToHall(); break
-      case 9500:
-        showPikeSecondAudience()
-        break
+      case 3500: resumeStage3500(); break
+      case 4000: resumeStage4000(); break
       default: openCamp()
     }
   }

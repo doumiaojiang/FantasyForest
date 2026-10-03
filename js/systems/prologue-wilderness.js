@@ -489,10 +489,6 @@
     state._pMConfiscationEscrow = null
     state._pMChapterRestraintEscrow = null
     state._pMGroomed = false
-    state._pMBranded = false
-    state._pMSisterBond = false
-    state._pMMarketResponse = null
-    state._pMDayaChoice = null
     state._pMChapterCompleted = false
     state._pMEscortMode = 'bellamy'
     state._pMEscort = null

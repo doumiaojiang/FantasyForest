@@ -67,12 +67,19 @@ window.AdventureMenu = (function () {
     if (pRole === 'slave' && state._pChapterOneLocked && !state._pMChapterCompleted) {
       const mStage = state._pMChapterStage || 0
       const escorting = state._pMEscort && state._pMEscort.started && !state._pMEscort.completed
-      const labels = { 0: '前往收容笼', 500: '醒来验号', 1000: '指定监管者', 1500: '初次服从测试', 2000: '口部验收', 2500: escorting ? `穿过街道 · ${Math.min(9, (state._pMEscort.position || 0) + 1)}/9` : '完成最后一轮验收', 3000: '初见派克', 3500: '返回城门岗哨', 4000: '押送戴蒙德', 9500: '第二次见派克' }
-      tasks.push({ icon: escorting ? '🏙️' : '⛓️', group: '欲缚镇', name: escorting ? '奴隶线·第一章：街道押送' : '奴隶线·第一章', detail: escorting ? '沿九格街道前往会馆；完成当前遭遇后才能继续。' : '完成第一章的登记、接管、押送与派克验收。基础奴隶训练尚未开始。', status: labels[mStage] || '继续第一章', tone: 'danger' })
+      const audience = state._pMFirstAudience || {}
+      const labels = { 0: '前往收容笼', 500: '醒来验号', 1000: '指定监管者', 1500: '初次服从测试', 2000: '口部验收', 2500: escorting ? `穿过街道 · ${Math.min(9, (state._pMEscort.position || 0) + 1)}/9` : '完成最后一轮验收', 3000: '初见派克', 3500: '询问评估', 4000: '派克的命令' }
+      const chapterDetail = '完成第一章的登记、接管与派克首次评估。基础奴隶训练尚未开始。'
+      tasks.push({ icon: escorting ? '🏙️' : '⛓️', group: '欲缚镇', name: escorting ? '奴隶线·第一章：街道押送' : '奴隶线·第一章', detail: escorting ? '沿九格街道前往会馆；完成当前遭遇后才能继续。' : chapterDetail, status: labels[mStage] || '继续第一章', tone: 'danger' })
     } else if (pRole === 'slave' && state._pMChapterCompleted) {
-      tasks.push({ icon: '⛓️', group: '欲缚镇', name: '奴隶线·第一章', detail: '你已取得第一册记录。下一任务是寻找伊凡娜；基础奴隶训练尚未开始。', status: '第一章完成', tone: 'complete', progress: 1, required: 1 })
+      tasks.push({ icon: '⛓️', group: '欲缚镇', name: '奴隶线·第一章', detail: '派克已经在第一册记录末页签名；被没收的物品和当前妖缚装备没有归还。', status: '第一章完成', tone: 'complete', progress: 1, required: 1 })
     } else if (pRole === 'free' && pStage >= 2) {
       tasks.push({ icon: '◇', group: prologueGroup, name: '自由身路线已登记', detail: '《欲缚镇 · 序章》已经完成。自由身第一章尚在制作中。', status: '等待后续版本', tone: 'complete', progress: 10, required: 10 })
+    }
+
+    if (pRole === 'slave' && state._pCatchingIvana && state._pCatchingIvana.started && !state._pCatchingIvana.completed) {
+      const catchingPage = state._pCatchingIvana.page
+      tasks.push({ icon: '📜', group: '欲缚镇', name: '奴隶线后续任务·捕获伊凡娜', detail: catchingPage === 'bellamy-done' ? '口信已经交给贝拉米。伊凡娜登场、戴蒙德当街押送与 Stage 500 尚未开放。' : '派克命你返回城门，把需要戴蒙德前往会馆的口信告诉贝拉米。', status: catchingPage === 'bellamy-done' ? 'Stage 0 · 口信已送达' : 'Stage 0 · 派克的口信', tone: 'danger' })
     }
 
     const restraint = state._restraintContract

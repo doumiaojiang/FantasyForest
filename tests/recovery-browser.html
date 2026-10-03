@@ -13,6 +13,10 @@
 <button data-case="shop">道具商购买恢复测试</button>
 <button data-case="dream">梦幻商店恢复测试</button>
 <button data-case="pillory-fine">木枷抵罚结算恢复测试</button>
+<button data-case="m-stage-3000">奴隶线 Stage 3000 任务测试</button>
+<button data-case="m-stage-3500">奴隶线 Stage 3500 恢复测试</button>
+<button data-case="m-stage-4000">奴隶线 Stage 4000 恢复测试</button>
+<button data-case="catching-ivana-0">捕获伊凡娜 Stage 0 恢复测试</button>
 <button id="reload">刷新游戏并继续</button>
 <button id="inspect">读取测试断点</button>
 <pre id="report">正在加载完整游戏…</pre>
@@ -31,6 +35,8 @@ function inspect () {
   report.textContent = JSON.stringify(state ? {
     phase: state.phase, inPrison: state._inPrison, points: state._prisonPoints,
     pending: state._prisonPending, shop: state._activeShopRaw,
+    mChapterStage: state._pMChapterStage, mChapterCompleted: state._pMChapterCompleted,
+    catchingIvana: state._pCatchingIvana,
   } : { ready: true }, null, 2)
 }
 frame.addEventListener('load', () => {
@@ -69,6 +75,53 @@ document.querySelectorAll('[data-case]').forEach(button => button.onclick = () =
     state._inPrison = false
     state._pillory = { source: 'fine', stage: 'settle', poseId: 'classic', duration: 30, reward: 0, event: null, results: [] }
     state._campReturnPos = { x: 12, y: 9 }
+  }
+  if (['m-stage-3000', 'm-stage-3500', 'm-stage-4000'].includes(button.dataset.case)) {
+    const stage = button.dataset.case === 'm-stage-3000' ? 3000 : button.dataset.case === 'm-stage-3500' ? 3500 : 4000
+    state._inPrison = false
+    state._wrongCommissionStage = 10
+    state._pRole = 'slave'
+    state._pMainlineStage = 2
+    state._pChapterOneLocked = true
+    state._pMChapterStage = stage
+    state._pMChapterStep = 0
+    state._pMChapterBranch = 'novice'
+    state._pMConfiscated = true
+    state._pMChapterCompleted = false
+    state._pMFirstAudience = {
+      version: 1,
+      page: stage === 3000 ? 'arrival' : stage === 3500 ? 'assessment-question' : 'command-choice',
+      arrivalResponse: 'obey', identityResponse: 'accept',
+      assessmentVariant: stage === 4000 ? 'novice' : null,
+      assessmentViewed: stage === 4000,
+      commandReasonAsked: false, commandObjected: false,
+      commandPunishmentCompleted: false,
+      removedGear: [], commandConfirmed: false,
+    }
+    if (stage === 3000) {
+      state._pMEscortMode = 'solo'
+      state._restraints.mouth = {
+        id: 'leather_gag', slot: 'mouth', locked: true, lockType: 'story',
+        source: 'p_m_intake', difficulty: 5,
+      }
+    }
+    if (stage === 4000) {
+      state._restraints.eyes = {
+        id: 'blindfold', slot: 'eyes', locked: true, lockType: 'story',
+        source: 'p_m_intake', difficulty: 5,
+      }
+    }
+  }
+  if (button.dataset.case === 'catching-ivana-0') {
+    state._inPrison = false
+    state._wrongCommissionStage = 10
+    state._pRole = 'slave'
+    state._pMainlineStage = 6
+    state._pChapterOneLocked = true
+    state._pMChapterStage = 9500
+    state._pMChapterStep = 0
+    state._pMChapterCompleted = true
+    state._pCatchingIvana = { version: 1, stage: 0, page: 'objective', started: true, completed: false }
   }
   w.State.save()
   frame.src = '../index.html'

@@ -188,9 +188,10 @@ window.AppSettings = (function () {
           cheatBtn('cheat-caravan-battle', '🌉', '车队看守战', '选择落单或挑衅版本', 'btn-cheat') +
           cheatBtn('cheat-bandit-defeat', '🍑', '桥洞战败预览', '从被强盗头目扣留开始', 'btn-cheat') +
           cheatBtn('cheat-bandit-victory', '☠️', '桥洞胜利预览', '从击败强盗头目后开始', 'btn-cheat'))}
-        ${sect('⛓️', '欲缚镇·奴隶线·第一章', '第一章剧情与押送测试', 2,
-          cheatBtn('cheat-m-stages', '⛓️', '章节阶段预览', '选择 Stage 0—3000', 'btn-cheat') +
-          cheatBtn('cheat-m-escort', '🏙️', '九格押送预览', '选择性别与押送方式', 'btn-cheat'))}
+        ${sect('⛓️', '欲缚镇·奴隶线', '第一章与后续任务测试', 3,
+          cheatBtn('cheat-m-stages', '⛓️', '章节阶段预览', '选择 Stage 0—4000', 'btn-cheat') +
+          cheatBtn('cheat-m-escort', '🏙️', '九格押送预览', '选择性别与押送方式', 'btn-cheat') +
+          cheatBtn('cheat-catching-ivana', '📜', '捕获伊凡娜 Stage 0', '预览派克的新任务目标', 'btn-cheat'))}
       </div>`,
       actions: [{ label: '关闭', handler: () => Dialog.close() }],
     })
@@ -210,6 +211,7 @@ window.AppSettings = (function () {
           if (id === 'cheat-m-intake') { cheatMIntake(); return }
           if (id === 'cheat-m-stages') { cheatMStages(); return }
           if (id === 'cheat-m-escort') { cheatMEscort(); return }
+          if (id === 'cheat-catching-ivana') { cheatCatchingIvanaStage0(); return }
           if (id === 'cheat-position') { cheatPosition(); return }
           const msg = runCheat(id)
           if (msg) EventBus.emit('ui:log', { text: msg, type: 'good' })
@@ -394,11 +396,8 @@ window.AppSettings = (function () {
     state._pMConfiscationEscrow = null
     state._pMChapterRestraintEscrow = null
     state._pMGroomed = false
-    state._pMBranded = false
-    state._pMSisterBond = false
-    state._pMMarketResponse = null
-    state._pMDayaChoice = null
     state._pMChapterCompleted = false
+    state._pCatchingIvana = null
     state._pMEscortMode = 'bellamy'
     state._pMEscort = null
     EventBus.emit('ui:log', { text: '⛓️ 调试：已进入 M 路线被打晕后的入库开场。', type: 'danger' })
@@ -415,7 +414,9 @@ window.AppSettings = (function () {
       { stage: 1500, icon: '✋', title: '服从测试', note: '第一轮互动训练' },
       { stage: 2000, icon: '⛓️', title: '登记桌验收', note: '请求、拒绝与累计惩罚' },
       { stage: 2500, icon: '🔔', title: '锁具与挂饰', note: '插入装备及街道出发准备' },
-      { stage: 3000, icon: '🏛️', title: '初见派克', note: '会馆验收与当前开放终点' },
+      { stage: 3000, icon: '🏛️', title: '初见派克', note: '会馆问话与分段检查' },
+      { stage: 3500, icon: '📋', title: '询问评估', note: '查看派克的初步评估' },
+      { stage: 4000, icon: '📜', title: '派克的命令', note: '接受命令并转入捕获伊凡娜' },
     ]
     Dialog.show({
       title: '⛓️ 欲缚镇·奴隶线·第一章',
@@ -444,6 +445,21 @@ window.AppSettings = (function () {
     state._pChapterOneLocked = true
     state._pMChapterStage = stage
     state._pMChapterStep = 0
+    state._pMFirstAudience = stage >= 3000
+      ? {
+          version: 1,
+          page: stage === 4000 ? 'command-choice' : stage === 3500 ? 'assessment-question' : 'arrival',
+          arrivalResponse: stage >= 3500 ? 'obey' : null,
+          identityResponse: stage >= 3500 ? 'accept' : null,
+          assessmentVariant: stage >= 4000 ? 'novice' : null,
+          assessmentViewed: stage >= 4000,
+          commandReasonAsked: false,
+          commandObjected: false,
+          commandPunishmentCompleted: false,
+          removedGear: [],
+          commandConfirmed: false,
+        }
+      : null
     state._pMChapterBranch = 'novice'
     state._pMChapterAttitude = 'spank'
     state._pMWakeResist = 0
@@ -459,11 +475,8 @@ window.AppSettings = (function () {
     state._pMConfiscationEscrow = null
     state._pMChapterRestraintEscrow = stage >= 1000 ? {} : null
     state._pMGroomed = stage >= 1000
-    state._pMBranded = false
-    state._pMSisterBond = false
-    state._pMMarketResponse = null
-    state._pMDayaChoice = null
     state._pMChapterCompleted = false
+    state._pCatchingIvana = null
     state._pMEscortMode = 'bellamy'
     state._pMEscort = stage === 3000
       ? { started: true, gateDone: true, mode: 'bellamy', position: 8, currentType: null, currentId: null, currentStep: 0, forcedTiles: [], publicNotice: false, completed: true, entryStep: 1, entryEvent: 'bellamy_pass', hallArrive: true, gagRemovedAtHall: false }
@@ -484,7 +497,7 @@ window.AppSettings = (function () {
       ['legs', 'leg_cuffs'],
       ['waist', state.gender === 'male' ? 'vibrating_chastity' : 'chastity_device'],
     ].forEach(([slot, id]) => RestraintSystem.equip(slot, id, { locked: true, lockType: 'story', source: 'p_m_intake', difficulty: 5 }, true))
-    if (stage >= 3000) RestraintSystem.equip('mouth', 'leather_gag', { locked: true, lockType: 'story', source: 'p_m_intake', difficulty: 5 }, true)
+    if (stage === 3000) RestraintSystem.equip('mouth', 'leather_gag', { locked: true, lockType: 'story', source: 'p_m_intake', difficulty: 5 }, true)
   }
 
   function startMStagePreview (stage) {
@@ -498,6 +511,26 @@ window.AppSettings = (function () {
     EventBus.emit('state:changed', state)
     State.save()
     PMEnslavementSystem.open()
+  }
+
+  function cheatCatchingIvanaStage0 () {
+    const state = State.get()
+    if (!state || !window.PCatchingIvanaSystem) return
+    Dialog.close()
+    state._battle = null
+    state._ambush = null
+    state.phase = 'camp'
+    state.position = { x: 13, y: 9 }
+    state._wrongCommissionStage = Math.max(10, state._wrongCommissionStage || 0)
+    state._pRole = 'slave'
+    state._pMainlineStage = 6
+    state._pChapterOneLocked = true
+    state._pMChapterStage = 9500
+    state._pMChapterStep = 0
+    state._pMChapterCompleted = true
+    state._pCatchingIvana = null
+    EventBus.emit('ui:log', { text: '📜 调试：已进入「捕获伊凡娜」Stage 0。', type: 'warning' })
+    PCatchingIvanaSystem.start()
   }
 
   function cheatMEscort () {
@@ -533,6 +566,7 @@ window.AppSettings = (function () {
     state._pMChapterStep = 1
     state._pMConfiscated = true
     state._pMChapterCompleted = false
+    state._pCatchingIvana = null
     state._pMEscortMode = mode
     state._pMEscort = null
     ;[

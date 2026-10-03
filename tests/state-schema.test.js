@@ -1,8 +1,13 @@
 const fs = require('fs')
 const assert = require('assert')
+const schemaSource = fs.readFileSync('js/state-schema.js', 'utf8')
+
+for (const removed of ['mBranded', 'mSisterBond', 'mMarketResponse', 'mDayaChoice']) {
+  assert(!schemaSource.includes(removed), `旧押送字段不应重新进入状态结构：${removed}`)
+}
 
 global.window = global
-;(0, eval)(fs.readFileSync('js/state-schema.js', 'utf8'))
+;(0, eval)(schemaSource)
 
 const legacy = {
   saveVersion: 2,

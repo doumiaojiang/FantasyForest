@@ -149,11 +149,6 @@ window.CampSystem = (function () {
       TownTavernWorkSystem.open()
       return
     }
-    // 奴隶线第一章 Stage 9500 的第二次派克会面可存档恢复。
-    if (state._pRole === 'slave' && state._pMChapterStage === 9500 && !state._pMChapterCompleted && state.phase !== 'battle') {
-      PMEnslavementSystem.open()
-      return
-    }
     // 仅地图移动进入营地时触发城门检查
     if (opts.gateEntry && TownGateSystem.shouldSearch('enter')) {
       TownGateSystem.showSearchPrompt('enter')
@@ -182,6 +177,7 @@ window.CampSystem = (function () {
         <div class="camp-grid">
           ${state._wrongCommissionStage >= 7 && state._wrongCommissionStage <= 9 ? `<button class="camp-opt camp-opt-clue" data-opt="p-townhall"><i>⚖️</i><span><b>镇务厅</b><small>${state._wrongCommissionStage === 7 ? '带蕾娜与名单前去作证' : state._wrongCommissionStage === 8 ? '镇长正在等待更多口供' : '带齐证词向镇长复命'}</small></span><em>主线</em></button>` : ''}
           ${state._wrongCommissionStage === 8 ? '<button class="camp-opt camp-opt-clue" data-opt="p-guard"><i>🛡️</i><span><b>城门值守</b><small>核对车队入城记录</small></span><em>调查</em></button><button class="camp-opt camp-opt-clue" data-opt="p-merchant"><i>📦</i><span><b>商会柜台</b><small>追查器具订单与付款人</small></span><em>调查</em></button><button class="camp-opt camp-opt-clue" data-opt="p-citizen"><i>👥</i><span><b>街口人群</b><small>确认新制度的传闻</small></span><em>调查</em></button>' : ''}
+          ${state._pCatchingIvana && state._pCatchingIvana.started && !state._pCatchingIvana.completed ? `<button class="camp-opt camp-opt-clue" data-opt="p-catching-ivana"><i>📜</i><span><b>捕获伊凡娜</b><small>${state._pCatchingIvana.page === 'bellamy-done' ? '口信已送到，等待后续' : '返回城门，把派克的口信告诉贝拉米'}</small></span><em>后续任务</em></button>` : ''}
           ${state._pMainlineStage === 2 && state._pChapterOneLocked ? (state._pRole === 'slave' ? `<button class="camp-opt camp-opt-clue" data-opt="p-m-chapter"><i>${state._pMEscort && state._pMEscort.started && !state._pMEscort.completed ? '🏙️' : '⛓️'}</i><span><b>奴隶线·第一章</b><small>${state._pMEscort && state._pMEscort.started && !state._pMEscort.completed ? `继续九格押送 · ${(state._pMEscort.position || 0) + 1}/9` : (state._pMChapterStage || 0) === 0 ? '从城门登记后的失去意识开始' : (state._pMChapterStage || 0) === 3000 && (state._pMChapterStep || 0) >= 3 ? '当前开放至初见派克' : '继续第一章剧情'}</small></span><em>${(state._pMChapterStage || 0) === 3000 && (state._pMChapterStep || 0) >= 3 ? '已完成' : '主线'}</em></button>` : '<button class="camp-opt" disabled><i>🏛️</i><span><b>自由身第一章</b><small>后续章节尚在制作中</small></span><em>未开放</em></button>') : ''}
           <button class="camp-opt camp-opt-tavern${state._wrongCommissionStage === 3 && !wrongCommissionLeads.barkeep ? ' camp-opt-clue' : ''}" data-opt="tavern"><i>🍺</i><span><b>雾灯酒馆</b><small>${state._wrongCommissionStage === 3 && !wrongCommissionLeads.barkeep ? '桥边麦秸指向酒馆后门' : '摇骰子、买酒'}</small></span><em>${state._wrongCommissionStage === 3 && !wrongCommissionLeads.barkeep ? '有线索' : '营业中'}</em></button>
           <button class="camp-opt camp-opt-blacksmith${state._wrongCommissionStage === 3 && !wrongCommissionLeads.blacksmith ? ' camp-opt-clue' : ''}" data-opt="blacksmith"><i>🔨</i><span><b>铁匠铺</b><small>${state._wrongCommissionStage === 3 && !wrongCommissionLeads.blacksmith ? '桥边锁环带着新锉痕' : '武器与饰品'}</small></span><em>${state._wrongCommissionStage === 3 && !wrongCommissionLeads.blacksmith ? '有线索' : '营业中'}</em></button>
@@ -204,6 +200,8 @@ window.CampSystem = (function () {
           TownShopSystem.openPotionShop()
         } else if (opt === 'p-m-chapter') {
           PMEnslavementSystem.open()
+        } else if (opt === 'p-catching-ivana') {
+          PCatchingIvanaSystem.open()
         } else if (opt === 'p-townhall') {
           PrologueSystem.pTownHall()
         } else if (opt === 'p-guard' || opt === 'p-merchant' || opt === 'p-citizen') {
